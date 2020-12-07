@@ -1,4 +1,4 @@
-package pubsub
+package bus
 
 import (
 	"sync"
@@ -12,6 +12,7 @@ const (
 type Envelope interface {
 	GetMessage() interface{}
 	GetMeta(string) (string, bool)
+	GetAllMeta() map[string]string
 }
 
 type envelope struct {
@@ -24,6 +25,7 @@ func NewEnvelope(message interface{}, meta map[string]string) Envelope {
 }
 
 func (e envelope) GetMessage() interface{} {return e.message}
+func (e envelope) GetAllMeta() map[string]string {return e.meta}
 func (e envelope) GetMeta(key string) (string, bool) {
 	val, ok := e.meta[key]
 	return val, ok

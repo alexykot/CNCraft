@@ -22,7 +22,7 @@ type Server interface {
 
 	Tasking() *task.Tasking
 
-	Watcher() pubsub.PubSub
+	Watcher() bus.PubSub
 
 	Players() []ents.Player
 

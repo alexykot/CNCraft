@@ -2,7 +2,6 @@ package state
 
 import (
 	"fmt"
-	"github.com/golangmc/minecraft-server/pkg/bus"
 	"time"
 
 	"github.com/golangmc/minecraft-server/apis"
@@ -20,7 +19,7 @@ import (
 	implLevel "github.com/golangmc/minecraft-server/impl/game/level"
 	clientPacket "github.com/golangmc/minecraft-server/impl/protocol/client"
 	serverPacket "github.com/golangmc/minecraft-server/impl/protocol/server"
-	"github.com/golangmc/minecraft-server/pkg/pubsub"
+	"github.com/golangmc/minecraft-server/pkg/bus"
 )
 
 func RegisterHandlersState3(ps bus.PubSub, logger *logs.Logging, tasking *task.Tasking,

@@ -4,7 +4,7 @@ import (
 	"github.com/golangmc/minecraft-server/impl/conn"
 	"github.com/golangmc/minecraft-server/impl/protocol"
 	"github.com/golangmc/minecraft-server/impl/protocol/server"
-	"github.com/golangmc/minecraft-server/pkg/pubsub"
+	"github.com/golangmc/minecraft-server/pkg/bus"
 )
 
 func RegisterHandlersState0(ps bus.PubSub) {

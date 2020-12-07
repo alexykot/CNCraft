@@ -21,7 +21,7 @@ type network struct {
 	logger  *logs.Logging
 	packFac protocol.PacketFactory
 
-	pubsub pubsub.PubSub
+	pubsub bus.PubSub
 
 	join chan base.PlayerAndConnection
 	quit chan base.PlayerAndConnection
@@ -136,7 +136,7 @@ type connHandler struct {
 	net  *network
 }
 
-func (s *connHandler) HandlePacketSend(envelope pubsub.Envelope) {
+func (s *connHandler) HandlePacketSend(envelope bus.Envelope) {
 	bufO, ok := envelope.GetMessage().(buff.Buffer)
 	if !ok {
 		s.net.logger.Error("Failed to cast message to buffer")
@@ -159,7 +159,7 @@ func (s *connHandler) HandlePacketSend(envelope pubsub.Envelope) {
 	}
 }
 
-func (s *connHandler) HandleConnState(envelope pubsub.Envelope) {
+func (s *connHandler) HandleConnState(envelope bus.Envelope) {
 	state, ok := envelope.GetMessage().(protocol.State)
 	if !ok {
 		s.net.logger.Error("Failed to cast message to protocol.state")
@@ -198,7 +198,7 @@ func handleReceive(net *network, conn base.Connection, bufI buff.Buffer) {
 	}
 
 	net.pubsub.Publish(protocol.MakePacketTopic(incomingPacket.ID()),
-		pubsub.NewEnvelope(incomingPacket, map[string]string{pubsub.MetaConn: conn.ID()}))
+		bus.NewEnvelope(incomingPacket, map[string]string{bus.MetaConn: conn.ID()}))
 
 	// TODO this double publishing is weird and some subscribers actually expect messages both at once.
 	//  Those subscribers need to be refactored, really they are trying to handle incoming packet and immediately

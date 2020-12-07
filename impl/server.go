@@ -36,7 +36,7 @@ type server struct {
 
 	logging *logs.Logging
 	tasking *task.Tasking
-	pubsub  pubsub.PubSub
+	pubsub  bus.PubSub
 
 	command *cmds.CommandManager
 
@@ -46,7 +46,7 @@ type server struct {
 	players *playerAssociation
 }
 
-// ==== new ====
+// NewServer wires up and provides new server instance.
 func NewServer(conf conf.ServerConfig) apis.Server {
 	message := make(chan system.Message)
 	tasking := task.NewTasking(values.MPT)
@@ -54,16 +54,16 @@ func NewServer(conf conf.ServerConfig) apis.Server {
 	join := make(chan implBase.PlayerAndConnection)
 	quit := make(chan implBase.PlayerAndConnection)
 
-	packetFactory := protocol.NewPacketFactory(tasking, join, quit)
-	pubsub := pubsub.New()
+	packetFactory := protocol.NewPacketFactory()
+	ps := bus.New()
 	logger := logs.NewLogging("server", logs.EveryLevel...)
 
 	// TODO not sure if it should be here or somewhere else. Probably there should be an "OnStart" or something.
 	//  Maybe `Load()` is that. To review later.
-	state.HandleState0(pubsub)
-	state.HandleState1(pubsub)
-	state.HandleState2(pubsub, join)
-	state.HandleState3(pubsub, logger, tasking, join, quit)
+	state.RegisterHandlersState0(ps)
+	state.RegisterHandlersState1(ps)
+	state.RegisterHandlersState2(ps, join)
+	state.RegisterHandlersState3(ps, logger, tasking, join, quit)
 
 	return &server{
 		message: message,
@@ -72,7 +72,7 @@ func NewServer(conf conf.ServerConfig) apis.Server {
 
 		logging: logger,
 		tasking: tasking,
-		pubsub:  pubsub,
+		pubsub:  ps,
 
 		command: cmds.NewCommandManager(),
 
@@ -124,7 +124,7 @@ func (s *server) Tasking() *task.Tasking {
 	return s.tasking
 }
 
-func (s *server) Watcher() pubsub.PubSub {
+func (s *server) Watcher() bus.PubSub {
 	return s.pubsub
 }
 
