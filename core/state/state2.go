@@ -1,11 +1,11 @@
 package state
 
 import (
-	"github.com/golangmc/minecraft-server/impl/base"
-	"github.com/golangmc/minecraft-server/impl/protocol"
-	"github.com/golangmc/minecraft-server/impl/protocol/client"
-	"github.com/golangmc/minecraft-server/impl/protocol/server"
-	"github.com/golangmc/minecraft-server/pkg/bus"
+	"github.com/alexykot/cncraft/impl/base"
+	"github.com/alexykot/cncraft/impl/protocol"
+	"github.com/alexykot/cncraft/impl/protocol/client"
+	"github.com/alexykot/cncraft/impl/protocol/server"
+	"github.com/alexykot/cncraft/pkg/bus"
 )
 
 /**
@@ -127,8 +127,8 @@ func RegisterHandlersState2(ps bus.PubSub, join chan base.PlayerAndConnection) {
 	//
 	//		conn.SetState(protocol.Play)
 	//
-	//		join <- base.PlayerAndConnection{
-	//			Player:     player,
+	//		join <- base.ServerPlayer{
+	//			PlayerCharacter:     player,
 	//			Connection: conn,
 	//		}
 	//	})

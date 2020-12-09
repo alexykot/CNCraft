@@ -1,7 +1,7 @@
 package entities
 
 import (
-	"github.com/golangmc/minecraft-server/pkg/bus"
+	"github.com/alexykot/cncraft/pkg/bus"
 )
 
 type Sender interface {
@@ -23,7 +23,7 @@ type EntityLiving interface {
 	SetHealth(health float64)
 }
 
-type Player interface {
+type PlayerCharacter interface {
 	EntityLiving
 
 	Online(bool)

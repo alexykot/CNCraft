@@ -5,10 +5,10 @@ package protocol
 import (
 	"fmt"
 
-	"github.com/golangmc/minecraft-server/apis/buff"
-	"github.com/golangmc/minecraft-server/apis/logs"
-	"github.com/golangmc/minecraft-server/impl/base"
-	"github.com/golangmc/minecraft-server/impl/protocol/server"
+	"github.com/alexykot/cncraft/apis/buff"
+	"github.com/alexykot/cncraft/apis/logs"
+	"github.com/alexykot/cncraft/impl/base"
+	"github.com/alexykot/cncraft/impl/protocol/server"
 )
 
 type Packet interface {

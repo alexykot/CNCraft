@@ -1,17 +1,17 @@
 package client
 
 import (
-	"github.com/golangmc/minecraft-server/apis/buff"
-	"github.com/golangmc/minecraft-server/apis/data"
-	"github.com/golangmc/minecraft-server/apis/data/msgs"
-	"github.com/golangmc/minecraft-server/apis/ents"
-	"github.com/golangmc/minecraft-server/apis/game"
-	"github.com/golangmc/minecraft-server/apis/game/level"
-	"github.com/golangmc/minecraft-server/impl/base"
-	apisConn "github.com/golangmc/minecraft-server/impl/conn"
-	"github.com/golangmc/minecraft-server/impl/data/client"
-	"github.com/golangmc/minecraft-server/impl/data/plugin"
-	"github.com/golangmc/minecraft-server/impl/protocol"
+	"github.com/alexykot/cncraft/apis/buff"
+	"github.com/alexykot/cncraft/apis/data"
+	"github.com/alexykot/cncraft/apis/data/msgs"
+	"github.com/alexykot/cncraft/apis/ents"
+	"github.com/alexykot/cncraft/apis/game"
+	"github.com/alexykot/cncraft/apis/game/level"
+	"github.com/alexykot/cncraft/impl/base"
+	apisConn "github.com/alexykot/cncraft/impl/conn"
+	"github.com/alexykot/cncraft/impl/data/client"
+	"github.com/alexykot/cncraft/impl/data/plugin"
+	"github.com/alexykot/cncraft/impl/protocol"
 )
 
 type CPacketChatMessage struct {

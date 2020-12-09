@@ -1,8 +1,9 @@
-module github.com/golangmc/minecraft-server
+module github.com/alexykot/cncraft
 
-go 1.13
+go 1.15
 
 require (
+	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/fatih/color v1.9.0
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/hako/durafmt v0.0.0-20191009132224-3f39dc1ed9f4
@@ -10,6 +11,7 @@ require (
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/satori/go.uuid v1.2.0
 	go.uber.org/zap v1.16.0 // indirect
+	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9 // indirect
 	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 )

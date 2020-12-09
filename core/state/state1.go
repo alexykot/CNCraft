@@ -1,12 +1,12 @@
 package state
 
 import (
-	"github.com/golangmc/minecraft-server/impl/conn"
-	"github.com/golangmc/minecraft-server/impl/data/status"
-	"github.com/golangmc/minecraft-server/impl/protocol"
-	"github.com/golangmc/minecraft-server/impl/protocol/client"
-	"github.com/golangmc/minecraft-server/impl/protocol/server"
-	"github.com/golangmc/minecraft-server/pkg/bus"
+	"github.com/alexykot/cncraft/impl/conn"
+	"github.com/alexykot/cncraft/impl/data/status"
+	"github.com/alexykot/cncraft/impl/protocol"
+	"github.com/alexykot/cncraft/impl/protocol/client"
+	"github.com/alexykot/cncraft/impl/protocol/server"
+	"github.com/alexykot/cncraft/pkg/bus"
 )
 
 /**

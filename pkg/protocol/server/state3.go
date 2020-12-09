@@ -2,13 +2,13 @@ package server
 
 import (
 	"fmt"
-	"github.com/golangmc/minecraft-server/apis/buff"
-	"github.com/golangmc/minecraft-server/apis/data"
-	"github.com/golangmc/minecraft-server/apis/game"
-	"github.com/golangmc/minecraft-server/impl/base"
-	"github.com/golangmc/minecraft-server/impl/data/client"
-	"github.com/golangmc/minecraft-server/impl/data/plugin"
-	"github.com/golangmc/minecraft-server/impl/protocol"
+	"github.com/alexykot/cncraft/apis/buff"
+	"github.com/alexykot/cncraft/apis/data"
+	"github.com/alexykot/cncraft/apis/game"
+	"github.com/alexykot/cncraft/impl/base"
+	"github.com/alexykot/cncraft/impl/data/client"
+	"github.com/alexykot/cncraft/impl/data/plugin"
+	"github.com/alexykot/cncraft/impl/protocol"
 )
 
 type SPacketKeepAlive struct {

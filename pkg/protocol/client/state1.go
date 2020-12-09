@@ -2,10 +2,10 @@ package client
 
 import (
 	"encoding/json"
-	"github.com/golangmc/minecraft-server/apis/buff"
-	"github.com/golangmc/minecraft-server/impl/base"
-	"github.com/golangmc/minecraft-server/impl/data/status"
-	"github.com/golangmc/minecraft-server/impl/protocol"
+	"github.com/alexykot/cncraft/apis/buff"
+	"github.com/alexykot/cncraft/impl/base"
+	"github.com/alexykot/cncraft/impl/data/status"
+	"github.com/alexykot/cncraft/impl/protocol"
 )
 
 // done
