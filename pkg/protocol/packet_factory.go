@@ -5,10 +5,9 @@ package protocol
 import (
 	"fmt"
 
-	"github.com/alexykot/cncraft/apis/buff"
-	"github.com/alexykot/cncraft/apis/logs"
-	"github.com/alexykot/cncraft/impl/base"
-	"github.com/alexykot/cncraft/impl/protocol/server"
+	"go.uber.org/zap"
+
+	buff "github.com/alexykot/cncraft/pkg/buffers"
 )
 
 type Packet interface {
@@ -19,14 +18,14 @@ type SPacket interface {
 	Packet
 
 	// decode the server_data from provided reader into this packet
-	Pull(reader buff.Buffer, conn base.Connection) error
+	Pull(reader buff.Buffer) error
 }
 
 type CPacket interface {
 	Packet
 
 	// encode the server_data from this packet into provided writer
-	Push(writer buff.Buffer, conn base.Connection)
+	Push(writer buff.Buffer)
 }
 
 type PacketFactory interface {
@@ -35,16 +34,13 @@ type PacketFactory interface {
 }
 
 type packets struct {
-	logger   *logs.Logging
+	log      *zap.Logger
 	sPackets map[PacketID]func() SPacket
-
-	join chan base.PlayerAndConnection
-	quit chan base.PlayerAndConnection
 }
 
-func NewPacketFactory() PacketFactory {
+func NewPacketFactory(log *zap.Logger) PacketFactory {
 	return &packets{
-		logger:   logs.NewLogging("protocol", logs.EveryLevel...),
+		log:      log,
 		sPackets: createSPacketsMap(),
 	}
 }
@@ -66,64 +62,65 @@ func createSPacketsMap() map[PacketID]func() SPacket {
 	return map[PacketID]func() SPacket{
 		// Handshake state
 		SHandshake: func() SPacket {
-			return &server.SPacketHandshake{}
+			return &SPacketHandshake{}
 		},
 
 		// Status state
 		SRequest: func() SPacket {
-			return &server.SPacketRequest{}
+			return &SPacketRequest{}
 		},
 		SPing: func() SPacket {
-			return &server.SPacketPing{}
+			return &SPacketPing{}
 		},
 
 		// Login state
 		SLoginStart: func() SPacket {
-			return &server.SPacketLoginStart{}
+			return &SPacketLoginStart{}
 		},
 		SEncryptionResponse: func() SPacket {
-			return &server.SPacketEncryptionResponse{}
+			return &SPacketEncryptionResponse{}
 		},
 		SLoginPluginResponse: func() SPacket {
-			return &server.SPacketLoginPluginResponse{}
+			return &SPacketLoginPluginResponse{}
 		},
 
 		// Play state
 		STeleportConfirm: func() SPacket {
-			return &server.SPacketTeleportConfirm{}
+			return &SPacketTeleportConfirm{}
 		},
 		SQueryBlockNBT: func() SPacket {
-			return &server.SPacketQueryBlockNBT{}
+			return &SPacketQueryBlockNBT{}
 		},
 		SSetDifficulty: func() SPacket {
-			return &server.SPacketSetDifficulty{}
+			return &SPacketSetDifficulty{}
 		},
 		SChatMessage: func() SPacket {
-			return &server.SPacketChatMessage{}
+			return &SPacketChatMessage{}
 		},
 		SClientStatus: func() SPacket {
-			return &server.SPacketClientStatus{}
+			return &SPacketClientStatus{}
 		},
 		SClientSettings: func() SPacket {
-			return &server.SPacketClientSettings{}
+			return &SPacketClientSettings{}
 		},
-		SPluginMessage: func() SPacket {
-			return &server.SPacketPluginMessage{}
-		},
+		// TODO plugins are not supported atm
+		//SPluginMessage: func() SPacket {
+		//	return &SPacketPluginMessage{}
+		//},
 		SKeepAlive: func() SPacket {
-			return &server.SPacketKeepAlive{}
+			return &SPacketKeepAlive{}
 		},
 		SPlayerPosition: func() SPacket {
-			return &server.SPacketPlayerPosition{}
+			return &SPacketPlayerPosition{}
 		},
 		SPlayerLocation: func() SPacket {
-			return &server.SPacketPlayerLocation{}
+			return &SPacketPlayerLocation{}
 		},
 		SPlayerRotation: func() SPacket {
-			return &server.SPacketPlayerRotation{}
+			return &SPacketPlayerRotation{}
 		},
 		SPlayerAbilities: func() SPacket {
-			return &server.SPacketPlayerAbilities{}
+			return &SPacketPlayerAbilities{}
 		},
 	}
 }

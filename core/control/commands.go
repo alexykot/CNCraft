@@ -1,4 +1,4 @@
-package core
+package control
 
 type Signal int
 
@@ -9,6 +9,6 @@ const (
 )
 
 type Command struct {
-	Signal Signal
+	Signal  Signal
 	Message string
 }

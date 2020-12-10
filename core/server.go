@@ -7,7 +7,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/alexykot/cncraft/core/state"
+	"github.com/alexykot/cncraft/core/control"
+	"github.com/alexykot/cncraft/core/network"
 	"github.com/alexykot/cncraft/pkg/bus"
 	"github.com/alexykot/cncraft/pkg/log"
 	"github.com/alexykot/cncraft/pkg/protocol"
@@ -22,7 +23,7 @@ type Server interface {
 	Users() []User
 
 	GetUser(uuid.UUID) (User, bool)
-	GetConnection(uuid.UUID) (Connection, bool)
+	GetConnection(uuid.UUID) (network.Connection, bool)
 
 	Version() string
 
@@ -36,14 +37,14 @@ type server struct {
 	log *zap.Logger
 	bus bus.PubSub
 
-	control chan Command
+	control chan control.Command
 
 	//chat    // chat implementation needed
-	//network     implBase.Network
+	network network.Network
 
 	packFactory protocol.PacketFactory
 	users       map[uuid.UUID]User
-	connections map[uuid.UUID]Connection
+	connections map[uuid.UUID]network.Connection
 }
 
 // NewServer wires up and provides new server instance.
@@ -53,13 +54,13 @@ func NewServer(conf ServerConfig) (Server, error) {
 		return nil, fmt.Errorf("could not instantiate logger: %w", err)
 	}
 
-	packetFactory := protocol.NewPacketFactory()
+	packetFactory := protocol.NewPacketFactory(logger)
 	ps := bus.New()
 
 	return &server{
-		log: logger,
-		bus: ps,
-		control: make(chan Command),
+		log:     logger,
+		bus:     ps,
+		control: make(chan control.Command),
 
 		packFactory: packetFactory,
 		//network:     conn.NewNetwork(conf.Network.Host, conf.Network.Port, packetFactory, message, join, quit),
@@ -89,9 +90,9 @@ func (s *server) Kill() {
 	s.log.Info("server stopped")
 }
 
-func (s *server) Log() *zap.Logger {return s.log}
+func (s *server) Log() *zap.Logger { return s.log }
 
-func (s *server) Bus() bus.PubSub {return s.bus}
+func (s *server) Bus() bus.PubSub { return s.bus }
 
 func (s *server) Users() []User {
 	if len(s.users) == 0 {
@@ -108,7 +109,7 @@ func (s *server) Users() []User {
 	return userList
 }
 
-func (s *server) GetConnection(uuid uuid.UUID) (Connection, bool) {
+func (s *server) GetConnection(uuid uuid.UUID) (network.Connection, bool) {
 	conn, ok := s.connections[uuid]
 	return conn, ok
 }
@@ -132,12 +133,10 @@ func (s *server) stopServer(after time.Duration) {
 }
 
 func (s *server) loadServer() {
-	// TODO not sure if it should be here or somewhere else. Probably there should be an "OnStart" or something.
-	//  Maybe `Load()` is that. To review later.
-	state.RegisterHandlersState0(s.bus)
-	state.RegisterHandlersState1(s.bus)
-	state.RegisterHandlersState2(s.bus, join)
-	state.RegisterHandlersState3(s.bus, logger, tasking, join, quit)
+	//state.RegisterHandlersState0(s.bus)
+	//state.RegisterHandlersState1(s.bus)
+	//state.RegisterHandlersState2(s.bus, join)
+	//state.RegisterHandlersState3(s.bus, logger, tasking, join, quit)
 
 	//s.console.Load()
 	//s.command.Load()
@@ -193,9 +192,9 @@ func (s *server) wait() {
 	case command := <-s.control:
 		switch command.Signal {
 		// stop selecting when stop is received
-		case STOP:
+		case control.STOP:
 			return
-		case FAIL:
+		case control.FAIL:
 			s.log.Error("internal server error: ", zap.Any("message", command.Message))
 			s.log.Error("stopping server")
 			return

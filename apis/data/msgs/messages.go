@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/golangmc/minecraft-server/apis/data/chat"
+	"github.com/alexykot/cncraft/apis/data/chat"
 )
 
 type MessagePosition byte
