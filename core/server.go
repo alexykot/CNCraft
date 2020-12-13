@@ -27,7 +27,6 @@ type Server interface {
 	Version() string
 
 	//	Chat() // chat implementation needed
-
 	// TODO this should be part of chat implementation.
 	//Broadcast(message string) error
 }
@@ -47,7 +46,7 @@ type server struct {
 }
 
 // NewServer wires up and provides new server instance.
-func NewServer(conf ServerConfig) (Server, error) {
+func NewServer(conf control.ServerConf) (Server, error) {
 	logger, err := log.GetLogger(conf.LogLevel)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate logger: %w", err)
@@ -63,9 +62,9 @@ func NewServer(conf ServerConfig) (Server, error) {
 		control: controlChan,
 
 		packFactory: packetFactory,
-		network:     network.NewNetwork(conf.Network.Host, conf.Network.Port, packetFactory, logger, controlChan, ps),
+		network:     network.NewNetwork(conf.Network, packetFactory, logger, controlChan, ps),
 
-		users: make(map[uuid.UUID]User/**/),
+		users: make(map[uuid.UUID]User),
 	}, nil
 }
 

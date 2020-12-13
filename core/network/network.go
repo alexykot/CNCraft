@@ -24,10 +24,10 @@ type Network struct {
 	control chan control.Command
 }
 
-func NewNetwork(host string, port int, packFac PacketFactory, log *zap.Logger, report chan control.Command, bus bus.PubSub) *Network {
+func NewNetwork(conf control.NetworkConf, packFac PacketFactory, log *zap.Logger, report chan control.Command, bus bus.PubSub) *Network {
 	return &Network{
-		host:    host,
-		port:    port,
+		host:    conf.Host,
+		port:    conf.Port,
 		control: report,
 		log:     log,
 		bus:     bus,
@@ -53,12 +53,12 @@ func (n *Network) Kill() {
 func (n *Network) startListening() error {
 	ser, err := net.ResolveTCPAddr("tcp", n.host+":"+strconv.Itoa(n.port))
 	if err != nil {
-		return fmt.Errorf("address resolution failed [%v]", err)
+		return fmt.Errorf("address resolution failed: %w", err)
 	}
 
 	tcp, err := net.ListenTCP("tcp", ser)
 	if err != nil {
-		return fmt.Errorf("failed to bind [%v]", err)
+		return fmt.Errorf("failed to bind TCP: %w", err)
 	}
 
 	// TODO add supervisor and ensure server gracefully stops if the connections goroutine fails.
