@@ -2,13 +2,13 @@ package network
 
 import (
 	"fmt"
-	"github.com/alexykot/cncraft/pkg/buffers"
 	"net"
 	"strconv"
 
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/control"
+	"github.com/alexykot/cncraft/pkg/buffers"
 	"github.com/alexykot/cncraft/pkg/bus"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
@@ -18,13 +18,13 @@ type Network struct {
 	port int
 
 	log     *zap.Logger
-	packFac protocol.PacketFactory
+	packFac PacketFactory
 
 	bus     bus.PubSub
 	control chan control.Command
 }
 
-func NewNetwork(host string, port int, packFac protocol.PacketFactory, log *zap.Logger, report chan control.Command, bus bus.PubSub) *Network {
+func NewNetwork(host string, port int, packFac PacketFactory, log *zap.Logger, report chan control.Command, bus bus.PubSub) *Network {
 	return &Network{
 		host:    host,
 		port:    port,
@@ -172,14 +172,14 @@ func handleReceive(net *Network, conn Connection, bufI buffers.Buffer) {
 
 	id := protocol.MakeID(protocol.ServerBound, conn.GetState(), protocolPacketID)
 
-	incomingPacket, err := net.packFac.GetSPacket(id)
+	incomingPacket, err := net.packFac.MakeSPacket(id)
 	if err != nil {
 		net.log.Warn("unable to decode packet", zap.Int("packet_id", int(id)), zap.Error(err))
 		return
 	}
 
 	// populate incoming packet
-	if err := incomingPacket.Pull(bufI, conn); err != nil {
+	if err := incomingPacket.Pull(bufI); err != nil {
 		net.log.Warn("malformed packet", zap.Int("packet_id", int(id)), zap.Error(err))
 		return
 	}

@@ -3,7 +3,7 @@ package protocol
 import (
 	"fmt"
 
-	buff "github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/buffers"
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/player"
@@ -20,7 +20,7 @@ type SPacketHandshake struct {
 }
 
 func (p *SPacketHandshake) ID() PacketID { return SHandshake }
-func (p *SPacketHandshake) Pull(reader buff.Buffer) error {
+func (p *SPacketHandshake) Pull(reader buffers.Buffer) error {
 	var err error
 
 	p.version = reader.PullVrI()
@@ -41,7 +41,7 @@ type SPacketRequest struct {
 }
 
 func (p *SPacketRequest) ID() PacketID { return SRequest }
-func (p *SPacketRequest) Pull(reader buff.Buffer) error {
+func (p *SPacketRequest) Pull(reader buffers.Buffer) error {
 	// no fields
 	return nil
 }
@@ -51,7 +51,7 @@ type SPacketPing struct {
 }
 
 func (p *SPacketPing) ID() PacketID { return SPing }
-func (p *SPacketPing) Pull(reader buff.Buffer) error {
+func (p *SPacketPing) Pull(reader buffers.Buffer) error {
 	p.Ping = reader.PullI64()
 	return nil // DEBT actually check for errors
 }
@@ -62,7 +62,7 @@ type SPacketLoginStart struct {
 }
 
 func (p *SPacketLoginStart) ID() PacketID { return SLoginStart }
-func (p *SPacketLoginStart) Pull(reader buff.Buffer) error {
+func (p *SPacketLoginStart) Pull(reader buffers.Buffer) error {
 	p.PlayerName = reader.PullTxt()
 	return nil // DEBT actually check for errors
 }
@@ -73,7 +73,7 @@ type SPacketEncryptionResponse struct {
 }
 
 func (p *SPacketEncryptionResponse) ID() PacketID { return SEncryptionResponse }
-func (p *SPacketEncryptionResponse) Pull(reader buff.Buffer) error {
+func (p *SPacketEncryptionResponse) Pull(reader buffers.Buffer) error {
 	p.Secret = reader.PullUAS()
 	p.Verify = reader.PullUAS()
 	return nil // DEBT actually check for errors
@@ -86,7 +86,7 @@ type SPacketLoginPluginResponse struct {
 }
 
 func (p *SPacketLoginPluginResponse) ID() PacketID { return SLoginPluginResponse }
-func (p *SPacketLoginPluginResponse) Pull(reader buff.Buffer) error {
+func (p *SPacketLoginPluginResponse) Pull(reader buffers.Buffer) error {
 	p.Message = reader.PullVrI()
 	p.Success = reader.PullBit()
 	p.OptData = reader.UAS()[reader.InI():reader.Len()]
@@ -99,7 +99,7 @@ type SPacketKeepAlive struct {
 }
 
 func (p *SPacketKeepAlive) ID() PacketID { return SKeepAlive }
-func (p *SPacketKeepAlive) Pull(reader buff.Buffer) error {
+func (p *SPacketKeepAlive) Pull(reader buffers.Buffer) error {
 	p.KeepAliveID = reader.PullI64()
 	return nil // DEBT actually check for errors
 }
@@ -109,7 +109,7 @@ type SPacketChatMessage struct {
 }
 
 func (p *SPacketChatMessage) ID() PacketID { return SChatMessage }
-func (p *SPacketChatMessage) Pull(reader buff.Buffer) error {
+func (p *SPacketChatMessage) Pull(reader buffers.Buffer) error {
 	p.Message = reader.PullTxt()
 	return nil // DEBT actually check for errors
 }
@@ -119,7 +119,7 @@ type SPacketTeleportConfirm struct {
 }
 
 func (p *SPacketTeleportConfirm) ID() PacketID { return STeleportConfirm }
-func (p *SPacketTeleportConfirm) Pull(reader buff.Buffer) error {
+func (p *SPacketTeleportConfirm) Pull(reader buffers.Buffer) error {
 	p.TeleportID = reader.PullVrI()
 	return nil // DEBT actually check for errors
 }
@@ -130,7 +130,7 @@ type SPacketQueryBlockNBT struct {
 }
 
 func (p *SPacketQueryBlockNBT) ID() PacketID { return SQueryBlockNBT }
-func (p *SPacketQueryBlockNBT) Pull(reader buff.Buffer) error {
+func (p *SPacketQueryBlockNBT) Pull(reader buffers.Buffer) error {
 	p.TransactionID = reader.PullVrI()
 	p.Position = reader.PullPos()
 	return nil // DEBT actually check for errors
@@ -141,7 +141,7 @@ type SPacketSetDifficulty struct {
 }
 
 func (p *SPacketSetDifficulty) ID() PacketID { return SSetDifficulty }
-func (p *SPacketSetDifficulty) Pull(reader buff.Buffer) error {
+func (p *SPacketSetDifficulty) Pull(reader buffers.Buffer) error {
 	p.Difficult = game.DifficultyValueOf(reader.PullByt())
 	return nil // DEBT actually check for errors
 }
@@ -152,7 +152,7 @@ func (p *SPacketSetDifficulty) Pull(reader buff.Buffer) error {
 //}
 //
 //func (p *SPacketPluginMessage) ID() PacketID { return SPluginMessage }
-//func (p *SPacketPluginMessage) Pull(reader buff.Buffer) error {
+//func (p *SPacketPluginMessage) Pull(reader buffers.Buffer) error {
 //	channel := reader.PullTxt()
 //	message := plugin.GetMessageForChannel(channel)
 //
@@ -172,7 +172,7 @@ type SPacketClientStatus struct {
 }
 
 func (p *SPacketClientStatus) ID() PacketID { return SClientStatus }
-func (p *SPacketClientStatus) Pull(reader buff.Buffer) error {
+func (p *SPacketClientStatus) Pull(reader buffers.Buffer) error {
 	p.Action = player.StatusAction(reader.PullVrI())
 	return nil // DEBT actually check for errors
 }
@@ -187,7 +187,7 @@ type SPacketClientSettings struct {
 }
 
 func (p *SPacketClientSettings) ID() PacketID { return SClientSettings }
-func (p *SPacketClientSettings) Pull(reader buff.Buffer) error {
+func (p *SPacketClientSettings) Pull(reader buffers.Buffer) error {
 	p.Locale = reader.PullTxt()
 	p.ViewDistance = reader.PullByt()
 	p.ChatMode = player.ChatMode(reader.PullVrI())
@@ -208,7 +208,7 @@ type SPacketPlayerAbilities struct {
 }
 
 func (p *SPacketPlayerAbilities) ID() PacketID { return SPlayerAbilities }
-func (p *SPacketPlayerAbilities) Pull(reader buff.Buffer) error {
+func (p *SPacketPlayerAbilities) Pull(reader buffers.Buffer) error {
 	abilities := player.PlayerAbilities{}
 	abilities.Pull(reader)
 
@@ -225,7 +225,7 @@ type SPacketPlayerPosition struct {
 }
 
 func (p *SPacketPlayerPosition) ID() PacketID { return SPlayerPosition }
-func (p *SPacketPlayerPosition) Pull(reader buff.Buffer) error {
+func (p *SPacketPlayerPosition) Pull(reader buffers.Buffer) error {
 	p.Position = data.PositionF{
 		X: reader.PullF64(),
 		Y: reader.PullF64(),
@@ -242,7 +242,7 @@ type SPacketPlayerLocation struct {
 }
 
 func (p *SPacketPlayerLocation) ID() PacketID { return SPlayerLocation }
-func (p *SPacketPlayerLocation) Pull(reader buff.Buffer) error {
+func (p *SPacketPlayerLocation) Pull(reader buffers.Buffer) error {
 	p.Location = data.Location{
 		PositionF: data.PositionF{
 			X: reader.PullF64(),
@@ -265,7 +265,7 @@ type SPacketPlayerRotation struct {
 }
 
 func (p *SPacketPlayerRotation) ID() PacketID { return SPlayerRotation }
-func (p *SPacketPlayerRotation) Pull(reader buff.Buffer) error {
+func (p *SPacketPlayerRotation) Pull(reader buffers.Buffer) error {
 	p.Rotation = data.RotationF{
 		AxisX: reader.PullF32(),
 		AxisY: reader.PullF32(),

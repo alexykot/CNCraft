@@ -3,16 +3,15 @@ package protocol
 import (
 	"encoding/json"
 
-	"github.com/alexykot/cncraft/apis/buff"
-	"github.com/alexykot/cncraft/apis/data"
-	"github.com/alexykot/cncraft/apis/data/msgs"
-	"github.com/alexykot/cncraft/apis/ents"
-	"github.com/alexykot/cncraft/apis/game"
-	"github.com/alexykot/cncraft/apis/game/level"
-	apisConn "github.com/alexykot/cncraft/impl/conn"
-	"github.com/alexykot/cncraft/impl/data/client"
-	"github.com/alexykot/cncraft/impl/data/plugin"
-	"github.com/alexykot/cncraft/impl/data/status"
+	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/chat"
+	"github.com/alexykot/cncraft/pkg/game"
+	"github.com/alexykot/cncraft/pkg/game/data"
+	"github.com/alexykot/cncraft/pkg/game/entities"
+	"github.com/alexykot/cncraft/pkg/game/level"
+	"github.com/alexykot/cncraft/pkg/game/player"
+	"github.com/alexykot/cncraft/pkg/game/world"
+	"github.com/alexykot/cncraft/pkg/protocol/status"
 )
 
 // HANDSHAKE STATE CLIENT BOUND PACKETS DO NOT EXIST
@@ -23,7 +22,7 @@ type CPacketResponse struct {
 }
 
 func (p *CPacketResponse) ID() PacketID { return CResponse }
-func (p *CPacketResponse) Push(writer buff.Buffer) {
+func (p *CPacketResponse) Push(writer buffers.Buffer) {
 	if text, err := json.Marshal(p.Status); err != nil {
 		panic(err)
 	} else {
@@ -36,17 +35,17 @@ type CPacketPong struct {
 }
 
 func (p *CPacketPong) ID() PacketID { return CPong }
-func (p *CPacketPong) Push(writer buff.Buffer) {
+func (p *CPacketPong) Push(writer buffers.Buffer) {
 	writer.PushI64(p.Ping)
 }
 
 // LOGIN STATE PACKETS
 type CPacketDisconnect struct {
-	Reason msgs.Message
+	Reason chat.Message
 }
 
 func (p *CPacketDisconnect) ID() PacketID { return CDisconnect }
-func (p *CPacketDisconnect) Push(writer buff.Buffer) {
+func (p *CPacketDisconnect) Push(writer buffers.Buffer) {
 	message := p.Reason
 
 	writer.PushTxt(message.AsJson())
@@ -59,7 +58,7 @@ type CPacketEncryptionRequest struct {
 }
 
 func (p *CPacketEncryptionRequest) ID() PacketID { return CEncryptionRequest }
-func (p *CPacketEncryptionRequest) Push(writer buff.Buffer) {
+func (p *CPacketEncryptionRequest) Push(writer buffers.Buffer) {
 	writer.PushTxt(p.Server)
 	writer.PushUAS(p.Public, true)
 	writer.PushUAS(p.Verify, true)
@@ -71,7 +70,7 @@ type CPacketLoginSuccess struct {
 }
 
 func (p *CPacketLoginSuccess) ID() PacketID { return CLoginSuccess }
-func (p *CPacketLoginSuccess) Push(writer buff.Buffer) {
+func (p *CPacketLoginSuccess) Push(writer buffers.Buffer) {
 	writer.PushTxt(p.PlayerUUID)
 	writer.PushTxt(p.PlayerName)
 }
@@ -81,7 +80,7 @@ type CPacketSetCompression struct {
 }
 
 func (p *CPacketSetCompression) ID() PacketID { return CSetCompression }
-func (p *CPacketSetCompression) Push(writer buff.Buffer) {
+func (p *CPacketSetCompression) Push(writer buffers.Buffer) {
 	writer.PushVrI(p.Threshold)
 }
 
@@ -92,7 +91,7 @@ type CPacketLoginPluginRequest struct {
 }
 
 func (p *CPacketLoginPluginRequest) ID() PacketID { return CLoginPluginRequest }
-func (p *CPacketLoginPluginRequest) Push(writer buff.Buffer) {
+func (p *CPacketLoginPluginRequest) Push(writer buffers.Buffer) {
 	writer.PushVrI(p.MessageID)
 	writer.PushTxt(p.Channel)
 	writer.PushUAS(p.OptData, false)
@@ -100,16 +99,16 @@ func (p *CPacketLoginPluginRequest) Push(writer buff.Buffer) {
 
 // PLAY STATE PACKETS
 type CPacketChatMessage struct {
-	Message         msgs.Message
-	MessagePosition msgs.MessagePosition
+	Message         chat.Message
+	MessagePosition chat.MessagePosition
 }
 
 func (p *CPacketChatMessage) ID() PacketID { return CChatMessage }
-func (p *CPacketChatMessage) Push(writer buff.Buffer) {
+func (p *CPacketChatMessage) Push(writer buffers.Buffer) {
 	message := p.Message
 
-	if p.MessagePosition == msgs.HotBarText {
-		message = *msgs.New(message.AsText())
+	if p.MessagePosition == chat.HotBarText {
+		message = *chat.New(message.AsText())
 	}
 
 	writer.PushTxt(message.AsJson())
@@ -123,14 +122,14 @@ type CPacketJoinGame struct {
 	Dimension     game.Dimension
 	HashedSeed    int64
 	MaxPlayers    int
-	LevelType     game.LevelType
+	LevelType     world.WorldType
 	ViewDistance  int32
 	ReduceDebug   bool
 	RespawnScreen bool
 }
 
 func (p *CPacketJoinGame) ID() PacketID { return CJoinGame }
-func (p *CPacketJoinGame) Push(writer buff.Buffer) {
+func (p *CPacketJoinGame) Push(writer buffers.Buffer) {
 	writer.PushI32(p.EntityID)
 	writer.PushByt(p.GameMode.Encoded(p.Hardcore /* pull this value from somewhere */))
 	writer.PushI32(int32(p.Dimension))
@@ -142,25 +141,25 @@ func (p *CPacketJoinGame) Push(writer buff.Buffer) {
 	writer.PushBit(p.RespawnScreen)
 }
 
-type CPacketPluginMessage struct {
-	Message plugin.Message
-}
-
-func (p *CPacketPluginMessage) ID() PacketID { return CPluginMessage }
-func (p *CPacketPluginMessage) Push(writer buff.Buffer) {
-	writer.PushTxt(p.Message.Chan())
-	p.Message.Push(writer)
-}
+//type CPacketPluginMessage struct {
+//	Message plugin.Message
+//}
+//
+//func (p *CPacketPluginMessage) ID() PacketID { return CPluginMessage }
+//func (p *CPacketPluginMessage) Push(writer buffers.Buffer) {
+//	writer.PushTxt(p.Message.Chan())
+//	p.Message.Push(writer)
+//}
 
 type CPacketPlayerLocation struct {
 	Location data.Location
-	Relative client.Relativity
+	Relative player.Relativity
 
 	SomeID int32 // no idea what ID is this, the packet type 3/0x36 in the protocol 754 does not have this field
 }
 
 func (p *CPacketPlayerLocation) ID() PacketID { return CPlayerLocation }
-func (p *CPacketPlayerLocation) Push(writer buff.Buffer) {
+func (p *CPacketPlayerLocation) Push(writer buffers.Buffer) {
 	writer.PushF64(p.Location.X)
 	writer.PushF64(p.Location.Y)
 	writer.PushF64(p.Location.Z)
@@ -178,7 +177,7 @@ type CPacketKeepAlive struct {
 }
 
 func (p *CPacketKeepAlive) ID() PacketID { return CKeepAlive }
-func (p *CPacketKeepAlive) Push(writer buff.Buffer) {
+func (p *CPacketKeepAlive) Push(writer buffers.Buffer) {
 	writer.PushI64(p.KeepAliveID)
 }
 
@@ -188,19 +187,19 @@ type CPacketServerDifficulty struct {
 }
 
 func (p *CPacketServerDifficulty) ID() PacketID { return CServerDifficulty }
-func (p *CPacketServerDifficulty) Push(writer buff.Buffer) {
+func (p *CPacketServerDifficulty) Push(writer buffers.Buffer) {
 	writer.PushByt(byte(p.Difficulty))
 	writer.PushBit(p.Locked)
 }
 
 type CPacketPlayerAbilities struct {
-	Abilities   client.PlayerAbilities
+	Abilities   player.PlayerAbilities
 	FlyingSpeed float32
 	FieldOfView float32
 }
 
 func (p *CPacketPlayerAbilities) ID() PacketID { return CPlayerAbilities }
-func (p *CPacketPlayerAbilities) Push(writer buff.Buffer) {
+func (p *CPacketPlayerAbilities) Push(writer buffers.Buffer) {
 	p.Abilities.Push(writer)
 
 	writer.PushF32(p.FlyingSpeed)
@@ -208,11 +207,11 @@ func (p *CPacketPlayerAbilities) Push(writer buff.Buffer) {
 }
 
 type CPacketHeldItemChange struct {
-	Slot client.HotBarSlot
+	Slot player.HotBarSlot
 }
 
 func (p *CPacketHeldItemChange) ID() PacketID { return CHeldItemChange }
-func (p *CPacketHeldItemChange) Push(writer buff.Buffer) {
+func (p *CPacketHeldItemChange) Push(writer buffers.Buffer) {
 	writer.PushByt(byte(p.Slot))
 }
 
@@ -222,7 +221,7 @@ type CPacketDeclareRecipes struct {
 }
 
 func (p *CPacketDeclareRecipes) ID() PacketID { return CDeclareRecipes }
-func (p *CPacketDeclareRecipes) Push(writer buff.Buffer) {
+func (p *CPacketDeclareRecipes) Push(writer buffers.Buffer) {
 	writer.PushVrI(p.RecipeCount)
 	// when recipes are implemented, instead of holding a recipe count, simply write the size of the slice, Recipe will implement BufferPush
 }
@@ -232,14 +231,14 @@ type CPacketChunkData struct {
 }
 
 func (p *CPacketChunkData) ID() PacketID { return CChunkData }
-func (p *CPacketChunkData) Push(writer buff.Buffer) {
+func (p *CPacketChunkData) Push(writer buffers.Buffer) {
 	writer.PushI32(int32(p.Chunk.ChunkX()))
 	writer.PushI32(int32(p.Chunk.ChunkZ()))
 
 	// full chunk (for now >:D)
 	writer.PushBit(true)
 
-	chunkData := apisConn.NewBuffer()
+	chunkData := buffers.NewBuffer()
 	p.Chunk.Push(chunkData) // write chunk data and primary bit mask
 
 	// pull primary bit mask and push to writer
@@ -265,12 +264,12 @@ func (p *CPacketChunkData) Push(writer buff.Buffer) {
 }
 
 type CPacketPlayerInfo struct {
-	Action client.PlayerInfoAction
-	Values []client.PlayerInfo
+	Action player.PlayerInfoAction
+	Values []player.PlayerInfo
 }
 
 func (p *CPacketPlayerInfo) ID() PacketID { return CPlayerInfo }
-func (p *CPacketPlayerInfo) Push(writer buff.Buffer) {
+func (p *CPacketPlayerInfo) Push(writer buffers.Buffer) {
 	writer.PushVrI(int32(p.Action))
 	writer.PushVrI(int32(len(p.Values)))
 
@@ -280,21 +279,21 @@ func (p *CPacketPlayerInfo) Push(writer buff.Buffer) {
 }
 
 type CPacketEntityMetadata struct {
-	Entity ents.Entity
+	Entity entities.Entity
 }
 
 func (p *CPacketEntityMetadata) ID() PacketID { return CEntityMetadata }
-func (p *CPacketEntityMetadata) Push(writer buff.Buffer) {
-	writer.PushVrI(int32(p.Entity.EntityUUID())) // questionable...
+func (p *CPacketEntityMetadata) Push(writer buffers.Buffer) {
+	writer.PushVrI(int32(p.Entity.ID())) // questionable...
 
 	// only supporting player metadata for now
-	_, ok := p.Entity.(ents.Player)
+	_, ok := p.Entity.(entities.PlayerCharacter)
 	if ok {
 
 		writer.PushByt(16) // index | displayed skin parts
 		writer.PushVrI(0)  // type | byte
 
-		skin := client.SkinParts{
+		skin := player.SkinParts{
 			Cape: true,
 			Head: true,
 			Body: true,

@@ -26,7 +26,6 @@ import (
 	implEvent "github.com/golangmc/minecraft-server/impl/game/event"
 	"github.com/golangmc/minecraft-server/impl/game/state"
 	"github.com/golangmc/minecraft-server/impl/protocol"
-	"github.com/golangmc/minecraft-server/pkg/pubsub"
 )
 
 type server struct {

@@ -1,8 +1,8 @@
 package player
 
 import (
-	"github.com/golangmc/minecraft-server/apis/buff"
-	"github.com/golangmc/minecraft-server/apis/ents"
+	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/game/entities"
 )
 
 type PlayerInfoAction int32
@@ -16,21 +16,21 @@ const (
 )
 
 type PlayerInfo interface {
-	buff.BufferPush
+	buffers.BufferPush
 }
 
 type PlayerInfoAddPlayer struct {
-	Player ents.Player
+	Player entities.PlayerCharacter
 }
 
-func (p *PlayerInfoAddPlayer) Push(writer buff.Buffer) {
-	prof := p.Player.GetProfile()
-	writer.PushUID(prof.UUID)
-	writer.PushTxt(prof.Name)
+func (p *PlayerInfoAddPlayer) Push(writer buffers.Buffer) {
+	profile := p.Player.GetProfile()
+	writer.PushUID(profile.UUID)
+	writer.PushTxt(profile.Name)
 
-	writer.PushVrI(int32(len(prof.Properties)))
+	writer.PushVrI(int32(len(profile.Properties)))
 
-	for _, prop := range prof.Properties {
+	for _, prop := range profile.Properties {
 		writer.PushTxt(prop.Name)
 		writer.PushTxt(prop.Value)
 
@@ -49,5 +49,4 @@ func (p *PlayerInfoAddPlayer) Push(writer buff.Buffer) {
 	writer.PushBit(false) // update this to be whether the player has a custom display name or not, write that name as json if they do
 }
 
-type PlayerInfoUpdateLatency struct {
-}
+type PlayerInfoUpdateLatency struct {}

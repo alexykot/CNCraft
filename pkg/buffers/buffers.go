@@ -25,7 +25,10 @@ import (
 	- Txt = String
 */
 
-// DEBT break this interface into parts, make sure possible reading errors are checked and returned
+// TODO
+//  - break this interface into parts
+//  - make sure possible reading errors are checked and returned
+//  - rename methods for clarity and get rid of the special dictionary
 type Buffer interface {
 	Len() int32
 
@@ -106,6 +109,19 @@ type Buffer interface {
 	PushPos(data data.PositionI)
 
 	PushNbt(data *tags.NbtCompound)
+}
+
+type BufferPush interface {
+	Push(writer Buffer)
+}
+
+type BufferPull interface {
+	Pull(reader Buffer)
+}
+
+type BufferCodec interface {
+	BufferPush
+	BufferPull
 }
 
 type buffer struct {

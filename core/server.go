@@ -11,7 +11,6 @@ import (
 	"github.com/alexykot/cncraft/core/network"
 	"github.com/alexykot/cncraft/pkg/bus"
 	"github.com/alexykot/cncraft/pkg/log"
-	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
 type Server interface {
@@ -40,9 +39,9 @@ type server struct {
 	control chan control.Command
 
 	//chat    // chat implementation needed
-	network network.Network
+	network *network.Network
 
-	packFactory protocol.PacketFactory
+	packFactory network.PacketFactory
 	users       map[uuid.UUID]User
 	connections map[uuid.UUID]network.Connection
 }
@@ -54,18 +53,19 @@ func NewServer(conf ServerConfig) (Server, error) {
 		return nil, fmt.Errorf("could not instantiate logger: %w", err)
 	}
 
-	packetFactory := protocol.NewPacketFactory(logger)
+	packetFactory := network.NewPacketFactory(logger)
 	ps := bus.New()
 
+	controlChan := make(chan control.Command)
 	return &server{
 		log:     logger,
 		bus:     ps,
-		control: make(chan control.Command),
+		control: controlChan,
 
 		packFactory: packetFactory,
-		//network:     conn.NewNetwork(conf.Network.Host, conf.Network.Port, packetFactory, message, join, quit),
+		network:     network.NewNetwork(conf.Network.Host, conf.Network.Port, packetFactory, logger, controlChan, ps),
 
-		users: make(map[uuid.UUID]User),
+		users: make(map[uuid.UUID]User/**/),
 	}, nil
 }
 

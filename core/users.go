@@ -1,10 +1,10 @@
 package core
 
 import (
-	"github.com/alexykot/cncraft/pkg/entities"
+	"github.com/alexykot/cncraft/pkg/game/entities"
 )
 
 type User struct {
-	PC entities.PlayerCharacter
+	PC       entities.PlayerCharacter
 	Username string
 }

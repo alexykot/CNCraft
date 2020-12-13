@@ -1,27 +1,24 @@
 package state
 
 import (
-	"github.com/alexykot/cncraft/impl/base"
-	"github.com/alexykot/cncraft/impl/protocol"
-	"github.com/alexykot/cncraft/impl/protocol/client"
-	"github.com/alexykot/cncraft/impl/protocol/server"
+	"go.uber.org/zap"
+
 	"github.com/alexykot/cncraft/pkg/bus"
+	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
-/**
- * login
- */
-
-func RegisterHandlersState2(ps bus.PubSub, join chan base.PlayerAndConnection) {
+// RegisterHandlersState2 registers handlers for packets transmitted/received in the Login connection state.
+func RegisterHandlersState2(ps bus.PubSub, logger *zap.Logger) {
+	// TODO replace `join chan base.PlayerAndConnection` with pubsub
 
 	{ // server bound packets
 		ps.Subscribe(protocol.MakePacketTopic(protocol.SLoginStart), func(envelopeIn bus.Envelope) {
-			loginStartPack, ok := envelopeIn.GetMessage().(server.SPacketLoginStart)
+			loginStartPack, ok := envelopeIn.GetMessage().(protocol.SPacketLoginStart)
 			if !ok {
 				// DEBT figure out logging here
 				return
 			}
-			loginSuccessPack := client.CPacketLoginSuccess{
+			loginSuccessPack := protocol.CPacketLoginSuccess{
 				PlayerUUID: "",
 				PlayerName: loginStartPack.PlayerName,
 			}
@@ -31,14 +28,14 @@ func RegisterHandlersState2(ps bus.PubSub, join chan base.PlayerAndConnection) {
 		})
 
 		ps.Subscribe(protocol.MakePacketTopic(protocol.SPing), func(envelopeIn bus.Envelope) {
-			packet, ok := envelopeIn.GetMessage().(server.SPacketPing)
+			packet, ok := envelopeIn.GetMessage().(protocol.SPacketPing)
 			if !ok {
 				// DEBT figure out logging here
 				return
 			}
 
 			ps.Publish(protocol.MakePacketTopic(protocol.CPong),
-				bus.NewEnvelope(client.CPacketPong{Ping: packet.Ping}, envelopeIn.GetAllMeta()))
+				bus.NewEnvelope(protocol.CPacketPong{Ping: packet.Ping}, envelopeIn.GetAllMeta()))
 		})
 	}
 
@@ -46,12 +43,12 @@ func RegisterHandlersState2(ps bus.PubSub, join chan base.PlayerAndConnection) {
 
 	// DEBT The authentication and encryption can be skipped in offline mode. Will get back to it later.
 	//watcher.Subscribe(protocol.MakePacketTopic(protocol.SLoginStart),
-	//	func(packet *server.SPacketLoginStart, conn base.Connection) {
+	//	func(packet *protocol.SPacketLoginStart, conn base.Connection) {
 	//	conn.CertifyValues(packet.PlayerName)
 	//
 	//	_, public := auth.NewCrypt()
 	//
-	//	response := client.CPacketEncryptionRequest{
+	//	response := protocol.CPacketEncryptionRequest{
 	//		Server: "",
 	//		Public: public,
 	//		Verify: conn.CertifyData(),
@@ -61,11 +58,11 @@ func RegisterHandlersState2(ps bus.PubSub, join chan base.PlayerAndConnection) {
 	//})
 	//
 	//watcher.Subscribe(protocol.MakePacketTopic(protocol.SEncryptionResponse),
-	//	func(packet *server.SPacketEncryptionResponse, conn base.Connection) {
+	//	func(packet *protocol.SPacketEncryptionResponse, conn base.Connection) {
 	//	defer func() {
 	//		// DEBT this is a fucking mess, panics are used profusely instead of proper error handling
 	//		if err := recover(); err != nil {
-	//			conn.SendPacket(&client.CPacketDisconnect{
+	//			conn.SendPacket(&protocol.CPacketDisconnect{
 	//				Reason: *msgs.New(fmt.Sprintf("Authentication failed: %v", err)).SetColor(chat.Red),
 	//			})
 	//		}
@@ -90,7 +87,7 @@ func RegisterHandlersState2(ps bus.PubSub, join chan base.PlayerAndConnection) {
 	//	auth.RunAuthGet(sec, conn.CertifyName(), func(auth *auth.Auth, err error) {
 	//		defer func() {
 	//			if err := recover(); err != nil {
-	//				conn.SendPacket(&client.CPacketDisconnect{
+	//				conn.SendPacket(&protocol.CPacketDisconnect{
 	//					Reason: *msgs.New(fmt.Sprintf("Authentication failed: %v", err)).SetColor(chat.Red),
 	//				})
 	//			}
@@ -120,7 +117,7 @@ func RegisterHandlersState2(ps bus.PubSub, join chan base.PlayerAndConnection) {
 	//
 	//		player := ents.NewPlayer(&prof, conn)
 	//
-	//		conn.SendPacket(&client.CPacketLoginSuccess{
+	//		conn.SendPacket(&protocol.CPacketLoginSuccess{
 	//			PlayerName: player.Name(),
 	//			PlayerUUID: player.UUID().String(),
 	//		})

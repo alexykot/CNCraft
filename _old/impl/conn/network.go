@@ -11,7 +11,6 @@ import (
 	"github.com/golangmc/minecraft-server/impl/base"
 	"github.com/golangmc/minecraft-server/impl/data/system"
 	"github.com/golangmc/minecraft-server/impl/protocol"
-	"github.com/golangmc/minecraft-server/pkg/pubsub"
 )
 
 type network struct {

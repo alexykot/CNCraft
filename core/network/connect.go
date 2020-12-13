@@ -6,13 +6,13 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
-	"github.com/alexykot/cncraft/pkg/buffers"
 	"io"
 	"net"
 
 	"github.com/google/uuid"
 
-	"github.com/alexykot/cncraft/impl/conn/crypto"
+	"github.com/alexykot/cncraft/core/network/crypto"
+	"github.com/alexykot/cncraft/pkg/buffers"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
@@ -199,7 +199,7 @@ func (c *connection) SendPacket(packet protocol.CPacket) {
 
 	// write buffer
 	bufO.PushVrI(int32(packet.ID()))
-	packet.Push(bufO, c)
+	packet.Push(bufO)
 
 	temp.PushVrI(bufO.Len())
 	temp.PushUAS(bufO.UAS(), false)

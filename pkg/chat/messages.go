@@ -1,10 +1,8 @@
-package msgs
+package chat
 
 import (
 	"encoding/json"
 	"strings"
-
-	"github.com/alexykot/cncraft/apis/data/chat"
 )
 
 type MessagePosition byte
@@ -16,8 +14,8 @@ const (
 )
 
 type Message struct {
-	Text  string          `json:"text"`
-	Color *chat.ChatColor `json:"color,string,omitempty"`
+	Text  string     `json:"text"`
+	Color *ChatColor `json:"color,string,omitempty"`
 
 	Bold          *bool `json:"bold,boolean,omitempty"`
 	Italic        *bool `json:"italic,boolean,omitempty"`
@@ -36,7 +34,7 @@ func New(text string) *Message {
 	}
 }
 
-func (c *Message) SetColor(code chat.ChatColor) *Message {
+func (c *Message) SetColor(code ChatColor) *Message {
 	c.Color = &code
 	return c
 }
@@ -78,7 +76,7 @@ func (c *Message) Add(text string) *Message {
 
 func (c *Message) Reset() *Message {
 
-	next := c.Add("").SetColor(chat.Reset)
+	next := c.Add("").SetColor(Reset)
 
 	if c.Bold != nil && *c.Bold == true {
 		next.SetBold(false)
@@ -140,23 +138,23 @@ func (c *Message) asText() string {
 	}
 
 	if c.Bold != nil && *c.Bold == true {
-		builder.WriteString(chat.Bold.String())
+		builder.WriteString(Bold.String())
 	}
 
 	if c.Italic != nil && *c.Italic == true {
-		builder.WriteString(chat.Italic.String())
+		builder.WriteString(Italic.String())
 	}
 
 	if c.Underlined != nil && *c.Underlined == true {
-		builder.WriteString(chat.Underline.String())
+		builder.WriteString(Underline.String())
 	}
 
 	if c.Strikethrough != nil && *c.Strikethrough == true {
-		builder.WriteString(chat.Strikethrough.String())
+		builder.WriteString(Strikethrough.String())
 	}
 
 	if c.Obfuscated != nil && *c.Obfuscated == true {
-		builder.WriteString(chat.Obfuscated.String())
+		builder.WriteString(Obfuscated.String())
 	}
 
 	builder.WriteString(c.Text)

@@ -1,6 +1,9 @@
 //go:generate stringer -type=PacketID packets.go
-
 package protocol
+
+import (
+	"github.com/alexykot/cncraft/pkg/buffers"
+)
 
 // ProtocolPacketID is the official ID of the packet as per the protocol.
 type ProtocolPacketID int32
@@ -166,6 +169,24 @@ func init() {
 		SPlayerRotation,
 		SPlayerAbilities,
 	}
+}
+
+type Packet interface {
+	ID() PacketID
+}
+
+type SPacket interface {
+	Packet
+
+	// decode the server_data from provided reader into this packet
+	Pull(reader buffers.Buffer) error
+}
+
+type CPacket interface {
+	Packet
+
+	// encode the server_data from this packet into provided writer
+	Push(writer buffers.Buffer)
 }
 
 func MakeID(direction packetDirection, state State, pID ProtocolPacketID) PacketID {

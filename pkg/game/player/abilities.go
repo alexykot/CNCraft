@@ -1,9 +1,8 @@
 package player
 
 import (
-	"github.com/alexykot/cncraft/impl/mask"
-
-	buff "github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/mask"
 )
 
 type PlayerAbilities struct {
@@ -15,7 +14,7 @@ type PlayerAbilities struct {
 	InstantBuild bool // creative??
 }
 
-func (p *PlayerAbilities) Push(writer buff.Buffer) {
+func (p *PlayerAbilities) Push(writer buffers.Buffer) {
 	flags := byte(0)
 
 	p.Set(&flags, 0x01, p.Invulnerable)
@@ -26,7 +25,7 @@ func (p *PlayerAbilities) Push(writer buff.Buffer) {
 	writer.PushByt(flags)
 }
 
-func (p *PlayerAbilities) Pull(reader buff.Buffer) {
+func (p *PlayerAbilities) Pull(reader buffers.Buffer) {
 	flags := reader.PullByt()
 
 	p.Invulnerable = p.Has(flags, 0x01)

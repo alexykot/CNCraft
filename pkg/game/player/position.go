@@ -1,8 +1,8 @@
 package player
 
 import (
-	"github.com/golangmc/minecraft-server/apis/buff"
-	"github.com/golangmc/minecraft-server/impl/mask"
+	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/mask"
 )
 
 type Relativity struct {
@@ -16,7 +16,7 @@ type Relativity struct {
 	AxisY bool
 }
 
-func (r *Relativity) Push(writer buff.Buffer) {
+func (r *Relativity) Push(writer buffers.Buffer) {
 	flags := byte(0)
 
 	r.Set(&flags, 0x01, r.X)

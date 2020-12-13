@@ -10,7 +10,6 @@ import (
 	"github.com/golangmc/minecraft-server/apis/task"
 	"github.com/golangmc/minecraft-server/apis/uuid"
 	implBase "github.com/golangmc/minecraft-server/impl/base"
-	"github.com/golangmc/minecraft-server/pkg/pubsub"
 )
 
 type Server interface {

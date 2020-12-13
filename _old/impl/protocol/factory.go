@@ -5,9 +5,10 @@ package protocol
 import (
 	"fmt"
 
-	"go.uber.org/zap"
-
-	buff "github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/golangmc/minecraft-server/apis/buff"
+	"github.com/golangmc/minecraft-server/apis/logs"
+	"github.com/golangmc/minecraft-server/impl/base"
+	"github.com/golangmc/minecraft-server/impl/protocol/server"
 )
 
 type Packet interface {
@@ -18,14 +19,14 @@ type SPacket interface {
 	Packet
 
 	// decode the server_data from provided reader into this packet
-	Pull(reader buff.Buffer) error
+	Pull(reader buff.Buffer, conn base.Connection) error
 }
 
 type CPacket interface {
 	Packet
 
 	// encode the server_data from this packet into provided writer
-	Push(writer buff.Buffer)
+	Push(writer buff.Buffer, conn base.Connection)
 }
 
 type PacketFactory interface {
@@ -34,19 +35,22 @@ type PacketFactory interface {
 }
 
 type packets struct {
-	log      *zap.Logger
+	logger   *logs.Logging
 	sPackets map[PacketID]func() SPacket
+
+	join chan base.PlayerAndConnection
+	quit chan base.PlayerAndConnection
 }
 
-func NewPacketFactory(log *zap.Logger) PacketFactory {
+func NewPacketFactory() PacketFactory {
 	return &packets{
-		log:      log,
+		logger:   logs.NewLogging("protocol", logs.EveryLevel...),
 		sPackets: createSPacketsMap(),
 	}
 }
 
 func (p *packets) GetCPacket(newPacketID PacketID) (CPacket, error) {
-	return nil, fmt.Errorf("paketFactory.GetCPacket is not implemented")
+	return nil, fmt.Errorf("paketFactory.MakeCPacket is not implemented")
 }
 
 func (p *packets) GetSPacket(newPacketID PacketID) (SPacket, error) {
@@ -62,65 +66,64 @@ func createSPacketsMap() map[PacketID]func() SPacket {
 	return map[PacketID]func() SPacket{
 		// Handshake state
 		SHandshake: func() SPacket {
-			return &SPacketHandshake{}
+			return &server.SPacketHandshake{}
 		},
 
 		// Status state
 		SRequest: func() SPacket {
-			return &SPacketRequest{}
+			return &server.SPacketRequest{}
 		},
 		SPing: func() SPacket {
-			return &SPacketPing{}
+			return &server.SPacketPing{}
 		},
 
 		// Login state
 		SLoginStart: func() SPacket {
-			return &SPacketLoginStart{}
+			return &server.SPacketLoginStart{}
 		},
 		SEncryptionResponse: func() SPacket {
-			return &SPacketEncryptionResponse{}
+			return &server.SPacketEncryptionResponse{}
 		},
 		SLoginPluginResponse: func() SPacket {
-			return &SPacketLoginPluginResponse{}
+			return &server.SPacketLoginPluginResponse{}
 		},
 
 		// Play state
 		STeleportConfirm: func() SPacket {
-			return &SPacketTeleportConfirm{}
+			return &server.SPacketTeleportConfirm{}
 		},
 		SQueryBlockNBT: func() SPacket {
-			return &SPacketQueryBlockNBT{}
+			return &server.SPacketQueryBlockNBT{}
 		},
 		SSetDifficulty: func() SPacket {
-			return &SPacketSetDifficulty{}
+			return &server.SPacketSetDifficulty{}
 		},
 		SChatMessage: func() SPacket {
-			return &SPacketChatMessage{}
+			return &server.SPacketChatMessage{}
 		},
 		SClientStatus: func() SPacket {
-			return &SPacketClientStatus{}
+			return &server.SPacketClientStatus{}
 		},
 		SClientSettings: func() SPacket {
-			return &SPacketClientSettings{}
+			return &server.SPacketClientSettings{}
 		},
-		// TODO plugins are not supported atm
-		//SPluginMessage: func() SPacket {
-		//	return &SPacketPluginMessage{}
-		//},
+		SPluginMessage: func() SPacket {
+			return &server.SPacketPluginMessage{}
+		},
 		SKeepAlive: func() SPacket {
-			return &SPacketKeepAlive{}
+			return &server.SPacketKeepAlive{}
 		},
 		SPlayerPosition: func() SPacket {
-			return &SPacketPlayerPosition{}
+			return &server.SPacketPlayerPosition{}
 		},
 		SPlayerLocation: func() SPacket {
-			return &SPacketPlayerLocation{}
+			return &server.SPacketPlayerLocation{}
 		},
 		SPlayerRotation: func() SPacket {
-			return &SPacketPlayerRotation{}
+			return &server.SPacketPlayerRotation{}
 		},
 		SPlayerAbilities: func() SPacket {
-			return &SPacketPlayerAbilities{}
+			return &server.SPacketPlayerAbilities{}
 		},
 	}
 }
