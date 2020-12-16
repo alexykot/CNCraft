@@ -7,7 +7,7 @@ import (
 )
 
 // RegisterHandlersState3 registers handlers for packets transmitted/received in the Play connection state.
-func RegisterHandlersState3(ps bus.PubSub, logger *zap.Logger) {
+func RegisterHandlersState3(ps nats.PubSub, logger *zap.Logger) {
 	// TODO replace `join chan base.PlayerAndConnection`, `quit chan base.PlayerAndConnection` params with pubsub
 	// TODO figure out what `tasking *task.Tasking` is for
 

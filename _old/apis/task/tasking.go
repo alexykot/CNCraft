@@ -52,7 +52,7 @@ func (t *Tasking) Load() {
 	go t.tick()
 }
 
-func (t *Tasking) Kill() {
+func (t *Tasking) Stop() {
 	if t.done {
 		return
 	}

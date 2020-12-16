@@ -3,7 +3,6 @@ package control
 type Signal int
 
 const (
-	// stops the server entirely
 	STOP Signal = iota
 	FAIL
 )

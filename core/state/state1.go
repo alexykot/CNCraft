@@ -11,10 +11,10 @@ import (
 )
 
 // RegisterHandlersState1 registers handlers for packets transmitted/received in the Status connection state.
-func RegisterHandlersState1(ps bus.PubSub, logger *zap.Logger) {
+func RegisterHandlersState1(ps nats.PubSub, logger *zap.Logger) {
 	{ // client bound packets
-		ps.Subscribe(protocol.MakePacketTopic(protocol.CResponse), func(envelopeIn bus.Envelope) {
-			connID, ok := envelopeIn.GetMeta(bus.MetaConn)
+		ps.Subscribe(protocol.MakePacketTopic(protocol.CResponse), func(envelopeIn nats.Envelope) {
+			connID, ok := envelopeIn.GetMeta(nats.MetaConn)
 			if !ok {
 				// DEBT figure out logging here
 				return
@@ -26,11 +26,11 @@ func RegisterHandlersState1(ps bus.PubSub, logger *zap.Logger) {
 			}
 			buf := buffers.NewBuffer()
 			packet.Push(buf)
-			ps.Publish(network.MakeConnTopicSend(connID), bus.NewEnvelope(buf, nil))
+			ps.Publish(network.MakeConnTopicSend(connID), nats.NewEnvelope(buf, nil))
 		})
 
-		ps.Subscribe(protocol.MakePacketTopic(protocol.CPong), func(envelopeIn bus.Envelope) {
-			connID, ok := envelopeIn.GetMeta(bus.MetaConn)
+		ps.Subscribe(protocol.MakePacketTopic(protocol.CPong), func(envelopeIn nats.Envelope) {
+			connID, ok := envelopeIn.GetMeta(nats.MetaConn)
 			if !ok {
 				// DEBT figure out logging here
 				return
@@ -42,12 +42,12 @@ func RegisterHandlersState1(ps bus.PubSub, logger *zap.Logger) {
 			}
 			buf := buffers.NewBuffer()
 			packet.Push(buf)
-			ps.Publish(network.MakeConnTopicSend(connID), bus.NewEnvelope(buf, nil))
+			ps.Publish(network.MakeConnTopicSend(connID), nats.NewEnvelope(buf, nil))
 		})
 	}
 
 	{ // server bound packets
-		ps.Subscribe(protocol.MakePacketTopic(protocol.SRequest), func(envelopeIn bus.Envelope) {
+		ps.Subscribe(protocol.MakePacketTopic(protocol.SRequest), func(envelopeIn nats.Envelope) {
 			//packet, ok := envelopeIn.GetMessage().(protocol.SPacketRequest)
 			//if !ok {
 			//	// DEBT figure out logging here
@@ -55,10 +55,10 @@ func RegisterHandlersState1(ps bus.PubSub, logger *zap.Logger) {
 			//}
 
 			ps.Publish(protocol.MakePacketTopic(protocol.CResponse),
-				bus.NewEnvelope(protocol.CPacketResponse{Status: status.DefaultResponse()}, envelopeIn.GetAllMeta()))
+				nats.NewEnvelope(protocol.CPacketResponse{Status: status.DefaultResponse()}, envelopeIn.GetAllMeta()))
 		})
 
-		ps.Subscribe(protocol.MakePacketTopic(protocol.SPing), func(envelopeIn bus.Envelope) {
+		ps.Subscribe(protocol.MakePacketTopic(protocol.SPing), func(envelopeIn nats.Envelope) {
 			packet, ok := envelopeIn.GetMessage().(protocol.SPacketPing)
 			if !ok {
 				// DEBT figure out logging here
@@ -66,7 +66,7 @@ func RegisterHandlersState1(ps bus.PubSub, logger *zap.Logger) {
 			}
 
 			ps.Publish(protocol.MakePacketTopic(protocol.CPong),
-				bus.NewEnvelope(protocol.CPacketPong{Ping: packet.Ping}, envelopeIn.GetAllMeta()))
+				nats.NewEnvelope(protocol.CPacketPong{Ping: packet.Ping}, envelopeIn.GetAllMeta()))
 		})
 	}
 }

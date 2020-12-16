@@ -51,7 +51,7 @@ func (n *network) Load() {
 	}
 }
 
-func (n *network) Kill() {
+func (n *network) Stop() {
 
 }
 

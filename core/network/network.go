@@ -13,6 +13,8 @@ import (
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
+const CurrentProtocol = protocol.MC1_15_2
+
 type Network struct {
 	host string
 	port int
@@ -20,11 +22,11 @@ type Network struct {
 	log     *zap.Logger
 	packFac PacketFactory
 
-	bus     bus.PubSub
+	bus     nats.PubSub
 	control chan control.Command
 }
 
-func NewNetwork(conf control.NetworkConf, packFac PacketFactory, log *zap.Logger, report chan control.Command, bus bus.PubSub) *Network {
+func NewNetwork(conf control.NetworkConf, packFac PacketFactory, log *zap.Logger, report chan control.Command, bus nats.PubSub) *Network {
 	return &Network{
 		host:    conf.Host,
 		port:    conf.Port,
@@ -35,18 +37,16 @@ func NewNetwork(conf control.NetworkConf, packFac PacketFactory, log *zap.Logger
 	}
 }
 
-func (n *Network) Load() {
+func (n *Network) Start() error {
 	if err := n.startListening(); err != nil {
-		n.log.Error("failed to start listening",
-			zap.String("host", n.host), zap.Int("port", n.port), zap.Error(err))
-		n.control <- control.Command{Signal: control.FAIL}
-		return
+		return fmt.Errorf("failed to start listening on %s:%d: %w", n.host, n.port, err)
 	}
-
 	n.log.Info("started listening", zap.String("host", n.host), zap.Int("port", n.port))
+
+	return nil
 }
 
-func (n *Network) Kill() {
+func (n *Network) Stop() {
 	// TODO gracefully close all connections here
 }
 
@@ -69,9 +69,12 @@ func (n *Network) startListening() error {
 			if err != nil {
 				n.log.Error("failed to accept a TCP connection",
 					zap.String("host", n.host), zap.Int("port", n.port), zap.Error(err))
-				n.control <- control.Command{Signal: control.FAIL}
+				n.control <- control.Command{Signal: control.FAIL, Message: err.Error()}
 				break
 			}
+
+			n.log.Debug("received TCP connection",
+				zap.String("from", conn.RemoteAddr().String()), zap.Any("conn", conn))
 
 			_ = conn.SetNoDelay(true)
 			_ = conn.SetKeepAlive(true)
@@ -125,7 +128,7 @@ type connHandler struct {
 	net  *Network
 }
 
-func (s *connHandler) HandlePacketSend(envelope bus.Envelope) {
+func (s *connHandler) HandlePacketSend(envelope nats.Envelope) {
 	bufO, ok := envelope.GetMessage().(buffers.Buffer)
 	if !ok {
 		s.net.log.Error("failed to cast message to buffer")
@@ -148,7 +151,7 @@ func (s *connHandler) HandlePacketSend(envelope bus.Envelope) {
 	}
 }
 
-func (s *connHandler) HandleConnState(envelope bus.Envelope) {
+func (s *connHandler) HandleConnState(envelope nats.Envelope) {
 	state, ok := envelope.GetMessage().(protocol.State)
 	if !ok {
 		s.net.log.Error("Failed to cast message to protocol.state")
@@ -185,7 +188,7 @@ func handleReceive(net *Network, conn Connection, bufI buffers.Buffer) {
 	}
 
 	net.bus.Publish(protocol.MakePacketTopic(incomingPacket.ID()),
-		bus.NewEnvelope(incomingPacket, map[string]string{bus.MetaConn: conn.ID()}))
+		nats.NewEnvelope(incomingPacket, map[string]string{nats.MetaConn: conn.ID()}))
 
 	// TODO this double publishing is weird and some subscribers actually expect messages both at once.
 	//  Those subscribers need to be refactored, really they are trying to handle incoming packet and immediately

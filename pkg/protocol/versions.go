@@ -9,8 +9,6 @@ const (
 	MC1_15_2
 )
 
-const CurrentProtocol = MC1_15_2
-
 var protocolVersion = map[MinecraftVersion]int{
 	MC1_12_2: 340,
 	MC1_13_2: 404,

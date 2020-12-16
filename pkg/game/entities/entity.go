@@ -9,7 +9,7 @@ import (
 type Sender interface {
 	Name() string
 
-	SendMessage(message ...bus.Envelope)
+	SendMessage(message ...nats.Envelope)
 }
 
 type Entity interface {

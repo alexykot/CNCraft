@@ -8,11 +8,11 @@ import (
 )
 
 // RegisterHandlersState2 registers handlers for packets transmitted/received in the Login connection state.
-func RegisterHandlersState2(ps bus.PubSub, logger *zap.Logger) {
+func RegisterHandlersState2(ps nats.PubSub, logger *zap.Logger) {
 	// TODO replace `join chan base.PlayerAndConnection` with pubsub
 
 	{ // server bound packets
-		ps.Subscribe(protocol.MakePacketTopic(protocol.SLoginStart), func(envelopeIn bus.Envelope) {
+		ps.Subscribe(protocol.MakePacketTopic(protocol.SLoginStart), func(envelopeIn nats.Envelope) {
 			loginStartPack, ok := envelopeIn.GetMessage().(protocol.SPacketLoginStart)
 			if !ok {
 				// DEBT figure out logging here
@@ -24,10 +24,10 @@ func RegisterHandlersState2(ps bus.PubSub, logger *zap.Logger) {
 			}
 
 			ps.Publish(protocol.MakePacketTopic(protocol.CLoginSuccess),
-				bus.NewEnvelope(loginSuccessPack, envelopeIn.GetAllMeta()))
+				nats.NewEnvelope(loginSuccessPack, envelopeIn.GetAllMeta()))
 		})
 
-		ps.Subscribe(protocol.MakePacketTopic(protocol.SPing), func(envelopeIn bus.Envelope) {
+		ps.Subscribe(protocol.MakePacketTopic(protocol.SPing), func(envelopeIn nats.Envelope) {
 			packet, ok := envelopeIn.GetMessage().(protocol.SPacketPing)
 			if !ok {
 				// DEBT figure out logging here
@@ -35,7 +35,7 @@ func RegisterHandlersState2(ps bus.PubSub, logger *zap.Logger) {
 			}
 
 			ps.Publish(protocol.MakePacketTopic(protocol.CPong),
-				bus.NewEnvelope(protocol.CPacketPong{Ping: packet.Ping}, envelopeIn.GetAllMeta()))
+				nats.NewEnvelope(protocol.CPacketPong{Ping: packet.Ping}, envelopeIn.GetAllMeta()))
 		})
 	}
 

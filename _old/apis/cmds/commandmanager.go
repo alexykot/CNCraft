@@ -20,7 +20,7 @@ func (c *CommandManager) Load() {
 
 }
 
-func (c *CommandManager) Kill() {
+func (c *CommandManager) Stop() {
 	c.commands = nil
 }
 
@@ -63,7 +63,7 @@ func (s *simpleCommand) Load() {
 
 }
 
-func (s *simpleCommand) Kill() {
+func (s *simpleCommand) Stop() {
 
 }
 

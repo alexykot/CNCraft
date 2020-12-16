@@ -96,7 +96,7 @@ func (s *server) Load() {
 	s.wait()
 }
 
-func (s *server) Kill() {
+func (s *server) Stop() {
 
 	s.console.Kill()
 	s.command.Kill()
@@ -199,7 +199,7 @@ func (s *server) stopServerCommand(sender ents.Sender, params []string) {
 
 	if after == 0 {
 
-		s.Kill()
+		s.Stop()
 
 	} else {
 
@@ -208,7 +208,7 @@ func (s *server) stopServerCommand(sender ents.Sender, params []string) {
 
 		// schedule shutdown {after} seconds later
 		s.tasking.AfterTime(after, time.Second, func(task *task.Task) {
-			s.Kill()
+			s.Stop()
 		})
 
 	}

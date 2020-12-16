@@ -2,7 +2,6 @@ package status
 
 import (
 	"github.com/alexykot/cncraft/pkg/chat"
-	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
 const (
@@ -40,11 +39,11 @@ type Message struct {
 	Text string `json:"text"`
 }
 
-func DefaultResponse() Response {
+func DefaultResponse(currentVersion int) Response {
 	return Response{
 		Version: Version{
-			Name:     "GoLang Server",
-			Protocol: protocol.CurrentProtocol.Protocol(),
+			Name:     "CNCraft Server",
+			Protocol: currentVersion,
 		},
 		Players: Players{
 			Max:    10,

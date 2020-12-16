@@ -6,6 +6,7 @@ func DefaultConfig() ServerConf {
 			Host: "0.0.0.0",
 			Port: 25565,
 		},
+		LogLevel: "DEBUG",
 	}
 }
 

@@ -62,7 +62,7 @@ func (c *Console) Load() {
 	}()
 }
 
-func (c *Console) Kill() {
+func (c *Console) Stop() {
 	defer func() {
 		_ = recover() // ignore panic with closing closed channel
 	}()

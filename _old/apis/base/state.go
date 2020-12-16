@@ -5,7 +5,7 @@ type Loads interface {
 }
 
 type Kills interface {
-	Kill()
+	Stop()
 }
 
 type State interface {

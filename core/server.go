@@ -2,6 +2,9 @@ package core
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,8 +17,8 @@ import (
 )
 
 type Server interface {
-	Load()
-	Kill()
+	Start() error
+	Stop() error
 
 	Log() *zap.Logger
 
@@ -33,9 +36,10 @@ type Server interface {
 
 type server struct {
 	log *zap.Logger
-	bus bus.PubSub
+	bus nats.PubSub
 
 	control chan control.Command
+	signal  chan os.Signal
 
 	//chat    // chat implementation needed
 	network *network.Network
@@ -53,13 +57,14 @@ func NewServer(conf control.ServerConf) (Server, error) {
 	}
 
 	packetFactory := network.NewPacketFactory(logger)
-	ps := bus.New()
+	ps := nats.New(nats.NewNats())
 
 	controlChan := make(chan control.Command)
 	return &server{
 		log:     logger,
 		bus:     ps,
 		control: controlChan,
+		signal:  make(chan os.Signal),
 
 		packFactory: packetFactory,
 		network:     network.NewNetwork(conf.Network, packetFactory, logger, controlChan, ps),
@@ -69,13 +74,21 @@ func NewServer(conf control.ServerConf) (Server, error) {
 }
 
 // ==== State ====
-func (s *server) Load() {
-	go s.loadServer()
+func (s *server) Start() error {
+	go func() {
+		if err := s.startServer(); err != nil {
+			s.log.Error("failed to start the server", zap.Error(err))
+			s.control <- control.Command{Signal: control.FAIL, Message: err.Error()}
+		}
+	}()
+	s.startControlLoop()
 
-	s.wait()
+	return nil
 }
 
-func (s *server) Kill() {
+func (s *server) Stop() error {
+	s.log.Info("stopping server")
+
 	// TODO to stop server node:
 	//  - close all open connections
 	//  - stop processing chunks
@@ -87,11 +100,12 @@ func (s *server) Kill() {
 	//  - exit server
 
 	s.log.Info("server stopped")
+	return nil
 }
 
 func (s *server) Log() *zap.Logger { return s.log }
 
-func (s *server) Bus() bus.PubSub { return s.bus }
+func (s *server) Bus() nats.PubSub { return s.bus }
 
 func (s *server) Users() []User {
 	if len(s.users) == 0 {
@@ -125,43 +139,55 @@ func (s *server) Version() string {
 func (s *server) stopServer(after time.Duration) {
 	s.log.Warn(fmt.Sprintf("stopping server in %s", after))
 	if after == 0 {
-		s.Kill()
+		s.control <- control.Command{Signal: control.STOP}
 	} else {
 		// TODO schedule shutdown {after} seconds later
 	}
 }
 
-func (s *server) loadServer() {
-	//state.RegisterHandlersState0(s.bus)
-	//state.RegisterHandlersState1(s.bus)
-	//state.RegisterHandlersState2(s.bus, join)
-	//state.RegisterHandlersState3(s.bus, logger, tasking, join, quit)
+func (s *server) startServer() error {
+	if err := s.network.Start(); err != nil {
+		return fmt.Errorf("failed to start network: %w", err)
+	}
+
+	if err := s.bus.Start(); err != nil {
+		return fmt.Errorf("failed to start nats: %w", err)
+	}
+
+	return nil
 
 	//s.console.Load()
 	//s.command.Load()
 	//s.tasking.Load()
 	//s.network.Load()
-	//
+
 	//s.command.Register("vers", s.versionCommand)
 	//s.command.Register("send", s.broadcastCommand)
 	//s.command.Register("stop", s.stopServerCommand)
-	//
+
+	//state.RegisterHandlersState0(s.bus)
+	//state.RegisterHandlersState1(s.bus)
+	//state.RegisterHandlersState2(s.bus, join)
+	//state.RegisterHandlersState3(s.bus, logger, tasking, join, quit)
+
 	//s.bus.Subscribe(func(event apisEvent.PlayerJoinEvent) {
 	//	s.log.InfoF("player %s logged in with uuid:%v", event.PlayerCharacter.Name(), event.PlayerCharacter.UUID())
 	//
 	//	s.Broadcast(chat.Translate(fmt.Sprintf("%s%s has joined!", chat.Yellow, event.PlayerCharacter.Name())))
 	//})
+
 	//s.bus.Subscribe(func(event apisEvent.PlayerQuitEvent) {
 	//	s.log.InfoF("%s disconnected!", event.PlayerCharacter.Name())
 	//
 	//	s.Broadcast(chat.Translate(fmt.Sprintf("%s%s has left!", chat.Yellow, event.PlayerCharacter.Name())))
 	//})
-	//
+
 	//s.bus.Subscribe(func(event implEvent.PlayerConnJoinEvent) {
 	//	s.users.addData(event.Conn)
 	//
 	//	s.bus.Publish(apisEvent.PlayerJoinEvent{PlayerEvent: apisEvent.PlayerEvent{PlayerCharacter: event.Conn.PlayerCharacter}})
 	//})
+
 	//s.bus.Subscribe(func(event implEvent.PlayerConnQuitEvent) {
 	//	player := s.users.playerByConn(event.Conn.Connection)
 	//
@@ -171,7 +197,7 @@ func (s *server) loadServer() {
 	//
 	//	s.users.delData(event.Conn)
 	//})
-	//
+
 	//s.bus.Subscribe(func(event implEvent.PlayerPluginMessagePullEvent) {
 	//	s.log.DebugF("received message on channel '%s' from player %s:%s", event.Channel, event.Conn.Name(), event.Conn.UUID())
 	//
@@ -182,9 +208,10 @@ func (s *server) loadServer() {
 	//})
 }
 
-func (s *server) wait() {
+func (s *server) startControlLoop() {
 	// TODO somehow signal stopping of the whole cluster or detect that the server is the last one.
 	//  If is the last one - notify in chat.
+	signal.Notify(s.signal, os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
 
 	// select over server commands channel
 	select {
@@ -192,11 +219,17 @@ func (s *server) wait() {
 		switch command.Signal {
 		// stop selecting when stop is received
 		case control.STOP:
+			s.log.Info("received stop command")
+			s.Stop()
 			return
 		case control.FAIL:
-			s.log.Error("internal server error: ", zap.Any("message", command.Message))
-			s.log.Error("stopping server")
+			s.log.Error("internal server error", zap.String("message", command.Message))
+			s.Stop()
 			return
 		}
+	case <-s.signal:
+		s.log.Info("received interrupt signal")
+		s.Stop()
+		return
 	}
 }
