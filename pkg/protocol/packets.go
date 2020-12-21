@@ -6,7 +6,7 @@
 package protocol
 
 import (
-	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/buffer"
 )
 
 // ProtocolPacketID is the official ID of the packet as per the protocol.
@@ -183,14 +183,14 @@ type SPacket interface {
 	Packet
 
 	// decode the server_data from provided reader into this packet
-	Pull(reader buffers.Buffer) error
+	Pull(reader buffer.B) error
 }
 
 type CPacket interface {
 	Packet
 
 	// encode the server_data from this packet into provided writer
-	Push(writer buffers.Buffer)
+	Push(writer buffer.B)
 }
 
 func MakeID(direction packetDirection, state State, pID ProtocolPacketID) PacketID {

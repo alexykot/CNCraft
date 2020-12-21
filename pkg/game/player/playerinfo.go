@@ -1,7 +1,7 @@
 package player
 
 import (
-	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/game/entities"
 )
 
@@ -16,14 +16,14 @@ const (
 )
 
 type PlayerInfo interface {
-	buffers.BufferPush
+	buffer.BufferPush
 }
 
 type PlayerInfoAddPlayer struct {
 	Player entities.PlayerCharacter
 }
 
-func (p *PlayerInfoAddPlayer) Push(writer buffers.Buffer) {
+func (p *PlayerInfoAddPlayer) Push(writer buffer.B) {
 	profile := p.Player.GetProfile()
 	writer.PushUID(profile.UUID)
 	writer.PushTxt(profile.Name)
@@ -49,4 +49,4 @@ func (p *PlayerInfoAddPlayer) Push(writer buffers.Buffer) {
 	writer.PushBit(false) // update this to be whether the player has a custom display name or not, write that name as json if they do
 }
 
-type PlayerInfoUpdateLatency struct {}
+type PlayerInfoUpdateLatency struct{}

@@ -1,4 +1,4 @@
-package buffers
+package buffer
 
 import (
 	"encoding/binary"
@@ -29,7 +29,7 @@ import (
 //  - break this interface into parts
 //  - make sure possible reading errors are checked and returned
 //  - rename methods for clarity and get rid of the special dictionary
-type Buffer interface {
+type B interface {
 	Len() int32
 
 	SAS() []int8
@@ -112,11 +112,11 @@ type Buffer interface {
 }
 
 type BufferPush interface {
-	Push(writer Buffer)
+	Push(writer B)
 }
 
 type BufferPull interface {
-	Pull(reader Buffer)
+	Pull(reader B)
 }
 
 type BufferCodec interface {
@@ -136,11 +136,11 @@ func (b *buffer) String() string {
 }
 
 // new
-func NewBuffer() Buffer {
-	return NewBufferWith(make([]byte, 0))
+func New() B {
+	return NewFrom(make([]byte, 0))
 }
 
-func NewBufferWith(bArray []byte) Buffer {
+func NewFrom(bArray []byte) B {
 	return &buffer{bArray: bArray}
 }
 
@@ -223,12 +223,12 @@ func (b *buffer) PullTxt() string {
 }
 
 func (b *buffer) PullUAS() []byte {
-	sze := b.PullVrI()
-	arr := b.bArray[b.iIndex : b.iIndex+sze]
+	size := b.PullVrI()
+	array := b.bArray[b.iIndex : b.iIndex+size]
 
-	b.iIndex += sze
+	b.iIndex += size
 
-	return arr
+	return array
 }
 
 func (b *buffer) PullSAS() []int8 {
@@ -236,9 +236,8 @@ func (b *buffer) PullSAS() []int8 {
 }
 
 func (b *buffer) PullUID() uuid.UUID {
-	data, _ := bitsToUUID(b.PullI64(), b.PullI64())
-
-	return data
+	id, _ := bitsToUUID(b.PullI64(), b.PullI64())
+	return id
 }
 
 func (b *buffer) PullPos() data.PositionI {
@@ -399,7 +398,6 @@ func (b *buffer) PushNbt(data *tags.NbtCompound) {
 	}
 }
 
-// internal
 func (b *buffer) pullNext() byte {
 
 	if b.iIndex >= b.Len() {

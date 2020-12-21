@@ -3,7 +3,7 @@ package player
 import (
 	"fmt"
 
-	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/mask"
 )
 
@@ -23,7 +23,7 @@ func (d *SkinParts) String() string {
 	return fmt.Sprintf("Cape:%t Head:%t Body:%t ArmL:%t ArmR:%t LegL:%t LegR:%t", d.Cape, d.Head, d.Body, d.ArmL, d.ArmR, d.LegL, d.LegR)
 }
 
-func (d *SkinParts) Push(writer buffers.Buffer) {
+func (d *SkinParts) Push(writer buffer.B) {
 	flags := byte(0)
 
 	d.Set(&flags, 0x01, d.Cape)
@@ -37,7 +37,7 @@ func (d *SkinParts) Push(writer buffers.Buffer) {
 	writer.PushByt(flags)
 }
 
-func (d *SkinParts) Pull(reader buffers.Buffer) {
+func (d *SkinParts) Pull(reader buffer.B) {
 	flags := reader.PullByt()
 
 	d.Cape = d.Has(flags, 0x01)

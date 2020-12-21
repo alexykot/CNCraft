@@ -2,15 +2,17 @@ package network
 
 import (
 	"fmt"
-	"github.com/alexykot/cncraft/pkg/envelope"
 	"net"
 	"strconv"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
-	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/buffer"
+	"github.com/alexykot/cncraft/pkg/envelope"
+	"github.com/alexykot/cncraft/pkg/envelope/pb"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
@@ -23,7 +25,7 @@ type Network struct {
 	log     *zap.Logger
 	packFac PacketFactory
 
-	bus     nats.PubSub
+	ps      nats.PubSub
 	control chan control.Command
 }
 
@@ -33,7 +35,7 @@ func NewNetwork(conf control.NetworkConf, packFac PacketFactory, log *zap.Logger
 		port:    conf.Port,
 		control: report,
 		log:     log,
-		bus:     bus,
+		ps:      bus,
 		packFac: packFac,
 	}
 }
@@ -80,20 +82,32 @@ func (n *Network) startListening() error {
 			_ = conn.SetNoDelay(true)
 			_ = conn.SetKeepAlive(true)
 
-			go handleConnect(n, NewConnection(conn))
+			go n.handleNewConnection(NewConnection(conn))
 		}
 	}()
 
 	return nil
 }
 
-func handleConnect(n *Network, conn Connection) {
-	n.log.Debug("new connection", zap.String("address", conn.Address().String()))
+func (n *Network) handleNewConnection(conn Connection) {
+	n.log.Debug("new connection", zap.Any("address", conn.Address().String()))
+
+	handler := &connHandler{conn: conn, net: n}
+
+	if err := n.ps.Subscribe(MkConnSubjSend(conn.ID()), handler.HandlePacketSend); err != nil {
+		n.log.Error("failed to subscribe to conn.send subject", zap.Error(err), zap.Any("conn", conn))
+		if err = conn.Close(); err != nil {
+			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
+		}
+	}
+	if err := n.ps.Subscribe(MkConnSubjStateChange(conn.ID()), handler.HandleConnState); err != nil {
+		n.log.Error("failed to subscribe to conn.state subject", zap.Error(err), zap.Any("conn", conn))
+		if err = conn.Close(); err != nil {
+			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
+		}
+	}
 
 	var inf []byte
-
-	subscribeConn(n, conn)
-
 	for {
 		inf = make([]byte, 1024)
 		size, err := conn.Pull(inf)
@@ -109,7 +123,7 @@ func handleConnect(n *Network, conn Connection) {
 			break
 		}
 
-		buf := buffers.NewBufferWith(conn.Decrypt(inf[:size]))
+		buf := buffer.NewFrom(conn.Decrypt(inf[:size]))
 
 		// decompression
 		// decryption
@@ -119,8 +133,8 @@ func handleConnect(n *Network, conn Connection) {
 		}
 
 		packetLen := buf.PullVrI()
-		bufI := buffers.NewBufferWith(buf.UAS()[buf.InI() : buf.InI()+packetLen])
-		handleReceive(n, conn, bufI)
+
+		handler.HandlePacketReceive(buf.UAS()[buf.InI() : buf.InI()+packetLen])
 	}
 }
 
@@ -129,18 +143,28 @@ type connHandler struct {
 	net  *Network
 }
 
-func (s *connHandler) HandlePacketSend(envelope envelope.E) {
-	bufO, ok := envelope.GetMessage().(buffers.Buffer)
-	if !ok {
-		s.net.log.Error("failed to cast message to buffer")
+func (s *connHandler) HandleConnState(envelope *envelope.E) {
+	state, err := protocol.IntToState(int(envelope.GetConnState().State))
+	if err != nil {
+		s.net.log.Error("failed to parse state", zap.Error(err))
 		return
 	}
+	s.conn.SetState(state)
+}
+
+func (s *connHandler) HandlePacketSend(lope *envelope.E) {
+	cpacket := lope.GetCpacket()
+	if cpacket == nil {
+		s.net.log.Error("received empty CPacket message, cannot send")
+		return
+	}
+	bufO := buffer.NewFrom(cpacket.GetBytes())
 
 	if bufO.Len() > 1 {
-		temp := buffers.NewBuffer()
+		temp := buffer.New()
 		temp.PushVrI(bufO.Len())
 
-		comp := buffers.NewBuffer()
+		comp := buffer.New()
 		comp.PushUAS(s.conn.Deflate(bufO.UAS()), false)
 		temp.PushUAS(comp.UAS(), false)
 
@@ -152,58 +176,41 @@ func (s *connHandler) HandlePacketSend(envelope envelope.E) {
 	}
 }
 
-func (s *connHandler) HandleConnState(envelope envelope.E) {
-	state, ok := envelope.GetMessage().(protocol.State)
-	if !ok {
-		s.net.log.Error("Failed to cast message to protocol.state")
-		return
-	}
-	s.conn.SetState(state)
-}
-
-func subscribeConn(net *Network, conn Connection) {
-	s := &connHandler{
-		conn: conn,
-		net:  net,
-	}
-
-	net.bus.Subscribe(MakeConnTopicSend(conn.ID()), s.HandlePacketSend)
-	net.bus.Subscribe(MakeConnTopicState(conn.ID()), s.HandleConnState)
-}
-
-func handleReceive(net *Network, conn Connection, bufI buffers.Buffer) {
-	protocolPacketID := protocol.ProtocolPacketID(bufI.PullVrI())
-
-	id := protocol.MakeID(protocol.ServerBound, conn.GetState(), protocolPacketID)
-
-	incomingPacket, err := net.packFac.MakeSPacket(id)
-	if err != nil {
-		net.log.Warn("unable to decode packet", zap.Int("packet_id", int(id)), zap.Error(err))
-		return
-	}
-
-	// populate incoming packet
-	if err := incomingPacket.Pull(bufI); err != nil {
-		net.log.Warn("malformed packet", zap.Int("packet_id", int(id)), zap.Error(err))
-		return
-	}
-
-	net.bus.Publish(protocol.MakePacketTopic(incomingPacket.ID()),
-		nats.NewEnvelope(incomingPacket, map[string]string{nats.MetaConn: conn.ID()}))
-
-	// TODO this double publishing is weird and some subscribers actually expect messages both at once.
-	//  Those subscribers need to be refactored, really they are trying to handle incoming packet and immediately
-	//  send back the response over the provided connection. Instead it should publish response in a topic and
-	//  there should be separate connection subscribers listening for client bound packets.
-	//  This will need to also understand what packet goes to what client. Maybe topic per packet per client?
+func (s *connHandler) HandlePacketReceive(buffBytes []byte) {
+	// TODO relocate this to subscribing side
+	//bufI := buffer.NewFrom(buffBytes)
+	//protocolPacketID := protocol.ProtocolPacketID(bufI.PullVrI())
+	//id := protocol.MakeID(protocol.ServerBound, s.conn.GetState(), protocolPacketID)
+	//bufI.Len()
+	//incomingPacket, err := s.net.packFac.MakeSPacket(id)
+	//if err != nil {
+	//	s.net.log.Warn("unable to decode packet", zap.Int("packet_id", int(id)), zap.Error(err))
+	//	return
+	//}
 	//
-	// net.bus.Publish(incomingPacket, conn)
+	//// populate incoming packet
+	//if err := incomingPacket.Pull(bufI); err != nil {
+	//	s.net.log.Warn("malformed packet", zap.Int("packet_id", int(id)), zap.Error(err))
+	//	return
+	//}
+
+	lope := envelope.NewWithSPacket(&pb.SPacket{Bytes: buffBytes}, nil)
+	if err := s.net.ps.Publish(MkConnSubjReceive(s.conn.ID()), lope); err != nil {
+		s.net.log.Error("failed to publish SPacket message", zap.Error(err))
+	}
 }
 
-func MakeConnTopicSend(connID string) string {
-	return "conn." + connID + ".send"
+// MkConnSubjSend creates a subject name string for given connection ID for receiving server bound packets
+func MkConnSubjReceive(connID uuid.UUID) string {
+	return "conn." + connID.String() + ".receive"
 }
 
-func MakeConnTopicState(connID string) string {
-	return "conn." + connID + ".state"
+// MkConnSubjSend creates a subject name string for given connection ID for sending client bound packets
+func MkConnSubjSend(connID uuid.UUID) string {
+	return "conn." + connID.String() + ".send"
+}
+
+// MkConnSubjSend creates a subject name string for given connection ID for handling connection state changes
+func MkConnSubjStateChange(connID uuid.UUID) string {
+	return "conn." + connID.String() + ".state"
 }

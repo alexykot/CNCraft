@@ -1,46 +1,42 @@
 package state
 
 import (
-	"github.com/alexykot/cncraft/pkg/envelope"
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/nats"
-	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
 // RegisterHandlersState2 registers handlers for packets transmitted/received in the Login connection state.
 func RegisterHandlersState2(ps nats.PubSub, logger *zap.Logger) {
 	// TODO replace `join chan base.PlayerAndConnection` with pubsub
 
-	{ // server bound packets
-		ps.Subscribe(protocol.MakePacketTopic(protocol.SLoginStart), func(envelopeIn envelope.E) {
-			loginStartPack, ok := envelopeIn.GetMessage().(protocol.SPacketLoginStart)
-			if !ok {
-				// DEBT figure out logging here
-				return
-			}
-			loginSuccessPack := protocol.CPacketLoginSuccess{
-				PlayerUUID: "",
-				PlayerName: loginStartPack.PlayerName,
-			}
-
-			ps.Publish(protocol.MakePacketTopic(protocol.CLoginSuccess),
-				nats.NewEnvelope(loginSuccessPack, envelopeIn.GetMetaMap()))
-		})
-
-		ps.Subscribe(protocol.MakePacketTopic(protocol.SPing), func(envelopeIn envelope.E) {
-			packet, ok := envelopeIn.GetMessage().(protocol.SPacketPing)
-			if !ok {
-				// DEBT figure out logging here
-				return
-			}
-
-			ps.Publish(protocol.MakePacketTopic(protocol.CPong),
-				nats.NewEnvelope(protocol.CPacketPong{Ping: packet.Ping}, envelopeIn.GetMetaMap()))
-		})
-	}
-
-
+	//{ // server bound packets
+	//	ps.Subscribe(protocol.MakePacketTopic(protocol.SLoginStart), func(envelopeIn envelope.E) {
+	//		loginStartPack, ok := envelopeIn.GetMessage().(protocol.SPacketLoginStart)
+	//		if !ok {
+	//			// DEBT figure out logging here
+	//			return
+	//		}
+	//		loginSuccessPack := protocol.CPacketLoginSuccess{
+	//			PlayerUUID: "",
+	//			PlayerName: loginStartPack.PlayerName,
+	//		}
+	//
+	//		ps.Publish(protocol.MakePacketTopic(protocol.CLoginSuccess),
+	//			nats.NewEnvelope(loginSuccessPack, envelopeIn.GetMetaMap()))
+	//	})
+	//
+	//	ps.Subscribe(protocol.MakePacketTopic(protocol.SPing), func(envelopeIn envelope.E) {
+	//		packet, ok := envelopeIn.GetMessage().(protocol.SPacketPing)
+	//		if !ok {
+	//			// DEBT figure out logging here
+	//			return
+	//		}
+	//
+	//		ps.Publish(protocol.MakePacketTopic(protocol.CPong),
+	//			nats.NewEnvelope(protocol.CPacketPong{Ping: packet.Ping}, envelopeIn.GetMetaMap()))
+	//	})
+	//}
 
 	// DEBT The authentication and encryption can be skipped in offline mode. Will get back to it later.
 	//watcher.Subscribe(protocol.MakePacketTopic(protocol.SLoginStart),

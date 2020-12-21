@@ -11,7 +11,28 @@ message Envelope {
 
     oneof message {
         Handshake handshake = 2;
+        CPacket cpacket = 3;
+        SPacket spacket = 4;
+        SetConnState conn_state = 5;
     }
 }
 
 message Handshake {}
+
+message CPacket {
+    bytes bytes = 1;
+}
+
+message SPacket {
+    bytes bytes = 1;
+}
+
+message SetConnState {
+    enum State {
+        HANDSHAKE = 0;
+        STATUS = 1;
+        LOGIN = 2;
+        PLAY = 3;
+    }
+    State state = 1;
+}

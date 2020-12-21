@@ -1,7 +1,7 @@
 package level
 
 import (
-	buff "github.com/alexykot/cncraft/pkg/buffers"
+	buff "github.com/alexykot/cncraft/pkg/buffer"
 )
 
 type Slice interface {

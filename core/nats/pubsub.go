@@ -27,15 +27,15 @@ import (
 
 // DEBT centralising all meta names in one place may not be a great idea
 const (
-	MetaConn = "conn"
+	MetaConnID = "conn_id"
 )
 
 const natsStartTimeout = 500 * time.Millisecond
 
 type PubSub interface {
 	Start() error
-	Publish(subj string, messages ...envelope.E) error
-	Subscribe(subj string, handleFunc func(message envelope.E)) error
+	Publish(subj string, messages ...*envelope.E) error
+	Subscribe(subj string, handleFunc func(message *envelope.E)) error
 	Unsubscribe(subj string)
 }
 
@@ -115,7 +115,7 @@ func (ps *pubsub) startClient() error {
 	return nil
 }
 
-func (ps *pubsub) Publish(subject string, lopes ...envelope.E) error {
+func (ps *pubsub) Publish(subject string, lopes ...*envelope.E) error {
 	for _, lope := range lopes {
 		bytes, err := lope.Marshal()
 		if err != nil {
@@ -129,7 +129,7 @@ func (ps *pubsub) Publish(subject string, lopes ...envelope.E) error {
 	return nil
 }
 
-func (ps *pubsub) Subscribe(subject string, handleFunc func(envelope.E)) error {
+func (ps *pubsub) Subscribe(subject string, handleFunc func(*envelope.E)) error {
 	sub, err := ps.client.Subscribe(subject, ps.makeHandler(handleFunc))
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to subject %s: %w", subject, err)
@@ -151,7 +151,7 @@ func (ps *pubsub) Unsubscribe(subject string) {
 	}
 }
 
-func (ps *pubsub) makeHandler(handleFunc func(envelope.E)) natsc.MsgHandler {
+func (ps *pubsub) makeHandler(handleFunc func(*envelope.E)) natsc.MsgHandler {
 	return func(msg *natsc.Msg) {
 		lope := envelope.NewEmpty()
 		if err := lope.Unmarshal(msg.Data); err != nil {

@@ -6,7 +6,6 @@ import (
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
-
 type PacketFactory interface {
 	MakeSPacket(id protocol.PacketID) (protocol.SPacket, error)
 	MakeCPacket(id protocol.PacketID) (protocol.CPacket, error)

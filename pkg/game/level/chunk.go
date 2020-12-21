@@ -1,12 +1,12 @@
 package level
 
 import (
-	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/game/data/tags"
 )
 
 type Chunk interface {
-	buffers.BufferPush
+	buffer.BufferPush
 
 	ChunkX() int
 	ChunkZ() int

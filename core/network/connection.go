@@ -12,12 +12,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/alexykot/cncraft/core/network/crypto"
-	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
 type Connection interface {
-	ID() string
+	ID() uuid.UUID
 	Address() net.Addr
 
 	GetState() protocol.State
@@ -43,9 +43,8 @@ type Connection interface {
 }
 
 type connection struct {
-	new bool
 	tcp *net.TCPConn
-	id  string
+	id  uuid.UUID
 
 	state protocol.State
 
@@ -55,9 +54,8 @@ type connection struct {
 
 func NewConnection(conn *net.TCPConn) Connection {
 	return &connection{
-		new: true,
 		tcp: conn,
-		id:  uuid.New().String(),
+		id:  uuid.New(),
 
 		certify: Certify{},
 		compact: Compact{},
@@ -68,7 +66,7 @@ func (c *connection) Address() net.Addr {
 	return c.tcp.RemoteAddr()
 }
 
-func (c *connection) ID() string {
+func (c *connection) ID() uuid.UUID {
 	return c.id
 }
 
@@ -194,8 +192,8 @@ func (c *connection) Close() (err error) {
 }
 
 func (c *connection) SendPacket(packet protocol.CPacket) {
-	bufO := buffers.NewBuffer()
-	temp := buffers.NewBuffer()
+	bufO := buffer.New()
+	temp := buffer.New()
 
 	// write buffer
 	bufO.PushVrI(int32(packet.ID()))
@@ -206,7 +204,6 @@ func (c *connection) SendPacket(packet protocol.CPacket) {
 
 	_, _ = c.tcp.Write(c.Encrypt(temp.UAS()))
 }
-
 
 func randomByteArray(len int) []byte {
 	array := make([]byte, len)

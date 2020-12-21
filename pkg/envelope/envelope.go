@@ -9,33 +9,35 @@ import (
 	"github.com/alexykot/cncraft/pkg/envelope/pb"
 )
 
-type E interface {
-	GetMetaMap() map[string]string
-	GetMetaKey(string) (string, bool)
-	Marshal() ([]byte, error)
-	Unmarshal([]byte) error
+type E struct {
+	pb.Envelope
 }
 
-type envelope struct {
-	proto *pb.Envelope
-}
-
-func NewWithHandshake(hs *pb.Handshake, meta map[string]string) E {
-	return &envelope{
-		proto: &pb.Envelope{
-			Meta: meta,
+func NewWithHandshake(hs *pb.Handshake, meta map[string]string) *E {
+	return &E{
+		Envelope: pb.Envelope{
+			Meta:    meta,
 			Message: &pb.Envelope_Handshake{Handshake: hs},
 		},
 	}
 }
 
-func NewEmpty() E {
-	return &envelope{}
+func NewWithSPacket(spacket *pb.SPacket, meta map[string]string) *E {
+	return &E{
+		Envelope: pb.Envelope{
+			Meta:    meta,
+			Message: &pb.Envelope_Spacket{Spacket: spacket},
+		},
+	}
 }
 
-func (e *envelope) GetMetaMap() map[string]string { return e.proto.GetMeta() }
-func (e *envelope) GetMetaKey(key string) (string, bool) {
-	meta := e.proto.GetMeta()
+func NewEmpty() *E {
+	return &E{}
+}
+
+func (e *E) GetMetaMap() map[string]string { return e.GetMeta() }
+func (e *E) GetMetaKey(key string) (string, bool) {
+	meta := e.GetMeta()
 	if meta == nil {
 		return "", false
 	}
@@ -44,21 +46,21 @@ func (e *envelope) GetMetaKey(key string) (string, bool) {
 	return val, ok
 }
 
-func (e *envelope) Marshal() ([]byte, error) {
-	if e.proto == nil {
-		return nil, errors.New("cannot marshal: this envelope is empty")
+func (e *E) Marshal() ([]byte, error) {
+	if e.Message == nil {
+		return nil, errors.New("cannot marshal: this E is empty")
 	}
 
-	bytes, err := proto.Marshal(e.proto)
+	bytes, err := proto.Marshal(e)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal envelope to protobuf bytes: %w", err)
+		return nil, fmt.Errorf("failed to marshal E to protobuf bytes: %w", err)
 	}
 	return bytes, nil
 }
 
-func (e *envelope) Unmarshal(bytes []byte) error {
-	if err := proto.Unmarshal(bytes, e.proto); err != nil {
-		return fmt.Errorf("failed to unmarshal protobuf bytes into envelope: %w", err)
+func (e *E) Unmarshal(bytes []byte) error {
+	if err := proto.Unmarshal(bytes, e); err != nil {
+		return fmt.Errorf("failed to unmarshal protobuf bytes into E: %w", err)
 	}
 	return nil
 }

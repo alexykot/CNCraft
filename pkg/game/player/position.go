@@ -1,7 +1,7 @@
 package player
 
 import (
-	"github.com/alexykot/cncraft/pkg/buffers"
+	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/mask"
 )
 
@@ -16,7 +16,7 @@ type Relativity struct {
 	AxisY bool
 }
 
-func (r *Relativity) Push(writer buffers.Buffer) {
+func (r *Relativity) Push(writer buffer.B) {
 	flags := byte(0)
 
 	r.Set(&flags, 0x01, r.X)

@@ -52,4 +52,3 @@ func (state State) Next() State {
 		panic(fmt.Errorf("no state for value: %d", state))
 	}
 }
-
