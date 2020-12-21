@@ -3,8 +3,6 @@ package network
 import (
 	"fmt"
 
-	"go.uber.org/zap"
-
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
@@ -15,13 +13,11 @@ type PacketFactory interface {
 }
 
 type packetFactory struct {
-	log      *zap.Logger
 	sPackets map[protocol.PacketID]func() protocol.SPacket
 }
 
-func NewPacketFactory(log *zap.Logger) PacketFactory {
+func NewPacketFactory() PacketFactory {
 	return &packetFactory{
-		log:      log,
 		sPackets: createSPacketsMap(),
 	}
 }

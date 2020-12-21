@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package grpc.health.v1;
+
+//import "validate/validate.proto";
+
+option go_package = "github.com/alexykot/cncraft/pkg/envelope/pb";
+
+message Envelope {
+    map<string, string> meta = 1;
+
+    oneof message {
+        Handshake handshake = 2;
+    }
+}
+
+message Handshake {}

@@ -1,9 +1,10 @@
 package state
 
 import (
+	"github.com/alexykot/cncraft/pkg/envelope"
 	"go.uber.org/zap"
 
-	"github.com/alexykot/cncraft/pkg/bus"
+	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
@@ -12,7 +13,7 @@ func RegisterHandlersState2(ps nats.PubSub, logger *zap.Logger) {
 	// TODO replace `join chan base.PlayerAndConnection` with pubsub
 
 	{ // server bound packets
-		ps.Subscribe(protocol.MakePacketTopic(protocol.SLoginStart), func(envelopeIn nats.Envelope) {
+		ps.Subscribe(protocol.MakePacketTopic(protocol.SLoginStart), func(envelopeIn envelope.E) {
 			loginStartPack, ok := envelopeIn.GetMessage().(protocol.SPacketLoginStart)
 			if !ok {
 				// DEBT figure out logging here
@@ -24,10 +25,10 @@ func RegisterHandlersState2(ps nats.PubSub, logger *zap.Logger) {
 			}
 
 			ps.Publish(protocol.MakePacketTopic(protocol.CLoginSuccess),
-				nats.NewEnvelope(loginSuccessPack, envelopeIn.GetAllMeta()))
+				nats.NewEnvelope(loginSuccessPack, envelopeIn.GetMetaMap()))
 		})
 
-		ps.Subscribe(protocol.MakePacketTopic(protocol.SPing), func(envelopeIn nats.Envelope) {
+		ps.Subscribe(protocol.MakePacketTopic(protocol.SPing), func(envelopeIn envelope.E) {
 			packet, ok := envelopeIn.GetMessage().(protocol.SPacketPing)
 			if !ok {
 				// DEBT figure out logging here
@@ -35,7 +36,7 @@ func RegisterHandlersState2(ps nats.PubSub, logger *zap.Logger) {
 			}
 
 			ps.Publish(protocol.MakePacketTopic(protocol.CPong),
-				nats.NewEnvelope(protocol.CPacketPong{Ping: packet.Ping}, envelopeIn.GetAllMeta()))
+				nats.NewEnvelope(protocol.CPacketPong{Ping: packet.Ping}, envelopeIn.GetMetaMap()))
 		})
 	}
 

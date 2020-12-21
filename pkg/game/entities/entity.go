@@ -1,7 +1,7 @@
 package entities
 
 import (
-	"github.com/alexykot/cncraft/pkg/bus"
+	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/user"
 )
@@ -9,7 +9,7 @@ import (
 type Sender interface {
 	Name() string
 
-	SendMessage(message ...nats.Envelope)
+	SendMessage(message ...envelope.E)
 }
 
 type Entity interface {

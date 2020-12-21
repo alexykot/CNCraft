@@ -11,3 +11,7 @@ SHELL := /bin/bash
 
 run:
 	go run ./cmd/server/server.go
+
+gen:
+	@./proto/gen.sh
+

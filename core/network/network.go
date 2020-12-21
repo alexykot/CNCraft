@@ -2,14 +2,15 @@ package network
 
 import (
 	"fmt"
+	"github.com/alexykot/cncraft/pkg/envelope"
 	"net"
 	"strconv"
 
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/control"
+	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/pkg/buffers"
-	"github.com/alexykot/cncraft/pkg/bus"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
@@ -128,7 +129,7 @@ type connHandler struct {
 	net  *Network
 }
 
-func (s *connHandler) HandlePacketSend(envelope nats.Envelope) {
+func (s *connHandler) HandlePacketSend(envelope envelope.E) {
 	bufO, ok := envelope.GetMessage().(buffers.Buffer)
 	if !ok {
 		s.net.log.Error("failed to cast message to buffer")
@@ -151,7 +152,7 @@ func (s *connHandler) HandlePacketSend(envelope nats.Envelope) {
 	}
 }
 
-func (s *connHandler) HandleConnState(envelope nats.Envelope) {
+func (s *connHandler) HandleConnState(envelope envelope.E) {
 	state, ok := envelope.GetMessage().(protocol.State)
 	if !ok {
 		s.net.log.Error("Failed to cast message to protocol.state")

@@ -3,7 +3,7 @@ package state
 import (
 	"go.uber.org/zap"
 
-	"github.com/alexykot/cncraft/pkg/bus"
+	"github.com/alexykot/cncraft/core/nats"
 )
 
 // RegisterHandlersState3 registers handlers for packets transmitted/received in the Play connection state.
