@@ -196,7 +196,7 @@ func (c *connection) SendPacket(packet protocol.CPacket) {
 	temp := buffer.New()
 
 	// write buffer
-	bufO.PushVrI(int32(packet.ID()))
+	bufO.PushVrI(int32(packet.Type()))
 	packet.Push(bufO)
 
 	temp.PushVrI(bufO.Len())

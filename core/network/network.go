@@ -5,11 +5,11 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
+	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/envelope/pb"
@@ -22,21 +22,19 @@ type Network struct {
 	host string
 	port int
 
-	log     *zap.Logger
-	packFac PacketFactory
+	log *zap.Logger
 
 	ps      nats.PubSub
 	control chan control.Command
 }
 
-func NewNetwork(conf control.NetworkConf, packFac PacketFactory, log *zap.Logger, report chan control.Command, bus nats.PubSub) *Network {
+func NewNetwork(conf control.NetworkConf, log *zap.Logger, report chan control.Command, bus nats.PubSub) *Network {
 	return &Network{
 		host:    conf.Host,
 		port:    conf.Port,
 		control: report,
 		log:     log,
 		ps:      bus,
-		packFac: packFac,
 	}
 }
 
@@ -94,13 +92,13 @@ func (n *Network) handleNewConnection(conn Connection) {
 
 	handler := &connHandler{conn: conn, net: n}
 
-	if err := n.ps.Subscribe(MkConnSubjSend(conn.ID()), handler.HandlePacketSend); err != nil {
+	if err := n.ps.Subscribe(subj.MkConnSend(conn.ID()), handler.HandlePacketSend); err != nil {
 		n.log.Error("failed to subscribe to conn.send subject", zap.Error(err), zap.Any("conn", conn))
 		if err = conn.Close(); err != nil {
 			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
 		}
 	}
-	if err := n.ps.Subscribe(MkConnSubjStateChange(conn.ID()), handler.HandleConnState); err != nil {
+	if err := n.ps.Subscribe(subj.MkConnStateChange(conn.ID()), handler.HandleConnState); err != nil {
 		n.log.Error("failed to subscribe to conn.state subject", zap.Error(err), zap.Any("conn", conn))
 		if err = conn.Close(); err != nil {
 			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
@@ -177,40 +175,11 @@ func (s *connHandler) HandlePacketSend(lope *envelope.E) {
 }
 
 func (s *connHandler) HandlePacketReceive(buffBytes []byte) {
-	// TODO relocate this to subscribing side
-	//bufI := buffer.NewFrom(buffBytes)
-	//protocolPacketID := protocol.ProtocolPacketID(bufI.PullVrI())
-	//id := protocol.MakeID(protocol.ServerBound, s.conn.GetState(), protocolPacketID)
-	//bufI.Len()
-	//incomingPacket, err := s.net.packFac.MakeSPacket(id)
-	//if err != nil {
-	//	s.net.log.Warn("unable to decode packet", zap.Int("packet_id", int(id)), zap.Error(err))
-	//	return
-	//}
-	//
-	//// populate incoming packet
-	//if err := incomingPacket.Pull(bufI); err != nil {
-	//	s.net.log.Warn("malformed packet", zap.Int("packet_id", int(id)), zap.Error(err))
-	//	return
-	//}
-
-	lope := envelope.NewWithSPacket(&pb.SPacket{Bytes: buffBytes}, nil)
-	if err := s.net.ps.Publish(MkConnSubjReceive(s.conn.ID()), lope); err != nil {
+	lope := envelope.NewWithSPacket(&pb.SPacket{
+		Bytes: buffBytes,
+		State: pb.ConnState(s.conn.GetState()),
+	}, nil)
+	if err := s.net.ps.Publish(subj.MkConnReceive(s.conn.ID()), lope); err != nil {
 		s.net.log.Error("failed to publish SPacket message", zap.Error(err))
 	}
-}
-
-// MkConnSubjSend creates a subject name string for given connection ID for receiving server bound packets
-func MkConnSubjReceive(connID uuid.UUID) string {
-	return "conn." + connID.String() + ".receive"
-}
-
-// MkConnSubjSend creates a subject name string for given connection ID for sending client bound packets
-func MkConnSubjSend(connID uuid.UUID) string {
-	return "conn." + connID.String() + ".send"
-}
-
-// MkConnSubjSend creates a subject name string for given connection ID for handling connection state changes
-func MkConnSubjStateChange(connID uuid.UUID) string {
-	return "conn." + connID.String() + ".state"
 }

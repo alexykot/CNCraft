@@ -9,7 +9,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/buffer"
 )
 
-// ProtocolPacketID is the official ID of the packet as per the protocol.
+// ProtocolPacketID is the official Type of the packet as per the protocol.
 type ProtocolPacketID int32
 
 // server bound (incoming) packets, protocol definitions
@@ -77,46 +77,48 @@ type packetDirection int32
 const ServerBound = packetDirection(0x1000)
 const ClientBound = packetDirection(0xF000)
 
-// PacketID combines direction (1 - server, 2 - client), state ID and the actual protocol ID to make a globally unique PacketID.
-// E.g. PacketID 0x1101 means:
+// PacketType combines direction (1 - server, 2 - client), state Type and the actual protocol Type to make a globally unique PacketType.
+// E.g. PacketType 0x1101 means:
 //  0x 1 1 01
-//     ^ ^ ^^--- the protocol packet ID for server-bound Ping packet;
+//     ^ ^ ^^--- the protocol packet Type for server-bound Ping packet;
 //     | |------ connection state, 1 for Status state;
 //     |-------- server bound packet (1 - server, F - client);
-type PacketID int32
+type PacketType int32
 
 const stateShake = 0x0000
 const stateStatus = 0x0100
 const stateLogin = 0x0200
 const statePlay = 0x0300
 
+const Unspecified = -0x0001 // packet type unspecified
+
 // server bound (incoming) packets
 const (
 	// Shake state packets
-	SHandshake = PacketID(int32(ServerBound) + stateShake + int32(protocolSHandshake)) // 0x1000
+	SHandshake = PacketType(int32(ServerBound) + stateShake + int32(protocolSHandshake)) // 0x1000
 
 	// Status state packets
-	SRequest = PacketID(int32(ServerBound) + stateStatus + int32(protocolSRequest)) // 0x1100
-	SPing    = PacketID(int32(ServerBound) + stateStatus + int32(protocolSPing))    // 0x1101
+	SRequest = PacketType(int32(ServerBound) + stateStatus + int32(protocolSRequest)) // 0x1100
+	SPing    = PacketType(int32(ServerBound) + stateStatus + int32(protocolSPing))    // 0x1101
 
 	// Login state packets
-	SLoginStart          = PacketID(int32(ServerBound) + stateLogin + int32(protocolSLoginStart))          // 0x1200
-	SEncryptionResponse  = PacketID(int32(ServerBound) + stateLogin + int32(protocolSEncryptionResponse))  // 0x1201
-	SLoginPluginResponse = PacketID(int32(ServerBound) + stateLogin + int32(protocolSLoginPluginResponse)) // 0x1202
+	SLoginStart          = PacketType(int32(ServerBound) + stateLogin + int32(protocolSLoginStart))          // 0x1200
+	SEncryptionResponse  = PacketType(int32(ServerBound) + stateLogin + int32(protocolSEncryptionResponse))  // 0x1201
+	SLoginPluginResponse = PacketType(int32(ServerBound) + stateLogin + int32(protocolSLoginPluginResponse)) // 0x1202
 
 	// Play state packets
-	STeleportConfirm = PacketID(int32(ServerBound) + statePlay + int32(protocolSTeleportConfirm)) // 0x1300
-	SQueryBlockNBT   = PacketID(int32(ServerBound) + statePlay + int32(protocolSQueryBlockNBT))   // 0x1301
-	SSetDifficulty   = PacketID(int32(ServerBound) + statePlay + int32(protocolSSetDifficulty))   // 0x1302
-	SChatMessage     = PacketID(int32(ServerBound) + statePlay + int32(protocolSChatMessage))     // 0x1303
-	SClientStatus    = PacketID(int32(ServerBound) + statePlay + int32(protocolSClientStatus))    // 0x1304
-	SClientSettings  = PacketID(int32(ServerBound) + statePlay + int32(protocolSClientSettings))  // 0x1305
-	SPluginMessage   = PacketID(int32(ServerBound) + statePlay + int32(protocolSPluginMessage))   // 0x130B
-	SKeepAlive       = PacketID(int32(ServerBound) + statePlay + int32(protocolSKeepAlive))       // 0x130F
-	SPlayerPosition  = PacketID(int32(ServerBound) + statePlay + int32(protocolSPlayerPosition))  // 0x1311
-	SPlayerLocation  = PacketID(int32(ServerBound) + statePlay + int32(protocolSPlayerLocation))  // 0x1312
-	SPlayerRotation  = PacketID(int32(ServerBound) + statePlay + int32(protocolSPlayerRotation))  // 0x1313
-	SPlayerAbilities = PacketID(int32(ServerBound) + statePlay + int32(protocolSPlayerAbilities)) // 0x1319
+	STeleportConfirm = PacketType(int32(ServerBound) + statePlay + int32(protocolSTeleportConfirm)) // 0x1300
+	SQueryBlockNBT   = PacketType(int32(ServerBound) + statePlay + int32(protocolSQueryBlockNBT))   // 0x1301
+	SSetDifficulty   = PacketType(int32(ServerBound) + statePlay + int32(protocolSSetDifficulty))   // 0x1302
+	SChatMessage     = PacketType(int32(ServerBound) + statePlay + int32(protocolSChatMessage))     // 0x1303
+	SClientStatus    = PacketType(int32(ServerBound) + statePlay + int32(protocolSClientStatus))    // 0x1304
+	SClientSettings  = PacketType(int32(ServerBound) + statePlay + int32(protocolSClientSettings))  // 0x1305
+	SPluginMessage   = PacketType(int32(ServerBound) + statePlay + int32(protocolSPluginMessage))   // 0x130B
+	SKeepAlive       = PacketType(int32(ServerBound) + statePlay + int32(protocolSKeepAlive))       // 0x130F
+	SPlayerPosition  = PacketType(int32(ServerBound) + statePlay + int32(protocolSPlayerPosition))  // 0x1311
+	SPlayerLocation  = PacketType(int32(ServerBound) + statePlay + int32(protocolSPlayerLocation))  // 0x1312
+	SPlayerRotation  = PacketType(int32(ServerBound) + statePlay + int32(protocolSPlayerRotation))  // 0x1313
+	SPlayerAbilities = PacketType(int32(ServerBound) + statePlay + int32(protocolSPlayerAbilities)) // 0x1319
 )
 
 // client bound (outgoing) packets
@@ -125,35 +127,35 @@ const (
 	// no client bound handshake packets defined in the protocol
 
 	// Status state packets
-	CResponse = PacketID(int32(ClientBound) + stateStatus + int32(protocolCResponse)) // 0xF100
-	CPong     = PacketID(int32(ClientBound) + stateStatus + int32(protocolCPong))     // 0xF101
+	CResponse = PacketType(int32(ClientBound) + stateStatus + int32(protocolCResponse)) // 0xF100
+	CPong     = PacketType(int32(ClientBound) + stateStatus + int32(protocolCPong))     // 0xF101
 
 	// Login state packets
-	CDisconnect         = PacketID(int32(ClientBound) + stateLogin + int32(protocolCDisconnect))         // 0xF200
-	CEncryptionRequest  = PacketID(int32(ClientBound) + stateLogin + int32(protocolCEncryptionRequest))  // 0xF201
-	CLoginSuccess       = PacketID(int32(ClientBound) + stateLogin + int32(protocolCLoginSuccess))       // 0xF202
-	CSetCompression     = PacketID(int32(ClientBound) + stateLogin + int32(protocolCSetCompression))     // 0xF203
-	CLoginPluginRequest = PacketID(int32(ClientBound) + stateLogin + int32(protocolCLoginPluginRequest)) // 0xF204
+	CDisconnect         = PacketType(int32(ClientBound) + stateLogin + int32(protocolCDisconnect))         // 0xF200
+	CEncryptionRequest  = PacketType(int32(ClientBound) + stateLogin + int32(protocolCEncryptionRequest))  // 0xF201
+	CLoginSuccess       = PacketType(int32(ClientBound) + stateLogin + int32(protocolCLoginSuccess))       // 0xF202
+	CSetCompression     = PacketType(int32(ClientBound) + stateLogin + int32(protocolCSetCompression))     // 0xF203
+	CLoginPluginRequest = PacketType(int32(ClientBound) + stateLogin + int32(protocolCLoginPluginRequest)) // 0xF204
 
 	// Play state packets
-	CChatMessage      = PacketID(int32(ClientBound) + statePlay + int32(protocolCChatMessage))      // 0xF30F
-	CJoinGame         = PacketID(int32(ClientBound) + statePlay + int32(protocolCJoinGame))         // 0xF326
-	CPluginMessage    = PacketID(int32(ClientBound) + statePlay + int32(protocolCPluginMessage))    // 0xF319
-	CPlayerLocation   = PacketID(int32(ClientBound) + statePlay + int32(protocolCPlayerLocation))   // 0xF336
-	CKeepAlive        = PacketID(int32(ClientBound) + statePlay + int32(protocolCKeepAlive))        // 0xF321
-	CServerDifficulty = PacketID(int32(ClientBound) + statePlay + int32(protocolCServerDifficulty)) // 0xF30E
-	CPlayerAbilities  = PacketID(int32(ClientBound) + statePlay + int32(protocolCPlayerAbilities))  // 0xF332
-	CHeldItemChange   = PacketID(int32(ClientBound) + statePlay + int32(protocolCHeldItemChange))   // 0xF340
-	CDeclareRecipes   = PacketID(int32(ClientBound) + statePlay + int32(protocolCDeclareRecipes))   // 0xF35B
-	CChunkData        = PacketID(int32(ClientBound) + statePlay + int32(protocolCChunkData))        // 0xF322
-	CPlayerInfo       = PacketID(int32(ClientBound) + statePlay + int32(protocolCPlayerInfo))       // 0xF334
-	CEntityMetadata   = PacketID(int32(ClientBound) + statePlay + int32(protocolCEntityMetadata))   // 0xF344
+	CChatMessage      = PacketType(int32(ClientBound) + statePlay + int32(protocolCChatMessage))      // 0xF30F
+	CJoinGame         = PacketType(int32(ClientBound) + statePlay + int32(protocolCJoinGame))         // 0xF326
+	CPluginMessage    = PacketType(int32(ClientBound) + statePlay + int32(protocolCPluginMessage))    // 0xF319
+	CPlayerLocation   = PacketType(int32(ClientBound) + statePlay + int32(protocolCPlayerLocation))   // 0xF336
+	CKeepAlive        = PacketType(int32(ClientBound) + statePlay + int32(protocolCKeepAlive))        // 0xF321
+	CServerDifficulty = PacketType(int32(ClientBound) + statePlay + int32(protocolCServerDifficulty)) // 0xF30E
+	CPlayerAbilities  = PacketType(int32(ClientBound) + statePlay + int32(protocolCPlayerAbilities))  // 0xF332
+	CHeldItemChange   = PacketType(int32(ClientBound) + statePlay + int32(protocolCHeldItemChange))   // 0xF340
+	CDeclareRecipes   = PacketType(int32(ClientBound) + statePlay + int32(protocolCDeclareRecipes))   // 0xF35B
+	CChunkData        = PacketType(int32(ClientBound) + statePlay + int32(protocolCChunkData))        // 0xF322
+	CPlayerInfo       = PacketType(int32(ClientBound) + statePlay + int32(protocolCPlayerInfo))       // 0xF334
+	CEntityMetadata   = PacketType(int32(ClientBound) + statePlay + int32(protocolCEntityMetadata))   // 0xF344
 )
 
-var serverBound []PacketID
+var serverBound []PacketType
 
 func init() {
-	serverBound = []PacketID{
+	serverBound = []PacketType{
 		SHandshake,
 		SRequest,
 		SPing,
@@ -176,7 +178,7 @@ func init() {
 }
 
 type Packet interface {
-	ID() PacketID
+	Type() PacketType
 }
 
 type SPacket interface {
@@ -193,10 +195,10 @@ type CPacket interface {
 	Push(writer buffer.B)
 }
 
-func MakeID(direction packetDirection, state State, pID ProtocolPacketID) PacketID {
-	return PacketID(int32(direction) + int32(state) + int32(pID))
+func MakeType(direction packetDirection, state State, pID ProtocolPacketID) PacketType {
+	return PacketType(int32(direction) + int32(state) + int32(pID))
 }
 
-func MakePacketTopic(id PacketID) string {
+func MakePacketTopic(id PacketType) string {
 	return "packet." + id.String()
 }

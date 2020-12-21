@@ -12,7 +12,10 @@ import (
 
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
+	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/core/network"
+	"github.com/alexykot/cncraft/core/state"
+	"github.com/alexykot/cncraft/core/users"
 	"github.com/alexykot/cncraft/pkg/log"
 )
 
@@ -22,10 +25,9 @@ type Server interface {
 
 	Log() *zap.Logger
 
-	Users() []User
-
-	GetUser(uuid.UUID) (User, bool)
-	GetConnection(uuid.UUID) (network.Connection, bool)
+	// DEBT maybe move all users into substruct
+	Users() []users.User
+	GetUser(uuid.UUID) (users.User, bool)
 
 	Version() string
 
@@ -41,12 +43,12 @@ type server struct {
 	control chan control.Command
 	signal  chan os.Signal
 
+	dispatcher *state.SPacketDispatcher
+
 	//chat    // chat implementation needed
 	network *network.Network
 
-	packFactory network.PacketFactory
-	users       map[uuid.UUID]User
-	connections map[uuid.UUID]network.Connection
+	users map[uuid.UUID]users.User
 }
 
 // NewServer wires up and provides new server instance.
@@ -57,19 +59,19 @@ func NewServer(conf control.ServerConf) (Server, error) {
 	}
 
 	controlChan := make(chan control.Command)
-	packetFactory := network.NewPacketFactory()
+	packetFactory := state.NewPacketFactory()
 	pubSub := nats.NewPubSub(logger.Named("pubsub"), nats.NewNats(), controlChan)
 
 	return &server{
-		log:     logger.Named("core"),
-		ps:      pubSub,
-		control: controlChan,
-		signal:  make(chan os.Signal),
+		log:        logger.Named("core"),
+		ps:         pubSub,
+		control:    controlChan,
+		signal:     make(chan os.Signal),
+		dispatcher: state.NewDispatcher(logger.Named("dispatcher"), packetFactory, pubSub),
 
-		packFactory: packetFactory,
-		network:     network.NewNetwork(conf.Network, packetFactory, logger.Named("network"), controlChan, pubSub),
+		network: network.NewNetwork(conf.Network, logger.Named("network"), controlChan, pubSub),
 
-		users: make(map[uuid.UUID]User),
+		users: make(map[uuid.UUID]users.User),
 	}, nil
 }
 
@@ -108,12 +110,12 @@ func (s *server) Log() *zap.Logger { return s.log }
 
 func (s *server) Bus() nats.PubSub { return s.ps }
 
-func (s *server) Users() []User {
+func (s *server) Users() []users.User {
 	if len(s.users) == 0 {
 		return nil
 	}
 
-	userList := make([]User, len(s.users), len(s.users))
+	userList := make([]users.User, len(s.users), len(s.users))
 
 	var i int
 	for _, player := range s.users {
@@ -123,12 +125,7 @@ func (s *server) Users() []User {
 	return userList
 }
 
-func (s *server) GetConnection(uuid uuid.UUID) (network.Connection, bool) {
-	conn, ok := s.connections[uuid]
-	return conn, ok
-}
-
-func (s *server) GetUser(uuid uuid.UUID) (User, bool) {
+func (s *server) GetUser(uuid uuid.UUID) (users.User, bool) {
 	user, ok := s.users[uuid]
 	return user, ok
 }
@@ -154,16 +151,16 @@ func (s *server) startServer() error {
 	if err := s.network.Start(); err != nil {
 		return fmt.Errorf("failed to start network: %w", err)
 	}
+
+	if err := s.registerGlobalHandlers(); err != nil {
+		return fmt.Errorf("failed register state0 handlers: %w", err)
+	}
+
 	return nil
 
 	//s.console.Load()
 	//s.command.Load()
 	//s.tasking.Load()
-	//s.network.Load()
-
-	//s.command.Register("vers", s.versionCommand)
-	//s.command.Register("send", s.broadcastCommand)
-	//s.command.Register("stop", s.stopServerCommand)
 
 	//state.RegisterHandlersState0(s.ps)
 	//state.RegisterHandlersState1(s.ps)
@@ -236,4 +233,11 @@ func (s *server) startControlLoop() {
 		}
 		return
 	}
+}
+
+func (s *server) registerGlobalHandlers() error {
+	if err := s.ps.Subscribe(subj.MkNewConn(), s.dispatcher.HandleNewConnection); err != nil {
+		return fmt.Errorf("failed to subscribe to new connections: %w", err)
+	}
+	return nil
 }

@@ -1,4 +1,4 @@
-package core
+package users
 
 import (
 	"github.com/alexykot/cncraft/pkg/game/entities"

@@ -1,4 +1,4 @@
-package network
+package state
 
 import (
 	"fmt"
@@ -7,12 +7,12 @@ import (
 )
 
 type PacketFactory interface {
-	MakeSPacket(id protocol.PacketID) (protocol.SPacket, error)
-	MakeCPacket(id protocol.PacketID) (protocol.CPacket, error)
+	MakeSPacket(id protocol.PacketType) (protocol.SPacket, error)
+	MakeCPacket(id protocol.PacketType) (protocol.CPacket, error)
 }
 
 type packetFactory struct {
-	sPackets map[protocol.PacketID]func() protocol.SPacket
+	sPackets map[protocol.PacketType]func() protocol.SPacket
 }
 
 func NewPacketFactory() PacketFactory {
@@ -21,21 +21,21 @@ func NewPacketFactory() PacketFactory {
 	}
 }
 
-func (p *packetFactory) MakeCPacket(newPacketID protocol.PacketID) (protocol.CPacket, error) {
+func (p *packetFactory) MakeCPacket(newPacketID protocol.PacketType) (protocol.CPacket, error) {
 	return nil, fmt.Errorf("packetFactory.MakeCPacket is not implemented")
 }
 
-func (p *packetFactory) MakeSPacket(newPacketID protocol.PacketID) (protocol.SPacket, error) {
+func (p *packetFactory) MakeSPacket(newPacketID protocol.PacketType) (protocol.SPacket, error) {
 	creator, ok := p.sPackets[newPacketID]
 	if !ok {
-		return nil, fmt.Errorf("packet ID %d is not recognised", newPacketID)
+		return nil, fmt.Errorf("packet Type %d is not recognised", newPacketID)
 	}
 
 	return creator(), nil
 }
 
-func createSPacketsMap() map[protocol.PacketID]func() protocol.SPacket {
-	return map[protocol.PacketID]func() protocol.SPacket{
+func createSPacketsMap() map[protocol.PacketType]func() protocol.SPacket {
+	return map[protocol.PacketType]func() protocol.SPacket{
 		// Handshake state
 		protocol.SHandshake: func() protocol.SPacket {
 			return &protocol.SPacketHandshake{}
