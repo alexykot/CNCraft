@@ -4,14 +4,11 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/handlers"
 	"github.com/alexykot/cncraft/core/nats"
-	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/buffer"
-	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
@@ -30,53 +27,32 @@ func NewDispatcher(log *zap.Logger, pacfac protocol.PacketFactory, ps nats.PubSu
 	}
 }
 
-func (d *SPacketDispatcher) RegisterNewConnection(connId uuid.UUID) {
-	handler := func(lope *envelope.E) {
-		connId := connId
-		log := d.log.With(zap.String("connId", connId.String()))
-		pacType, sPacket, err := d.parseSPacket(lope)
+func (d *SPacketDispatcher) HandleSPacket(conn Connection, packetBytes []byte) {
+	log := d.log.With(zap.String("connId", conn.ID().String()))
+	pacType, sPacket, err := d.parseSPacket(conn.GetState(), packetBytes)
 
-		if err != nil {
-			log.Error("cannot handle new packet - could not parse spacket", zap.Error(err))
-			return
-		}
-		if err = d.dispatchPacketHandling(connId, pacType, sPacket); err != nil {
-			log.Error("cannot handle new packet - failed to dispatch handling", zap.Error(err))
-			return
-		}
-		log.Debug("handled incoming packet", zap.String("type", pacType.String()), zap.Any("data", sPacket))
-	}
-
-	if err := d.ps.Subscribe(subj.MkConnReceive(connId), handler); err != nil {
-		d.log.Error("cannot handle new connection: cannot subscribe to connection receive subject", zap.Error(err))
+	if err != nil {
+		log.Error("cannot handle new packet - could not parse spacket", zap.Error(err))
 		return
 	}
-	d.log.Debug("handled new connection", zap.Any("ID", connId))
+	if err = d.receiveSPacket(conn, pacType, sPacket); err != nil {
+		log.Error("cannot handle new packet - failed to dispatch handling", zap.Error(err))
+		return
+	}
+	log.Debug("handled incoming packet", zap.String("type", pacType.String()), zap.Any("data", sPacket))
 }
 
-func (d *SPacketDispatcher) parseSPacket(lope *envelope.E) (protocol.PacketType, protocol.SPacket, error) {
+func (d *SPacketDispatcher) parseSPacket(connState protocol.State, packetBytes []byte) (protocol.PacketType, protocol.SPacket, error) {
+	println("spacket bytes:", hex.EncodeToString(packetBytes))
 
-	println("parsing packet")
-
-	spacketPb := lope.GetSpacket()
-	if spacketPb == nil {
-		return protocol.Unspecified, nil, fmt.Errorf("cannot parse SPacket: there is no SPacket in the envelope %v", lope)
-	}
-	println("packet bytes:", hex.EncodeToString(spacketPb.Bytes))
-
-	bufI := buffer.NewFrom(spacketPb.Bytes)
+	bufI := buffer.NewFrom(packetBytes)
 
 	id := bufI.PullVrI()
-	println(fmt.Sprintf("packet id: %X", id))
+	println(fmt.Sprintf("spacket id: %X", id))
 	protocolPacketID := protocol.ProtocolPacketID(id)
-	state, err := protocol.IntToState(int(spacketPb.State))
-	println(fmt.Sprintf("conn state: %d", state))
-	if err != nil {
-		return protocol.Unspecified, nil, fmt.Errorf("cannot parse SPacket connection state: %w", err)
-	}
 
-	pacType := protocol.MakeSType(state, protocolPacketID)
-	println(fmt.Sprintf("packet type: %v", pacType))
+	pacType := protocol.MakeSType(connState, protocolPacketID)
+	println(fmt.Sprintf("spacket type: %X", pacType.Value()))
 
 	sPacket, err := d.pacFac.MakeSPacket(pacType)
 	if err != nil {
@@ -90,23 +66,61 @@ func (d *SPacketDispatcher) parseSPacket(lope *envelope.E) (protocol.PacketType,
 }
 
 // DispatchStatePacketHandling parses incoming server bound packet envelopes and dispatches packet handlers.
-func (d *SPacketDispatcher) dispatchPacketHandling(connID uuid.UUID, pactype protocol.PacketType, spacket protocol.SPacket) error {
-	switch pactype {
+func (d *SPacketDispatcher) receiveSPacket(conn Connection, pacType protocol.PacketType, spacket protocol.SPacket) error {
+	transmitter := func(cpacket protocol.CPacket) {
+		conn := conn
+		d.transmitCPacket(conn, cpacket)
+	}
+
+	switch pacType {
 	case protocol.SHandshake:
-		if err := handlers.HandleSHandshake(d.ps, connID, spacket); err != nil {
+		stateSetter := func(state protocol.State) {
+			conn := conn
+			conn.SetState(state)
+			d.log.Debug("changed connstate", zap.String("conn", conn.ID().String()), zap.String("state", state.String()))
+		}
+
+		if err := handlers.HandleSHandshake(stateSetter, spacket); err != nil {
 			return fmt.Errorf("failed to handle handshake packet: %w", err)
 		}
 	case protocol.SPing:
-		if err := handlers.HandleSPing(d.ps, d.pacFac, connID, spacket); err != nil {
+		if err := handlers.HandleSPing(transmitter, d.pacFac, spacket); err != nil {
 			return fmt.Errorf("failed to handle handshake packet: %w", err)
 		}
 	case protocol.SRequest:
-		if err := handlers.HandleSHandshake(d.ps, connID, spacket); err != nil {
+		if err := handlers.HandleSRequest(transmitter, d.pacFac, spacket); err != nil {
 			return fmt.Errorf("failed to handle handshake packet: %w", err)
 		}
 	default:
-		return fmt.Errorf("unhandled packet type: %d", pactype)
+		return fmt.Errorf("unhandled packet type: %d", pacType)
 	}
 
 	return nil
+}
+
+func (d *SPacketDispatcher) transmitCPacket(conn Connection, cpacket protocol.CPacket) {
+	println(fmt.Sprintf("cpacket type: %X", cpacket.Type().Value()))
+
+	bufO := buffer.New()
+	bufO.PushVrI(int32(cpacket.ProtocolID()))
+	cpacket.Push(bufO)
+	if bufO.Len() < 2 {
+		d.log.Error("received CPacket with zero length buffer, cannot send")
+	}
+
+	println("cpacket bytes:", hex.EncodeToString(bufO.UAS()))
+
+	temp := buffer.New()
+	temp.PushVrI(bufO.Len())
+
+	deflated := buffer.New()
+	deflated.PushUAS(conn.Deflate(bufO.UAS()), false)
+	temp.PushUAS(deflated.UAS(), false)
+
+	if _, err := conn.Push(conn.Encrypt(temp.UAS())); err != nil {
+		d.log.Error("Failed to push client bound packet", zap.Error(err))
+		return
+	}
+	d.log.Debug("pushed packet to conn", zap.String("conn", conn.ID().String()),
+		zap.String("type", cpacket.Type().String()))
 }

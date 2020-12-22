@@ -8,16 +8,16 @@ import (
 type State int
 
 const (
-	Shake  State = 0
-	Status State = 1
-	Login  State = 2
-	Play   State = 3
+	Handshake State = 0
+	Status    State = 1
+	Login     State = 2
+	Play      State = 3
 )
 
 func IntToState(s int) (State, error) {
 	state := State(s)
 	var err error
-	if state != Shake && state != Status && state != Login && state != Play {
+	if state != Handshake && state != Status && state != Login && state != Play {
 		err = fmt.Errorf("no state defined for %d", s)
 	}
 	return state, err
@@ -25,8 +25,8 @@ func IntToState(s int) (State, error) {
 
 func (state State) String() string {
 	switch state {
-	case Shake:
-		return "Shake"
+	case Handshake:
+		return "Handshake"
 	case Status:
 		return "Status"
 	case Login:
@@ -40,14 +40,14 @@ func (state State) String() string {
 
 func (state State) Next() State {
 	switch state {
-	case Shake:
+	case Handshake:
 		return Status
 	case Status:
 		return Login
 	case Login:
 		return Play
 	case Play:
-		return Shake
+		return Handshake
 	default:
 		panic(fmt.Errorf("no state for value: %d", state))
 	}

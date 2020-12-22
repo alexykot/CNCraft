@@ -3,61 +3,33 @@ package handlers
 import (
 	"fmt"
 
-	"github.com/google/uuid"
-
-	"github.com/alexykot/cncraft/core/nats/subj"
-	"github.com/alexykot/cncraft/pkg/buffer"
-	"github.com/alexykot/cncraft/pkg/envelope"
-	"github.com/alexykot/cncraft/pkg/envelope/pb"
-	"github.com/alexykot/cncraft/pkg/protocol/status"
-
-	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/pkg/protocol"
+	"github.com/alexykot/cncraft/pkg/protocol/status"
 )
 
 // HandleSPing handles the Ping packet.
-func HandleSPing(ps nats.PubSub, pacFac protocol.PacketFactory, connID uuid.UUID, spacket protocol.SPacket) error {
+func HandleSPing(transmitter func(protocol.CPacket), pacFac protocol.PacketFactory, spacket protocol.SPacket) error {
 	ping, ok := spacket.(*protocol.SPacketPing)
 	if !ok {
 		return fmt.Errorf("received packet is not a ping: %v", spacket)
 	}
 
-	cpacket, _ := pacFac.MakeCPacket(protocol.CPong)
-	pong := cpacket.(*protocol.CPacketPong)
-	pong.Payload = ping.Payload
-
-	buff0 := buffer.New()
-	pong.Push(buff0)
-
-	lope := envelope.CPacket(&pb.CPacket{
-		Bytes: buff0.UAS(),
-	}, nil)
-	if err := ps.Publish(subj.MkConnSend(connID), lope); err != nil {
-		return fmt.Errorf("failed to publish CPong packet: %w", err)
-	}
-
+	cpacket, _ := pacFac.MakeCPacket(protocol.CPong)       // Predefined packet is expected to always exist.
+	cpacket.(*protocol.CPacketPong).Payload = ping.Payload // And always be of the correct type.
+	transmitter(cpacket)
 	return nil
 }
 
 // HandleSPing handles the Ping packet.
-func HandleSRequest(ps nats.PubSub, pacFac protocol.PacketFactory, connID uuid.UUID, spacket protocol.SPacket) error {
+func HandleSRequest(transmitter func(protocol.CPacket), pacFac protocol.PacketFactory, spacket protocol.SPacket) error {
 	_, ok := spacket.(*protocol.SPacketRequest)
 	if !ok {
 		return fmt.Errorf("received packet is not a status request: %v", spacket)
 	}
 
-	cpacket, _ := pacFac.MakeCPacket(protocol.CResponse)
-	statusResponse := cpacket.(*protocol.CPacketResponse)
-	statusResponse.Status = status.DefaultResponse(578)
-
-	buff0 := buffer.New()
-	statusResponse.Push(buff0)
-
-	lope := envelope.CPacket(&pb.CPacket{Bytes: buff0.UAS()}, nil)
-	if err := ps.Publish(subj.MkConnSend(connID), lope); err != nil {
-		return fmt.Errorf("failed to publish CPong packet: %w", err)
-	}
-
+	cpacket, _ := pacFac.MakeCPacket(protocol.CResponse)                     // Predefined packet is expected to always exist.
+	cpacket.(*protocol.CPacketResponse).Status = status.DefaultResponse(578) // And always be of the correct type.
+	transmitter(cpacket)
 	return nil
 }
 

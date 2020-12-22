@@ -11,16 +11,16 @@ import (
 
 // SPacket is server bound packet type.
 type SPacket interface {
-	Type() PacketType
-	// decode the server_data from provided reader into this packet
-	Pull(reader buffer.B) error
+	ProtocolID() ProtocolPacketID // Return protocol ID of the packet.
+	Type() PacketType             // Return globally unique type ID of the packet.
+	Pull(reader buffer.B) error   // decode the server_data from provided reader into this packet
 }
 
 // CPacket is client bound packet type.
 type CPacket interface {
-	Type() PacketType
-	// encode the server_data from this packet into provided writer
-	Push(writer buffer.B)
+	ProtocolID() ProtocolPacketID // Return protocol ID of the packet.
+	Type() PacketType             // Return globally unique type ID of the packet.
+	Push(writer buffer.B)         // encode the server_data from this packet into provided writer
 }
 
 // ProtocolPacketID is the official Type of the packet as per the protocol.
@@ -28,7 +28,7 @@ type ProtocolPacketID int32
 
 // server bound (incoming) packets, protocol definitions
 const (
-	// Shake state packets
+	// Handshake state packets
 	protocolSHandshake ProtocolPacketID = 0x00
 
 	// Status state packets
@@ -57,7 +57,7 @@ const (
 
 // client bound (outgoing) packets
 const (
-	// Shake state packets
+	// Handshake state packets
 	// no client bound handshake packets defined in the protocol
 
 	// Status state packets
@@ -100,17 +100,18 @@ const ClientBound = packetDirection(0xF000)
 //     |-------- server bound packet (1 - server, F - client);
 type PacketType int32
 
+func (i PacketType) Value() int32 { return int32(i) }
+
 const stateShake = 0x0000
 const stateStatus = 0x0100
 const stateLogin = 0x0200
-
 const statePlay = 0x0300
 
 const Unspecified = -0x0001 // packet type unspecified
 
 // server bound (incoming) packets
 const (
-	// Shake state packets
+	// Handshake state packets
 	SHandshake = PacketType(int32(ServerBound) + stateShake + int32(protocolSHandshake)) // 0x1000
 
 	// Status state packets
@@ -139,7 +140,7 @@ const (
 
 // client bound (outgoing) packets
 const (
-	// Shake state packets
+	// Handshake state packets
 	// no client bound handshake packets defined in the protocol
 
 	// Status state packets
@@ -194,7 +195,8 @@ func init() {
 }
 
 func makeType(direction packetDirection, state State, pID ProtocolPacketID) PacketType {
-	return PacketType(int32(direction) + int32(state) + int32(pID))
+	stateInt := int32(state) * 0x100
+	return PacketType(int32(direction) + stateInt + int32(pID))
 }
 
 // MakeSType creates type ID for server bound packets

@@ -19,7 +19,8 @@ type SPacketHandshake struct {
 	NextState State
 }
 
-func (p *SPacketHandshake) Type() PacketType { return SHandshake }
+func (p *SPacketHandshake) ProtocolID() ProtocolPacketID { return protocolSHandshake }
+func (p *SPacketHandshake) Type() PacketType             { return SHandshake }
 func (p *SPacketHandshake) Pull(reader buffer.B) error {
 	var err error
 
@@ -39,7 +40,8 @@ func (p *SPacketHandshake) Pull(reader buffer.B) error {
 // STATUS STATE PACKETS
 type SPacketRequest struct{}
 
-func (p *SPacketRequest) Type() PacketType { return SRequest }
+func (p *SPacketRequest) ProtocolID() ProtocolPacketID { return protocolSRequest }
+func (p *SPacketRequest) Type() PacketType             { return SRequest }
 func (p *SPacketRequest) Pull(reader buffer.B) error {
 	// no fields
 	return nil
@@ -49,7 +51,8 @@ type SPacketPing struct {
 	Payload int64
 }
 
-func (p *SPacketPing) Type() PacketType { return SPing }
+func (p *SPacketPing) ProtocolID() ProtocolPacketID { return protocolSPing }
+func (p *SPacketPing) Type() PacketType             { return SPing }
 func (p *SPacketPing) Pull(reader buffer.B) error {
 	p.Payload = reader.PullI64()
 	return nil // DEBT actually check for errors
@@ -60,7 +63,8 @@ type SPacketLoginStart struct {
 	PlayerName string
 }
 
-func (p *SPacketLoginStart) Type() PacketType { return SLoginStart }
+func (p *SPacketLoginStart) ProtocolID() ProtocolPacketID { return protocolSLoginStart }
+func (p *SPacketLoginStart) Type() PacketType             { return SLoginStart }
 func (p *SPacketLoginStart) Pull(reader buffer.B) error {
 	p.PlayerName = reader.PullTxt()
 	return nil // DEBT actually check for errors
@@ -71,7 +75,8 @@ type SPacketEncryptionResponse struct {
 	Verify []byte
 }
 
-func (p *SPacketEncryptionResponse) Type() PacketType { return SEncryptionResponse }
+func (p *SPacketEncryptionResponse) ProtocolID() ProtocolPacketID { return protocolSEncryptionResponse }
+func (p *SPacketEncryptionResponse) Type() PacketType             { return SEncryptionResponse }
 func (p *SPacketEncryptionResponse) Pull(reader buffer.B) error {
 	p.Secret = reader.PullUAS()
 	p.Verify = reader.PullUAS()
@@ -84,6 +89,9 @@ type SPacketLoginPluginResponse struct {
 	OptData []byte
 }
 
+func (p *SPacketLoginPluginResponse) ProtocolID() ProtocolPacketID {
+	return protocolSLoginPluginResponse
+}
 func (p *SPacketLoginPluginResponse) Type() PacketType { return SLoginPluginResponse }
 func (p *SPacketLoginPluginResponse) Pull(reader buffer.B) error {
 	p.Message = reader.PullVrI()
@@ -97,7 +105,8 @@ type SPacketKeepAlive struct {
 	KeepAliveID int64
 }
 
-func (p *SPacketKeepAlive) Type() PacketType { return SKeepAlive }
+func (p *SPacketKeepAlive) ProtocolID() ProtocolPacketID { return protocolSKeepAlive }
+func (p *SPacketKeepAlive) Type() PacketType             { return SKeepAlive }
 func (p *SPacketKeepAlive) Pull(reader buffer.B) error {
 	p.KeepAliveID = reader.PullI64()
 	return nil // DEBT actually check for errors
@@ -107,7 +116,8 @@ type SPacketChatMessage struct {
 	Message string
 }
 
-func (p *SPacketChatMessage) Type() PacketType { return SChatMessage }
+func (p *SPacketChatMessage) ProtocolID() ProtocolPacketID { return protocolSChatMessage }
+func (p *SPacketChatMessage) Type() PacketType             { return SChatMessage }
 func (p *SPacketChatMessage) Pull(reader buffer.B) error {
 	p.Message = reader.PullTxt()
 	return nil // DEBT actually check for errors
@@ -117,7 +127,8 @@ type SPacketTeleportConfirm struct {
 	TeleportID int32
 }
 
-func (p *SPacketTeleportConfirm) Type() PacketType { return STeleportConfirm }
+func (p *SPacketTeleportConfirm) ProtocolID() ProtocolPacketID { return protocolSTeleportConfirm }
+func (p *SPacketTeleportConfirm) Type() PacketType             { return STeleportConfirm }
 func (p *SPacketTeleportConfirm) Pull(reader buffer.B) error {
 	p.TeleportID = reader.PullVrI()
 	return nil // DEBT actually check for errors
@@ -128,7 +139,8 @@ type SPacketQueryBlockNBT struct {
 	Position      data.PositionI
 }
 
-func (p *SPacketQueryBlockNBT) Type() PacketType { return SQueryBlockNBT }
+func (p *SPacketQueryBlockNBT) ProtocolID() ProtocolPacketID { return protocolSQueryBlockNBT }
+func (p *SPacketQueryBlockNBT) Type() PacketType             { return SQueryBlockNBT }
 func (p *SPacketQueryBlockNBT) Pull(reader buffer.B) error {
 	p.TransactionID = reader.PullVrI()
 	p.Position = reader.PullPos()
@@ -139,7 +151,8 @@ type SPacketSetDifficulty struct {
 	Difficult game.Difficulty
 }
 
-func (p *SPacketSetDifficulty) Type() PacketType { return SSetDifficulty }
+func (p *SPacketSetDifficulty) ProtocolID() ProtocolPacketID { return protocolSSetDifficulty }
+func (p *SPacketSetDifficulty) Type() PacketType             { return SSetDifficulty }
 func (p *SPacketSetDifficulty) Pull(reader buffer.B) error {
 	p.Difficult = game.DifficultyValueOf(reader.PullByt())
 	return nil // DEBT actually check for errors
@@ -170,7 +183,8 @@ type SPacketClientStatus struct {
 	Action player.StatusAction
 }
 
-func (p *SPacketClientStatus) Type() PacketType { return SClientStatus }
+func (p *SPacketClientStatus) ProtocolID() ProtocolPacketID { return protocolSClientStatus }
+func (p *SPacketClientStatus) Type() PacketType             { return SClientStatus }
 func (p *SPacketClientStatus) Pull(reader buffer.B) error {
 	p.Action = player.StatusAction(reader.PullVrI())
 	return nil // DEBT actually check for errors
@@ -185,7 +199,8 @@ type SPacketClientSettings struct {
 	MainHand     player.MainHand
 }
 
-func (p *SPacketClientSettings) Type() PacketType { return SClientSettings }
+func (p *SPacketClientSettings) ProtocolID() ProtocolPacketID { return protocolSClientSettings }
+func (p *SPacketClientSettings) Type() PacketType             { return SClientSettings }
 func (p *SPacketClientSettings) Pull(reader buffer.B) error {
 	p.Locale = reader.PullTxt()
 	p.ViewDistance = reader.PullByt()
@@ -206,7 +221,8 @@ type SPacketPlayerAbilities struct {
 	GroundSpeed float32
 }
 
-func (p *SPacketPlayerAbilities) Type() PacketType { return SPlayerAbilities }
+func (p *SPacketPlayerAbilities) ProtocolID() ProtocolPacketID { return protocolSPlayerAbilities }
+func (p *SPacketPlayerAbilities) Type() PacketType             { return SPlayerAbilities }
 func (p *SPacketPlayerAbilities) Pull(reader buffer.B) error {
 	abilities := player.PlayerAbilities{}
 	abilities.Pull(reader)
@@ -223,7 +239,8 @@ type SPacketPlayerPosition struct {
 	OnGround bool
 }
 
-func (p *SPacketPlayerPosition) Type() PacketType { return SPlayerPosition }
+func (p *SPacketPlayerPosition) ProtocolID() ProtocolPacketID { return protocolSPlayerPosition }
+func (p *SPacketPlayerPosition) Type() PacketType             { return SPlayerPosition }
 func (p *SPacketPlayerPosition) Pull(reader buffer.B) error {
 	p.Position = data.PositionF{
 		X: reader.PullF64(),
@@ -240,7 +257,8 @@ type SPacketPlayerLocation struct {
 	OnGround bool
 }
 
-func (p *SPacketPlayerLocation) Type() PacketType { return SPlayerLocation }
+func (p *SPacketPlayerLocation) ProtocolID() ProtocolPacketID { return protocolSPlayerLocation }
+func (p *SPacketPlayerLocation) Type() PacketType             { return SPlayerLocation }
 func (p *SPacketPlayerLocation) Pull(reader buffer.B) error {
 	p.Location = data.Location{
 		PositionF: data.PositionF{
@@ -263,7 +281,8 @@ type SPacketPlayerRotation struct {
 	OnGround bool
 }
 
-func (p *SPacketPlayerRotation) Type() PacketType { return SPlayerRotation }
+func (p *SPacketPlayerRotation) ProtocolID() ProtocolPacketID { return protocolSPlayerRotation }
+func (p *SPacketPlayerRotation) Type() PacketType             { return SPlayerRotation }
 func (p *SPacketPlayerRotation) Pull(reader buffer.B) error {
 	p.Rotation = data.RotationF{
 		AxisX: reader.PullF32(),
