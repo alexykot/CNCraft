@@ -1,7 +1,6 @@
 package network
 
 import (
-	"encoding/hex"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -43,16 +42,12 @@ func (d *SPacketDispatcher) HandleSPacket(conn Connection, packetBytes []byte) {
 }
 
 func (d *SPacketDispatcher) parseSPacket(connState protocol.State, packetBytes []byte) (protocol.PacketType, protocol.SPacket, error) {
-	println("spacket bytes:", hex.EncodeToString(packetBytes))
-
 	bufI := buffer.NewFrom(packetBytes)
 
 	id := bufI.PullVrI()
-	println(fmt.Sprintf("spacket id: %X", id))
 	protocolPacketID := protocol.ProtocolPacketID(id)
 
 	pacType := protocol.MakeSType(connState, protocolPacketID)
-	println(fmt.Sprintf("spacket type: %X", pacType.Value()))
 
 	sPacket, err := d.pacFac.MakeSPacket(pacType)
 	if err != nil {
@@ -67,10 +62,8 @@ func (d *SPacketDispatcher) parseSPacket(connState protocol.State, packetBytes [
 
 // DispatchStatePacketHandling parses incoming server bound packet envelopes and dispatches packet handlers.
 func (d *SPacketDispatcher) receiveSPacket(conn Connection, pacType protocol.PacketType, spacket protocol.SPacket) error {
-	transmitter := func(cpacket protocol.CPacket) {
-		conn := conn
-		d.transmitCPacket(conn, cpacket)
-	}
+	var err error
+	var cpacket protocol.CPacket
 
 	switch pacType {
 	case protocol.SHandshake:
@@ -80,35 +73,36 @@ func (d *SPacketDispatcher) receiveSPacket(conn Connection, pacType protocol.Pac
 			d.log.Debug("changed connstate", zap.String("conn", conn.ID().String()), zap.String("state", state.String()))
 		}
 
-		if err := handlers.HandleSHandshake(stateSetter, spacket); err != nil {
-			return fmt.Errorf("failed to handle handshake packet: %w", err)
-		}
+		err = handlers.HandleSHandshake(stateSetter, spacket)
 	case protocol.SPing:
-		if err := handlers.HandleSPing(transmitter, d.pacFac, spacket); err != nil {
-			return fmt.Errorf("failed to handle handshake packet: %w", err)
-		}
+		cpacket, err = handlers.HandleSPing(d.pacFac, spacket)
 	case protocol.SRequest:
-		if err := handlers.HandleSRequest(transmitter, d.pacFac, spacket); err != nil {
-			return fmt.Errorf("failed to handle handshake packet: %w", err)
+		if cpacket, err = handlers.HandleSRequest(d.pacFac, spacket); err != nil {
+			return fmt.Errorf("failed to handle SRequest packet: %w", err)
 		}
 	default:
 		return fmt.Errorf("unhandled packet type: %d", pacType)
 	}
 
+	if err != nil {
+		return fmt.Errorf("failed to handle %s packet: %w", pacType.String(), err)
+	}
+	if cpacket != nil {
+		if err := d.transmitCPacket(conn, cpacket); err != nil {
+			return fmt.Errorf("failed to transmit %s packet: %w", cpacket.Type().String(), err)
+		}
+	}
+
 	return nil
 }
 
-func (d *SPacketDispatcher) transmitCPacket(conn Connection, cpacket protocol.CPacket) {
-	println(fmt.Sprintf("cpacket type: %X", cpacket.Type().Value()))
-
+func (d *SPacketDispatcher) transmitCPacket(conn Connection, cpacket protocol.CPacket) error {
 	bufO := buffer.New()
 	bufO.PushVrI(int32(cpacket.ProtocolID()))
 	cpacket.Push(bufO)
 	if bufO.Len() < 2 {
-		d.log.Error("received CPacket with zero length buffer, cannot send")
+		return fmt.Errorf("CPacket buffer is too short")
 	}
-
-	println("cpacket bytes:", hex.EncodeToString(bufO.UAS()))
 
 	temp := buffer.New()
 	temp.PushVrI(bufO.Len())
@@ -118,9 +112,9 @@ func (d *SPacketDispatcher) transmitCPacket(conn Connection, cpacket protocol.CP
 	temp.PushUAS(deflated.UAS(), false)
 
 	if _, err := conn.Push(conn.Encrypt(temp.UAS())); err != nil {
-		d.log.Error("Failed to push client bound packet", zap.Error(err))
-		return
+		return fmt.Errorf("failed to push client bound packet: %w", err)
 	}
 	d.log.Debug("pushed packet to conn", zap.String("conn", conn.ID().String()),
 		zap.String("type", cpacket.Type().String()))
+	return nil
 }
