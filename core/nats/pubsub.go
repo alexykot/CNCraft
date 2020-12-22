@@ -73,6 +73,7 @@ func (ps *pubsub) Start() error {
 		return fmt.Errorf("failed to start NATS client: %w", err)
 	}
 
+	ps.log.Info("pubsub started")
 	return nil
 }
 
@@ -97,7 +98,7 @@ func (ps *pubsub) startServer() error {
 		return errors.New("failed to start NATS server within the timeout")
 	}
 
-	ps.log.Info("started NATS server")
+	ps.log.Debug("started NATS server")
 	return nil
 }
 
@@ -111,7 +112,7 @@ func (ps *pubsub) startClient() error {
 		return fmt.Errorf("failed to connect to NATS server: %w", err)
 	}
 
-	ps.log.Info("connected NATS client")
+	ps.log.Debug("connected NATS client")
 	return nil
 }
 
@@ -126,6 +127,7 @@ func (ps *pubsub) Publish(subject string, lopes ...*envelope.E) error {
 			return fmt.Errorf("failed to publish message: %w", err)
 		}
 	}
+	ps.log.Debug("published into subj", zap.String("subj", subject))
 	return nil
 }
 
@@ -136,6 +138,7 @@ func (ps *pubsub) Subscribe(subject string, handleFunc func(*envelope.E)) error 
 	}
 	ps.subs[subject] = append(ps.subs[subject], sub)
 
+	ps.log.Debug("subscribed to subj", zap.String("subj", subject))
 	return nil
 }
 

@@ -16,8 +16,11 @@ func main() {
 	//  that require server restart, e.g. host:port. Provide other params via the config.
 	server, err := core.NewServer(control.DefaultConfig())
 	if err != nil {
-		println(fmt.Errorf("failed to instantiate the server: %v", err))
+		println(fmt.Errorf("failed to instantiate server: %v", err))
 		return
 	}
-	err = server.Start()
+	if err = server.Start(); err != nil {
+		println(fmt.Errorf("failed to start server: %v", err))
+		return
+	}
 }

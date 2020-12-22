@@ -148,6 +148,7 @@ func (s *connHandler) HandleConnState(envelope *envelope.E) {
 		return
 	}
 	s.conn.SetState(state)
+	s.net.log.Debug("changed connstate", zap.String("conn", s.conn.ID().String()), zap.String("state", state.String()))
 }
 
 func (s *connHandler) HandlePacketSend(lope *envelope.E) {
@@ -157,21 +158,23 @@ func (s *connHandler) HandlePacketSend(lope *envelope.E) {
 		return
 	}
 	bufO := buffer.NewFrom(cpacket.GetBytes())
-
-	if bufO.Len() > 1 {
-		temp := buffer.New()
-		temp.PushVrI(bufO.Len())
-
-		comp := buffer.New()
-		comp.PushUAS(s.conn.Deflate(bufO.UAS()), false)
-		temp.PushUAS(comp.UAS(), false)
-
-		if _, err := s.conn.Push(s.conn.Encrypt(temp.UAS())); err != nil {
-			s.net.log.Error("Failed to push client bound packet", zap.Error(err))
-		} else {
-			s.net.log.Debug("pushed packet to client")
-		}
+	if bufO.Len() < 2 {
+		s.net.log.Error("received CPacket with zero length buffer, cannot send")
+		return
 	}
+
+	temp := buffer.New()
+	temp.PushVrI(bufO.Len())
+
+	comp := buffer.New()
+	comp.PushUAS(s.conn.Deflate(bufO.UAS()), false)
+	temp.PushUAS(comp.UAS(), false)
+
+	if _, err := s.conn.Push(s.conn.Encrypt(temp.UAS())); err != nil {
+		s.net.log.Error("Failed to push client bound packet", zap.Error(err))
+		return
+	}
+	s.net.log.Debug("pushed packet to client", zap.Any("packet", cpacket))
 }
 
 func (s *connHandler) HandlePacketReceive(buffBytes []byte) {
@@ -179,7 +182,10 @@ func (s *connHandler) HandlePacketReceive(buffBytes []byte) {
 		Bytes: buffBytes,
 		State: pb.ConnState(s.conn.GetState()),
 	}, nil)
+
 	if err := s.net.ps.Publish(subj.MkConnReceive(s.conn.ID()), lope); err != nil {
 		s.net.log.Error("failed to publish SPacket message", zap.Error(err))
 	}
+
+	s.net.log.Debug("received packet from client", zap.String("conn", s.conn.ID().String()))
 }

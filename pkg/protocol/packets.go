@@ -199,6 +199,8 @@ func MakeType(direction packetDirection, state State, pID ProtocolPacketID) Pack
 	return PacketType(int32(direction) + int32(state) + int32(pID))
 }
 
+// MakePacketTopic
+// DEPRECATED
 func MakePacketTopic(id PacketType) string {
 	return "packet." + id.String()
 }

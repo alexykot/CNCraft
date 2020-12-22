@@ -12,7 +12,6 @@ import (
 
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
-	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/core/network"
 	"github.com/alexykot/cncraft/core/state"
 	"github.com/alexykot/cncraft/core/users"
@@ -82,9 +81,10 @@ func (s *server) Start() error {
 			s.log.Error("failed to start the server", zap.Error(err))
 			s.control <- control.Command{Signal: control.FAIL, Message: err.Error()}
 		}
+		s.log.Info("server started")
 	}()
-	s.startControlLoop()
 
+	s.startControlLoop()
 	return nil
 }
 
@@ -148,12 +148,12 @@ func (s *server) startServer() error {
 		return fmt.Errorf("failed to start nats: %w", err)
 	}
 
-	if err := s.network.Start(); err != nil {
-		return fmt.Errorf("failed to start network: %w", err)
+	if err := s.dispatcher.Register(); err != nil {
+		return fmt.Errorf("failed register dispatcher: %w", err)
 	}
 
-	if err := s.registerGlobalHandlers(); err != nil {
-		return fmt.Errorf("failed register state0 handlers: %w", err)
+	if err := s.network.Start(); err != nil {
+		return fmt.Errorf("failed to start network: %w", err)
 	}
 
 	return nil
@@ -233,11 +233,4 @@ func (s *server) startControlLoop() {
 		}
 		return
 	}
-}
-
-func (s *server) registerGlobalHandlers() error {
-	if err := s.ps.Subscribe(subj.MkNewConn(), s.dispatcher.HandleNewConnection); err != nil {
-		return fmt.Errorf("failed to subscribe to new connections: %w", err)
-	}
-	return nil
 }

@@ -13,28 +13,6 @@ type E struct {
 	pb.Envelope
 }
 
-func NewWithHandshake(hs *pb.Handshake, meta map[string]string) *E {
-	return &E{
-		Envelope: pb.Envelope{
-			Meta:    meta,
-			Message: &pb.Envelope_Handshake{Handshake: hs},
-		},
-	}
-}
-
-func NewWithSPacket(spacket *pb.SPacket, meta map[string]string) *E {
-	return &E{
-		Envelope: pb.Envelope{
-			Meta:    meta,
-			Message: &pb.Envelope_Spacket{Spacket: spacket},
-		},
-	}
-}
-
-func NewEmpty() *E {
-	return &E{}
-}
-
 func (e *E) GetMetaMap() map[string]string { return e.GetMeta() }
 func (e *E) GetMetaKey(key string) (string, bool) {
 	meta := e.GetMeta()
