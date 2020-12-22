@@ -37,8 +37,7 @@ func (p *SPacketHandshake) Pull(reader buffer.B) error {
 }
 
 // STATUS STATE PACKETS
-type SPacketRequest struct {
-}
+type SPacketRequest struct {}
 
 func (p *SPacketRequest) Type() PacketType { return SRequest }
 func (p *SPacketRequest) Pull(reader buffer.B) error {
@@ -47,12 +46,12 @@ func (p *SPacketRequest) Pull(reader buffer.B) error {
 }
 
 type SPacketPing struct {
-	Ping int64
+	Payload int64
 }
 
 func (p *SPacketPing) Type() PacketType { return SPing }
 func (p *SPacketPing) Pull(reader buffer.B) error {
-	p.Ping = reader.PullI64()
+	p.Payload = reader.PullI64()
 	return nil // DEBT actually check for errors
 }
 

@@ -156,7 +156,7 @@ func (ps *pubsub) Unsubscribe(subject string) {
 
 func (ps *pubsub) makeHandler(handleFunc func(*envelope.E)) natsc.MsgHandler {
 	return func(msg *natsc.Msg) {
-		lope := envelope.NewEmpty()
+		lope := envelope.Empty()
 		if err := lope.Unmarshal(msg.Data); err != nil {
 			ps.log.Error("failed to unmarshal incoming message data", zap.Error(err))
 		}

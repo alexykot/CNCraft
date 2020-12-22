@@ -13,20 +13,16 @@ enum ConnState {
     PLAY = 3;
 }
 
-
 message Envelope {
     map<string, string> meta = 1;
 
     oneof message {
-        Handshake handshake = 2;
-        CPacket cpacket = 3;
-        SPacket spacket = 4;
-        NewConnection new_conn = 5;
-        SetConnState conn_state = 6;
+        CPacket cpacket = 2;
+        SPacket spacket = 3;
+        NewConnection new_conn = 4;
+        SetConnState conn_state = 5;
     }
 }
-
-message Handshake {}
 
 message CPacket {
     bytes bytes = 1;

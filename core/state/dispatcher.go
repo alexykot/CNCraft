@@ -16,11 +16,11 @@ import (
 
 type SPacketDispatcher struct {
 	log    *zap.Logger
-	pacFac PacketFactory
+	pacFac protocol.PacketFactory
 	ps     nats.PubSub
 }
 
-func NewDispatcher(log *zap.Logger, pacfac PacketFactory, ps nats.PubSub) *SPacketDispatcher {
+func NewDispatcher(log *zap.Logger, pacfac protocol.PacketFactory, ps nats.PubSub) *SPacketDispatcher {
 	return &SPacketDispatcher{
 		log:    log,
 		pacFac: pacfac,
@@ -49,7 +49,7 @@ func (d *SPacketDispatcher) parseSPacket(lope *envelope.E) (protocol.PacketType,
 		return protocol.Unspecified, nil, fmt.Errorf("cannot parse SPacket connection state: %w", err)
 	}
 
-	pacType := protocol.MakeType(protocol.ServerBound, state, protocolPacketID)
+	pacType := protocol.MakeSType(state, protocolPacketID)
 	bufI.Len()
 
 	sPacket, err := d.pacFac.MakeSPacket(pacType)
@@ -64,16 +64,14 @@ func (d *SPacketDispatcher) parseSPacket(lope *envelope.E) (protocol.PacketType,
 }
 
 func (d *SPacketDispatcher) HandleNewConnection(lope *envelope.E) {
-	d.log.Debug("handling new connection", zap.Any("envelope", lope))
-
 	newConn := lope.GetNewConn()
 	if newConn == nil {
-		d.log.Error("cannot handle new connection: there is no NewConn in the envelope", zap.Any("envelope", lope))
+		d.log.Error("cannot handle new connection - there is no NewConn in the envelope", zap.Any("envelope", lope))
 		return
 	}
 	connId, err := uuid.Parse(newConn.Id)
 	if err != nil {
-		d.log.Error("cannot handle new connection: cannot parse connection ID", zap.Error(err))
+		d.log.Error("cannot handle new connection - cannot parse connection ID", zap.Error(err))
 		return
 	}
 
@@ -82,26 +80,35 @@ func (d *SPacketDispatcher) HandleNewConnection(lope *envelope.E) {
 		log := d.log.With(zap.String("connId", connId.String()))
 		pacType, sPacket, err := d.parseSPacket(lope)
 		if err != nil {
-			log.Error("cannot handle new packet: cannot parse connection ID", zap.Error(err))
+			log.Error("cannot handle new packet - could not parse spacket", zap.Error(err))
 			return
 		}
 		if err = d.dispatchPacketHandling(connId, pacType, sPacket); err != nil {
-			log.Error("cannot handle new packet: failed to dispatch handling", zap.Error(err))
+			log.Error("cannot handle new packet - failed to dispatch handling", zap.Error(err))
 			return
 		}
-		log.Debug("handled incoming packet", zap.Int("type", int(pacType)), zap.Any("packet", sPacket))
+		log.Debug("handled incoming packet", zap.String("type", pacType.String()), zap.Any("data", sPacket))
 	}
 
 	if err = d.ps.Subscribe(subj.MkConnReceive(connId), handler); err != nil {
 		d.log.Error("cannot handle new connection: cannot subscribe to connection receive subject", zap.Error(err))
 		return
 	}
+	d.log.Debug("handled new connection", zap.Any("ID", newConn.Id))
 }
 
 // DispatchStatePacketHandling parses incoming server bound packet envelopes and dispatches packet handlers.
 func (d *SPacketDispatcher) dispatchPacketHandling(connID uuid.UUID, pactype protocol.PacketType, spacket protocol.SPacket) error {
 	switch pactype {
 	case protocol.SHandshake:
+		if err := handlers.HandleSHandshake(d.ps, connID, spacket); err != nil {
+			return fmt.Errorf("failed to handle handshake packet: %w", err)
+		}
+	case protocol.SPing:
+		if err := handlers.HandleSPing(d.ps, d.pacFac, connID, spacket); err != nil {
+			return fmt.Errorf("failed to handle handshake packet: %w", err)
+		}
+	case protocol.SRequest:
 		if err := handlers.HandleSHandshake(d.ps, connID, spacket); err != nil {
 			return fmt.Errorf("failed to handle handshake packet: %w", err)
 		}

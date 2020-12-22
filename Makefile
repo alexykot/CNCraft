@@ -18,4 +18,5 @@ run:
 
 gen:
 	@./proto/gen.sh
+	@go generate ./...
 

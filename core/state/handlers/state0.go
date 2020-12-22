@@ -5,12 +5,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/envelope/pb"
 	"github.com/alexykot/cncraft/pkg/protocol"
-
-	"github.com/alexykot/cncraft/core/nats"
 )
 
 // HandleSHandshake handles the Handshake packet.
@@ -20,12 +19,19 @@ func HandleSHandshake(ps nats.PubSub, connID uuid.UUID, spacket protocol.SPacket
 		return fmt.Errorf("received packet is not a handshake: %v", spacket)
 	}
 
-	nextState := pb.ConnState_LOGIN
-	if packet.NextState == protocol.Status {
+	var nextState pb.ConnState
+	switch packet.NextState {
+	case protocol.Shake:
+		nextState = pb.ConnState_HANDSHAKE
+	case protocol.Status:
 		nextState = pb.ConnState_STATUS
+	case protocol.Login:
+		nextState = pb.ConnState_LOGIN
+	default:
+		return fmt.Errorf("unexpected next state received: %d", packet.NextState)
 	}
 
-	lope := envelope.NewWithConnState(&pb.SetConnState{State: nextState}, nil)
+	lope := envelope.ConnState(&pb.SetConnState{State: nextState}, nil)
 	if err := ps.Publish(subj.MkConnStateChange(connID), lope); err != nil {
 		return fmt.Errorf("failed to publish connstate change: %w", err)
 	}

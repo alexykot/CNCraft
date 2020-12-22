@@ -34,7 +34,7 @@ func RegisterHandlersState2(ps nats.PubSub, logger *zap.Logger) {
 	//		}
 	//
 	//		ps.Publish(protocol.MakePacketTopic(protocol.CPong),
-	//			nats.NewEnvelope(protocol.CPacketPong{Ping: packet.Ping}, envelopeIn.GetMetaMap()))
+	//			nats.NewEnvelope(protocol.CPacketPong{Payload: packet.Payload}, envelopeIn.GetMetaMap()))
 	//	})
 	//}
 

@@ -91,24 +91,34 @@ func (n *Network) handleNewConnection(conn Connection) {
 	n.log.Debug("new connection", zap.Any("address", conn.Address().String()))
 
 	handler := &connHandler{conn: conn, net: n}
-
 	if err := n.ps.Subscribe(subj.MkConnSend(conn.ID()), handler.HandlePacketSend); err != nil {
 		n.log.Error("failed to subscribe to conn.send subject", zap.Error(err), zap.Any("conn", conn))
 		if err = conn.Close(); err != nil {
 			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
 		}
+		return
 	}
 	if err := n.ps.Subscribe(subj.MkConnStateChange(conn.ID()), handler.HandleConnState); err != nil {
 		n.log.Error("failed to subscribe to conn.state subject", zap.Error(err), zap.Any("conn", conn))
 		if err = conn.Close(); err != nil {
 			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
 		}
+		return
+	}
+
+	if err := n.ps.Publish(subj.MkNewConn(), envelope.NewConn(&pb.NewConnection{Id: conn.ID().String()}, nil)); err != nil {
+		n.log.Error("failed to publish conn.new message", zap.Error(err), zap.Any("conn", conn))
+		if err = conn.Close(); err != nil {
+			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
+		}
+		return
 	}
 
 	var inf []byte
 	for {
 		inf = make([]byte, 1024)
 		size, err := conn.Pull(inf)
+		n.log.Sugar().Debugf("received %d bytes from connection", size)
 
 		if err != nil && err.Error() == "EOF" {
 			// TODO broadcast player leaving
@@ -166,9 +176,9 @@ func (s *connHandler) HandlePacketSend(lope *envelope.E) {
 	temp := buffer.New()
 	temp.PushVrI(bufO.Len())
 
-	comp := buffer.New()
-	comp.PushUAS(s.conn.Deflate(bufO.UAS()), false)
-	temp.PushUAS(comp.UAS(), false)
+	deflated := buffer.New()
+	deflated.PushUAS(s.conn.Deflate(bufO.UAS()), false)
+	temp.PushUAS(deflated.UAS(), false)
 
 	if _, err := s.conn.Push(s.conn.Encrypt(temp.UAS())); err != nil {
 		s.net.log.Error("Failed to push client bound packet", zap.Error(err))
@@ -178,7 +188,7 @@ func (s *connHandler) HandlePacketSend(lope *envelope.E) {
 }
 
 func (s *connHandler) HandlePacketReceive(buffBytes []byte) {
-	lope := envelope.NewWithSPacket(&pb.SPacket{
+	lope := envelope.SPacket(&pb.SPacket{
 		Bytes: buffBytes,
 		State: pb.ConnState(s.conn.GetState()),
 	}, nil)

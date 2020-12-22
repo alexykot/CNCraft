@@ -16,6 +16,7 @@ import (
 	"github.com/alexykot/cncraft/core/state"
 	"github.com/alexykot/cncraft/core/users"
 	"github.com/alexykot/cncraft/pkg/log"
+	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
 type Server interface {
@@ -58,7 +59,6 @@ func NewServer(conf control.ServerConf) (Server, error) {
 	}
 
 	controlChan := make(chan control.Command)
-	packetFactory := state.NewPacketFactory()
 	pubSub := nats.NewPubSub(logger.Named("pubsub"), nats.NewNats(), controlChan)
 
 	return &server{
@@ -66,15 +66,12 @@ func NewServer(conf control.ServerConf) (Server, error) {
 		ps:         pubSub,
 		control:    controlChan,
 		signal:     make(chan os.Signal),
-		dispatcher: state.NewDispatcher(logger.Named("dispatcher"), packetFactory, pubSub),
-
+		dispatcher: state.NewDispatcher(logger.Named("dispatcher"), protocol.NewPacketFactory(), pubSub),
 		network: network.NewNetwork(conf.Network, logger.Named("network"), controlChan, pubSub),
-
 		users: make(map[uuid.UUID]users.User),
 	}, nil
 }
 
-// ==== State ====
 func (s *server) Start() error {
 	go func() {
 		if err := s.startServer(); err != nil {

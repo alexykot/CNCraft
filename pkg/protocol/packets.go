@@ -1,4 +1,4 @@
-//go:generate stringer -type=PacketID packets.go
+//go:generate stringer -type=PacketType packets.go
 
 // Package protocol defines the packets used in the Minecraft wire protocol.
 // Currently supported protocol version is v578, for Minecraft 1.15.2.
@@ -8,6 +8,20 @@ package protocol
 import (
 	"github.com/alexykot/cncraft/pkg/buffer"
 )
+
+// SPacket is server bound packet type.
+type SPacket interface {
+	Type() PacketType
+	// decode the server_data from provided reader into this packet
+	Pull(reader buffer.B) error
+}
+
+// CPacket is client bound packet type.
+type CPacket interface {
+	Type() PacketType
+	// encode the server_data from this packet into provided writer
+	Push(writer buffer.B)
+}
 
 // ProtocolPacketID is the official Type of the packet as per the protocol.
 type ProtocolPacketID int32
@@ -73,8 +87,8 @@ const (
 )
 
 type packetDirection int32
-
 const ServerBound = packetDirection(0x1000)
+
 const ClientBound = packetDirection(0xF000)
 
 // PacketType combines direction (1 - server, 2 - client), state Type and the actual protocol Type to make a globally unique PacketType.
@@ -84,10 +98,10 @@ const ClientBound = packetDirection(0xF000)
 //     | |------ connection state, 1 for Status state;
 //     |-------- server bound packet (1 - server, F - client);
 type PacketType int32
-
 const stateShake = 0x0000
 const stateStatus = 0x0100
 const stateLogin = 0x0200
+
 const statePlay = 0x0300
 
 const Unspecified = -0x0001 // packet type unspecified
@@ -177,30 +191,16 @@ func init() {
 	}
 }
 
-type Packet interface {
-	Type() PacketType
-}
-
-type SPacket interface {
-	Packet
-
-	// decode the server_data from provided reader into this packet
-	Pull(reader buffer.B) error
-}
-
-type CPacket interface {
-	Packet
-
-	// encode the server_data from this packet into provided writer
-	Push(writer buffer.B)
-}
-
-func MakeType(direction packetDirection, state State, pID ProtocolPacketID) PacketType {
+func makeType(direction packetDirection, state State, pID ProtocolPacketID) PacketType {
 	return PacketType(int32(direction) + int32(state) + int32(pID))
 }
 
-// MakePacketTopic
-// DEPRECATED
-func MakePacketTopic(id PacketType) string {
-	return "packet." + id.String()
+// MakeSType creates type ID for server bound packets
+func MakeSType(state State, pID ProtocolPacketID) PacketType {
+	return makeType(ServerBound, state, pID)
+}
+
+// MakeCType creates type ID for client bound packets
+func MakeCType(state State, pID ProtocolPacketID) PacketType {
+	return makeType(ClientBound, state, pID)
 }

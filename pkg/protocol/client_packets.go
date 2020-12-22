@@ -31,12 +31,12 @@ func (p *CPacketResponse) Push(writer buffer.B) {
 }
 
 type CPacketPong struct {
-	Ping int64
+	Payload int64
 }
 
 func (p *CPacketPong) Type() PacketType { return CPong }
 func (p *CPacketPong) Push(writer buffer.B) {
-	writer.PushI64(p.Ping)
+	writer.PushI64(p.Payload)
 }
 
 // LOGIN STATE PACKETS
