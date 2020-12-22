@@ -1,19 +1,21 @@
-package state
+package network
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/alexykot/cncraft/core/handlers"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
-	"github.com/alexykot/cncraft/core/state/handlers"
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
+// SPacketDispatcher parses and dispatches processing for incoming server bound protocol packets.
 type SPacketDispatcher struct {
 	log    *zap.Logger
 	pacFac protocol.PacketFactory
@@ -28,57 +30,12 @@ func NewDispatcher(log *zap.Logger, pacfac protocol.PacketFactory, ps nats.PubSu
 	}
 }
 
-func (d *SPacketDispatcher) Register() error {
-	if err := d.ps.Subscribe(subj.MkNewConn(), d.HandleNewConnection); err != nil {
-		return fmt.Errorf("failed to subscribe to new connections: %w", err)
-	}
-	d.log.Info("dispatcher handlers registered")
-	return nil
-}
-
-func (d *SPacketDispatcher) parseSPacket(lope *envelope.E) (protocol.PacketType, protocol.SPacket, error) {
-	spacketPb := lope.GetSpacket()
-	if spacketPb == nil {
-		return protocol.Unspecified, nil, fmt.Errorf("cannot parse SPacket: there is no SPacket in the envelope %v", lope)
-	}
-
-	bufI := buffer.NewFrom(spacketPb.Bytes)
-	protocolPacketID := protocol.ProtocolPacketID(bufI.PullVrI())
-	state, err := protocol.IntToState(int(spacketPb.State))
-	if err != nil {
-		return protocol.Unspecified, nil, fmt.Errorf("cannot parse SPacket connection state: %w", err)
-	}
-
-	pacType := protocol.MakeSType(state, protocolPacketID)
-	bufI.Len()
-
-	sPacket, err := d.pacFac.MakeSPacket(pacType)
-	if err != nil {
-		return protocol.Unspecified, nil, fmt.Errorf("cannot make SPacket: %w", err)
-	}
-
-	if err := sPacket.Pull(bufI); err != nil {
-		return protocol.Unspecified, nil, fmt.Errorf("cannot pasrse buffer into SPacket `%d`: %w", pacType, err)
-	}
-	return pacType, sPacket, nil
-}
-
-func (d *SPacketDispatcher) HandleNewConnection(lope *envelope.E) {
-	newConn := lope.GetNewConn()
-	if newConn == nil {
-		d.log.Error("cannot handle new connection - there is no NewConn in the envelope", zap.Any("envelope", lope))
-		return
-	}
-	connId, err := uuid.Parse(newConn.Id)
-	if err != nil {
-		d.log.Error("cannot handle new connection - cannot parse connection ID", zap.Error(err))
-		return
-	}
-
+func (d *SPacketDispatcher) RegisterNewConnection(connId uuid.UUID) {
 	handler := func(lope *envelope.E) {
 		connId := connId
 		log := d.log.With(zap.String("connId", connId.String()))
 		pacType, sPacket, err := d.parseSPacket(lope)
+
 		if err != nil {
 			log.Error("cannot handle new packet - could not parse spacket", zap.Error(err))
 			return
@@ -90,11 +47,46 @@ func (d *SPacketDispatcher) HandleNewConnection(lope *envelope.E) {
 		log.Debug("handled incoming packet", zap.String("type", pacType.String()), zap.Any("data", sPacket))
 	}
 
-	if err = d.ps.Subscribe(subj.MkConnReceive(connId), handler); err != nil {
+	if err := d.ps.Subscribe(subj.MkConnReceive(connId), handler); err != nil {
 		d.log.Error("cannot handle new connection: cannot subscribe to connection receive subject", zap.Error(err))
 		return
 	}
-	d.log.Debug("handled new connection", zap.Any("ID", newConn.Id))
+	d.log.Debug("handled new connection", zap.Any("ID", connId))
+}
+
+func (d *SPacketDispatcher) parseSPacket(lope *envelope.E) (protocol.PacketType, protocol.SPacket, error) {
+
+	println("parsing packet")
+
+	spacketPb := lope.GetSpacket()
+	if spacketPb == nil {
+		return protocol.Unspecified, nil, fmt.Errorf("cannot parse SPacket: there is no SPacket in the envelope %v", lope)
+	}
+	println("packet bytes:", hex.EncodeToString(spacketPb.Bytes))
+
+	bufI := buffer.NewFrom(spacketPb.Bytes)
+
+	id := bufI.PullVrI()
+	println(fmt.Sprintf("packet id: %X", id))
+	protocolPacketID := protocol.ProtocolPacketID(id)
+	state, err := protocol.IntToState(int(spacketPb.State))
+	println(fmt.Sprintf("conn state: %d", state))
+	if err != nil {
+		return protocol.Unspecified, nil, fmt.Errorf("cannot parse SPacket connection state: %w", err)
+	}
+
+	pacType := protocol.MakeSType(state, protocolPacketID)
+	println(fmt.Sprintf("packet type: %v", pacType))
+
+	sPacket, err := d.pacFac.MakeSPacket(pacType)
+	if err != nil {
+		return protocol.Unspecified, nil, fmt.Errorf("cannot make SPacket: %w", err)
+	}
+
+	if err := sPacket.Pull(bufI); err != nil {
+		return protocol.Unspecified, nil, fmt.Errorf("cannot pasrse buffer into SPacket `%d`: %w", pacType, err)
+	}
+	return pacType, sPacket, nil
 }
 
 // DispatchStatePacketHandling parses incoming server bound packet envelopes and dispatches packet handlers.

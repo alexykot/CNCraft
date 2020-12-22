@@ -87,6 +87,7 @@ const (
 )
 
 type packetDirection int32
+
 const ServerBound = packetDirection(0x1000)
 
 const ClientBound = packetDirection(0xF000)
@@ -98,6 +99,7 @@ const ClientBound = packetDirection(0xF000)
 //     | |------ connection state, 1 for Status state;
 //     |-------- server bound packet (1 - server, F - client);
 type PacketType int32
+
 const stateShake = 0x0000
 const stateStatus = 0x0100
 const stateLogin = 0x0200

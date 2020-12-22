@@ -23,6 +23,10 @@ func GetLogger(level string) (*zap.Logger, error) {
 	var logConf zap.Config
 	if terminal.IsTerminal(int(os.Stdout.Fd())) {
 		logConf = zap.NewDevelopmentConfig()
+
+		logConf.EncoderConfig.TimeKey = ""
+		logConf.EncoderConfig.NameKey = ""
+		logConf.EncoderConfig.CallerKey = ""
 		logConf.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	} else {
 		logConf = zapdriver.NewProductionConfig()

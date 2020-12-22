@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"fmt"
+
+	"github.com/google/uuid"
+
 	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/envelope/pb"
 	"github.com/alexykot/cncraft/pkg/protocol/status"
-	"github.com/google/uuid"
 
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/pkg/protocol"

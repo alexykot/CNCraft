@@ -37,7 +37,7 @@ func (p *SPacketHandshake) Pull(reader buffer.B) error {
 }
 
 // STATUS STATE PACKETS
-type SPacketRequest struct {}
+type SPacketRequest struct{}
 
 func (p *SPacketRequest) Type() PacketType { return SRequest }
 func (p *SPacketRequest) Pull(reader buffer.B) error {

@@ -1,6 +1,7 @@
 package network
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net"
 	"strconv"
@@ -22,19 +23,22 @@ type Network struct {
 	host string
 	port int
 
+	dispatcher *SPacketDispatcher
+
 	log *zap.Logger
 
 	ps      nats.PubSub
 	control chan control.Command
 }
 
-func NewNetwork(conf control.NetworkConf, log *zap.Logger, report chan control.Command, bus nats.PubSub) *Network {
+func NewNetwork(conf control.NetworkConf, log *zap.Logger, report chan control.Command, bus nats.PubSub, disp *SPacketDispatcher) *Network {
 	return &Network{
-		host:    conf.Host,
-		port:    conf.Port,
-		control: report,
-		log:     log,
-		ps:      bus,
+		host:       conf.Host,
+		port:       conf.Port,
+		dispatcher: disp,
+		control:    report,
+		log:        log,
+		ps:         bus,
 	}
 }
 
@@ -106,13 +110,18 @@ func (n *Network) handleNewConnection(conn Connection) {
 		return
 	}
 
-	if err := n.ps.Publish(subj.MkNewConn(), envelope.NewConn(&pb.NewConnection{Id: conn.ID().String()}, nil)); err != nil {
-		n.log.Error("failed to publish conn.new message", zap.Error(err), zap.Any("conn", conn))
-		if err = conn.Close(); err != nil {
-			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
-		}
-		return
-	}
+	// DEBT This subj us not used atm, may be still useful later, or to delete if turns out to be not useful.
+	//if err := n.ps.Publish(subj.MkNewConn(), envelope.NewConn(&pb.NewConnection{Id: conn.ID().String()}, nil)); err != nil {
+	//	n.log.Error("failed to publish conn.new message", zap.Error(err), zap.Any("conn", conn))
+	//	if err = conn.Close(); err != nil {
+	//		n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
+	//	}
+	//	return
+	//}
+
+	// Register packet receiving subscription
+	// make sure we subscribe to receive incoming packets before pulling incoming bytes from connection
+	n.dispatcher.RegisterNewConnection(conn.ID())
 
 	var inf []byte
 	for {
@@ -188,6 +197,7 @@ func (s *connHandler) HandlePacketSend(lope *envelope.E) {
 }
 
 func (s *connHandler) HandlePacketReceive(buffBytes []byte) {
+	println("received bytes:", hex.EncodeToString(buffBytes))
 	lope := envelope.SPacket(&pb.SPacket{
 		Bytes: buffBytes,
 		State: pb.ConnState(s.conn.GetState()),

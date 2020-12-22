@@ -13,7 +13,6 @@ import (
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/network"
-	"github.com/alexykot/cncraft/core/state"
 	"github.com/alexykot/cncraft/core/users"
 	"github.com/alexykot/cncraft/pkg/log"
 	"github.com/alexykot/cncraft/pkg/protocol"
@@ -43,7 +42,7 @@ type server struct {
 	control chan control.Command
 	signal  chan os.Signal
 
-	dispatcher *state.SPacketDispatcher
+	dispatcher *network.SPacketDispatcher
 
 	//chat    // chat implementation needed
 	network *network.Network
@@ -60,15 +59,15 @@ func NewServer(conf control.ServerConf) (Server, error) {
 
 	controlChan := make(chan control.Command)
 	pubSub := nats.NewPubSub(logger.Named("pubsub"), nats.NewNats(), controlChan)
+	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), protocol.NewPacketFactory(), pubSub)
 
 	return &server{
-		log:        logger.Named("core"),
-		ps:         pubSub,
-		control:    controlChan,
-		signal:     make(chan os.Signal),
-		dispatcher: state.NewDispatcher(logger.Named("dispatcher"), protocol.NewPacketFactory(), pubSub),
-		network: network.NewNetwork(conf.Network, logger.Named("network"), controlChan, pubSub),
-		users: make(map[uuid.UUID]users.User),
+		log:     logger.Named("core"),
+		ps:      pubSub,
+		control: controlChan,
+		signal:  make(chan os.Signal),
+		network: network.NewNetwork(conf.Network, logger.Named("network"), controlChan, pubSub, dispatcher),
+		users:   make(map[uuid.UUID]users.User),
 	}, nil
 }
 
@@ -143,10 +142,6 @@ func (s *server) stopServer(after time.Duration) {
 func (s *server) startServer() error {
 	if err := s.ps.Start(); err != nil {
 		return fmt.Errorf("failed to start nats: %w", err)
-	}
-
-	if err := s.dispatcher.Register(); err != nil {
-		return fmt.Errorf("failed register dispatcher: %w", err)
 	}
 
 	if err := s.network.Start(); err != nil {

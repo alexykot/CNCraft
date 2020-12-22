@@ -31,9 +31,6 @@ package main
 
 import (
 	"fmt"
-	natsd "github.com/nats-io/nats-server/server"
-	"github.com/nats-io/nats.go"
-	"github.com/spf13/cobra"
 	"log"
 	"os"
 	"os/signal"
@@ -41,6 +38,10 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	natsd "github.com/nats-io/nats-server/server"
+	"github.com/nats-io/nats.go"
+	"github.com/spf13/cobra"
 )
 
 var nc *nats.Conn
@@ -77,7 +78,7 @@ func startServer() {
 		server.Start()
 	}()
 
-	if ok := server.ReadyForConnections(time.Second*3); !ok {
+	if ok := server.ReadyForConnections(time.Second * 3); !ok {
 		panic("failed to start NATS server within the timeout")
 	}
 	println("started NATS server")
@@ -116,9 +117,9 @@ func registerNatsVerbs(cmd *cobra.Command) {
 			var messageNumber int64
 			for {
 				select {
-					case <-interrupt:
-						log.Println("all stopped")
-						return nil
+				case <-interrupt:
+					log.Println("all stopped")
+					return nil
 				default:
 					<-time.After(1 * time.Second)
 					message := strconv.Itoa(int(messageNumber)) + " - " + time.Now().Format(time.Stamp)
