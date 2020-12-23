@@ -60,13 +60,13 @@ func (p *SPacketPing) Pull(reader buffer.B) error {
 
 // LOGIN STATE PACKETS
 type SPacketLoginStart struct {
-	PlayerName string
+	Username string
 }
 
 func (p *SPacketLoginStart) ProtocolID() ProtocolPacketID { return protocolSLoginStart }
 func (p *SPacketLoginStart) Type() PacketType             { return SLoginStart }
 func (p *SPacketLoginStart) Pull(reader buffer.B) error {
-	p.PlayerName = reader.PullTxt()
+	p.Username = reader.PullTxt()
 	return nil // DEBT actually check for errors
 }
 

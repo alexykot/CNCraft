@@ -26,7 +26,7 @@ func HandleSRequest(pacFac protocol.PacketFactory, spacket protocol.SPacket) (pr
 		return nil, fmt.Errorf("received packet is not a status request: %v", spacket)
 	}
 
-	cpacket, _ := pacFac.MakeCPacket(protocol.CResponse)                     // Predefined packet is expected to always exist.
-	cpacket.(*protocol.CPacketResponse).Status = status.DefaultResponse(578) // And always be of the correct type.
+	cpacket, _ := pacFac.MakeCPacket(protocol.CResponse)                                  // Predefined packet is expected to always exist.
+	cpacket.(*protocol.CPacketResponse).Status = status.DefaultResponse(protocol.Version) // And always be of the correct type.
 	return cpacket, nil
 }

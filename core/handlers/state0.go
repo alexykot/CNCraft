@@ -3,8 +3,15 @@ package handlers
 import (
 	"fmt"
 
+	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
+
+var currentConf control.ServerConf
+
+func RegisterConf(serverConfig control.ServerConf) {
+	currentConf = serverConfig
+}
 
 // HandleSHandshake handles the Handshake packet.
 func HandleSHandshake(stateSetter func(state protocol.State), spacket protocol.SPacket) error {

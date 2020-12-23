@@ -1,7 +1,6 @@
 package network
 
 import (
-	"encoding/hex"
 	"fmt"
 	"net"
 	"strconv"
@@ -11,16 +10,13 @@ import (
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/pkg/buffer"
-	"github.com/alexykot/cncraft/pkg/protocol"
 )
-
-const CurrentProtocol = protocol.MC1_15_2
 
 type Network struct {
 	host string
 	port int
 
-	dispatcher *SPacketDispatcher
+	dispatcher *DispatcherTransmitter
 
 	log *zap.Logger
 
@@ -28,7 +24,7 @@ type Network struct {
 	control chan control.Command
 }
 
-func NewNetwork(conf control.NetworkConf, log *zap.Logger, report chan control.Command, bus nats.PubSub, disp *SPacketDispatcher) *Network {
+func NewNetwork(conf control.NetworkConf, log *zap.Logger, report chan control.Command, bus nats.PubSub, disp *DispatcherTransmitter) *Network {
 	return &Network{
 		host:       conf.Host,
 		port:       conf.Port,
@@ -91,14 +87,13 @@ func (n *Network) startListening() error {
 func (n *Network) handleNewConnection(conn Connection) {
 	n.log.Debug("new connection", zap.Any("address", conn.Address().String()))
 
-	// kept to reuse when we'll get to Play state
-	//if err := n.ps.Publish(subj.MkNewConn(), envelope.NewConn(&pb.NewConnection{Id: conn.ID().String()}, nil)); err != nil {
-	//	n.log.Error("failed to publish conn.new message", zap.Error(err), zap.Any("conn", conn))
-	//	if err = conn.Close(); err != nil {
-	//		n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
-	//	}
-	//	return
-	//}
+	if err := n.dispatcher.RegisterConnHandlers(conn); err != nil {
+		n.log.Error("failed to register conn subscriptions", zap.Error(err), zap.Any("conn", conn))
+		if err = conn.Close(); err != nil {
+			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
+		}
+		return
+	}
 
 	var inf []byte
 	for {
@@ -107,13 +102,13 @@ func (n *Network) handleNewConnection(conn Connection) {
 		n.log.Sugar().Debugf("received %d bytes from connection", size)
 
 		if err != nil && err.Error() == "EOF" {
-			// TODO broadcast player leaving
+			// TODO broadcast player disconnect
 
 			break
 		} else if err != nil || size == 0 {
 			_ = conn.Close()
 
-			// TODO broadcast player leaving
+			// TODO broadcast player disconnect
 			break
 		}
 
@@ -128,8 +123,6 @@ func (n *Network) handleNewConnection(conn Connection) {
 
 		packetLen := buf.PullVrI()
 		packetBytes := buf.UAS()[buf.InI() : buf.InI()+packetLen]
-
-		n.log.Sugar().Debugf("received bytes: %s", hex.EncodeToString(packetBytes))
 
 		n.dispatcher.HandleSPacket(conn, packetBytes)
 		n.log.Debug("received packet from client", zap.String("conn", conn.ID().String()))

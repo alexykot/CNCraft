@@ -19,13 +19,13 @@ message Envelope {
     oneof message {
         CPacket cpacket = 2;
         SPacket spacket = 3;
-        NewConnection new_conn = 4;
-        SetConnState conn_state = 5;
+        JoinedPlayer joined_player = 4;
     }
 }
 
 message CPacket {
     bytes bytes = 1;
+    int32 packet_type = 2;
 }
 
 message SPacket {
@@ -33,10 +33,7 @@ message SPacket {
     ConnState state = 2;
 }
 
-message SetConnState {
-    ConnState state = 1;
-}
-
-message NewConnection {
+message JoinedPlayer {
     string id = 1;
+    string username = 2;
 }

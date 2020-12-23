@@ -7,13 +7,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/alexykot/cncraft/core/network/auth"
+
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/control"
+	"github.com/alexykot/cncraft/core/handlers"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/network"
-	"github.com/alexykot/cncraft/core/users"
+	"github.com/alexykot/cncraft/core/players"
 	"github.com/alexykot/cncraft/pkg/log"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
@@ -21,12 +23,6 @@ import (
 type Server interface {
 	Start() error
 	Stop() error
-
-	Log() *zap.Logger
-
-	// DEBT maybe move all users into substruct
-	Users() []users.User
-	GetUser(uuid.UUID) (users.User, bool)
 
 	Version() string
 
@@ -36,18 +32,19 @@ type Server interface {
 }
 
 type server struct {
+	control chan control.Command
+	config  control.ServerConf
+
+	signal chan os.Signal
+
 	log *zap.Logger
 	ps  nats.PubSub
 
-	control chan control.Command
-	signal  chan os.Signal
-
-	dispatcher *network.SPacketDispatcher
-
-	//chat    // chat implementation needed
 	network *network.Network
 
-	users map[uuid.UUID]users.User
+	players *players.Tally
+
+	//chat    // chat implementation needed
 }
 
 // NewServer wires up and provides new server instance.
@@ -59,15 +56,17 @@ func NewServer(conf control.ServerConf) (Server, error) {
 
 	controlChan := make(chan control.Command)
 	pubSub := nats.NewPubSub(logger.Named("pubsub"), nats.NewNats(), controlChan)
-	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), protocol.NewPacketFactory(), pubSub)
+	auther := auth.NewAuther(logger.Named("auther"), pubSub)
+	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), pubSub, protocol.NewPacketFactory(), auther)
 
 	return &server{
+		config:  conf,
 		log:     logger.Named("core"),
 		ps:      pubSub,
 		control: controlChan,
 		signal:  make(chan os.Signal),
 		network: network.NewNetwork(conf.Network, logger.Named("network"), controlChan, pubSub, dispatcher),
-		users:   make(map[uuid.UUID]users.User),
+		players: players.NewTally(logger.Named("players"), pubSub),
 	}, nil
 }
 
@@ -88,7 +87,7 @@ func (s *server) Stop() error {
 	s.log.Info("stopping server")
 
 	// TODO to stop server node:
-	//  - notify users connected to this node that it is stopping and they're about to be disconnected
+	//  - notify players connected to this node that it is stopping and they're about to be disconnected
 	//  - close all open connections
 	//  - stop processing chunks
 	//  - flush all chunk state to DB and unload all chunks
@@ -100,30 +99,6 @@ func (s *server) Stop() error {
 
 	s.log.Info("server stopped")
 	return nil
-}
-
-func (s *server) Log() *zap.Logger { return s.log }
-
-func (s *server) Bus() nats.PubSub { return s.ps }
-
-func (s *server) Users() []users.User {
-	if len(s.users) == 0 {
-		return nil
-	}
-
-	userList := make([]users.User, len(s.users), len(s.users))
-
-	var i int
-	for _, player := range s.users {
-		userList[i] = player
-	}
-
-	return userList
-}
-
-func (s *server) GetUser(uuid uuid.UUID) (users.User, bool) {
-	user, ok := s.users[uuid]
-	return user, ok
 }
 
 func (s *server) Version() string {
@@ -147,6 +122,12 @@ func (s *server) startServer() error {
 	if err := s.network.Start(); err != nil {
 		return fmt.Errorf("failed to start network: %w", err)
 	}
+
+	if err := s.players.RegisterHandlers(); err != nil {
+		return fmt.Errorf("failed to register global player handlers: %w", err)
+	}
+
+	handlers.RegisterConf(s.config)
 
 	return nil
 

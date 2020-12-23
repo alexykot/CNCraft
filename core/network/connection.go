@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/alexykot/cncraft/core/network/crypto"
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/protocol"
+	"github.com/alexykot/cncraft/pkg/protocol/crypto"
 )
 
 type Connection interface {

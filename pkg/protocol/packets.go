@@ -2,12 +2,17 @@
 
 // Package protocol defines the packets used in the Minecraft wire protocol.
 // Currently supported protocol version is v578, for Minecraft 1.15.2.
-// DEBT protocol should be interfaced and swappable implementation for simple plugging of different protocol versions
+// DEBT protocol should be interfaced and swappable implementation for simple plugging of different protocol versions.
+//  This is assuming that the meaning and naming of the packets does not change between protocol versions and only
+//  new packets are added over time. Assumption to be verified.
 package protocol
 
 import (
 	"github.com/alexykot/cncraft/pkg/buffer"
 )
+
+// Version defines the version of the minecraft wire protocol the current implementation supports.
+const Version = 578
 
 // SPacket is server bound packet type.
 type SPacket interface {
@@ -168,31 +173,6 @@ const (
 	CPlayerInfo       = PacketType(int32(ClientBound) + statePlay + int32(protocolCPlayerInfo))       // 0xF334
 	CEntityMetadata   = PacketType(int32(ClientBound) + statePlay + int32(protocolCEntityMetadata))   // 0xF344
 )
-
-var serverBound []PacketType
-
-func init() {
-	serverBound = []PacketType{
-		SHandshake,
-		SRequest,
-		SPing,
-		SLoginStart,
-		SEncryptionResponse,
-		SLoginPluginResponse,
-		STeleportConfirm,
-		SQueryBlockNBT,
-		SSetDifficulty,
-		SChatMessage,
-		SClientStatus,
-		SClientSettings,
-		SPluginMessage,
-		SKeepAlive,
-		SPlayerPosition,
-		SPlayerLocation,
-		SPlayerRotation,
-		SPlayerAbilities,
-	}
-}
 
 func makeType(direction packetDirection, state State, pID ProtocolPacketID) PacketType {
 	stateInt := int32(state) * 0x100

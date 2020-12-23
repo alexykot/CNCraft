@@ -55,17 +55,17 @@ func (p *CPacketDisconnect) Push(writer buffer.B) {
 }
 
 type CPacketEncryptionRequest struct {
-	Server string // unused?
-	Public []byte
-	Verify []byte
+	ServerID    string // Appears to be unused by the Notchian client.
+	PublicKey   []byte
+	VerifyToken []byte
 }
 
 func (p *CPacketEncryptionRequest) ProtocolID() ProtocolPacketID { return protocolCEncryptionRequest }
 func (p *CPacketEncryptionRequest) Type() PacketType             { return CEncryptionRequest }
 func (p *CPacketEncryptionRequest) Push(writer buffer.B) {
-	writer.PushTxt(p.Server)
-	writer.PushUAS(p.Public, true)
-	writer.PushUAS(p.Verify, true)
+	writer.PushTxt(p.ServerID)
+	writer.PushUAS(p.PublicKey, true)
+	writer.PushUAS(p.VerifyToken, true)
 }
 
 type CPacketLoginSuccess struct {
