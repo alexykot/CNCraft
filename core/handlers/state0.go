@@ -7,6 +7,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
+// currentConf is an internal singleton of server configuration. It is registered once during server bootstrap.
 var currentConf control.ServerConf
 
 func RegisterConf(serverConfig control.ServerConf) {

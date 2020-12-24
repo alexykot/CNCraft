@@ -14,11 +14,18 @@ type packetFactory struct {
 	cPackets map[PacketType]func() CPacket
 }
 
-func NewPacketFactory() PacketFactory {
-	return &packetFactory{
+var factorySingleton packetFactory
+
+func init() {
+	factorySingleton = packetFactory{
 		sPackets: createSPacketsMap(),
 		cPackets: createCPacketsMap(),
 	}
+}
+
+// GetPacketFactory returns the singleton of the packet factory object.
+func GetPacketFactory() PacketFactory {
+	return &factorySingleton
 }
 
 func (p *packetFactory) MakeCPacket(packetType PacketType) (CPacket, error) {

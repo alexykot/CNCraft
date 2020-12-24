@@ -137,7 +137,7 @@ func (b *buffer) String() string {
 
 // new
 func New() B {
-	return NewFrom(make([]byte, 0))
+	return NewFrom(make([]byte, 0, 1024))
 }
 
 func NewFrom(bArray []byte) B {

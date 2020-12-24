@@ -1,9 +1,8 @@
 package network
 
 import (
+	"errors"
 	"fmt"
-
-	auth2 "github.com/alexykot/cncraft/core/network/auth"
 
 	"go.uber.org/zap"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/protocol"
+	"github.com/alexykot/cncraft/pkg/protocol/auth"
 )
 
 // DispatcherTransmitter parses and dispatches processing for incoming server bound protocol packets.
@@ -20,17 +20,14 @@ import (
 type DispatcherTransmitter struct {
 	log  *zap.Logger
 	ps   nats.PubSub
-	auth *auth2.Auther
-
-	pacFac protocol.PacketFactory
+	auth auth.A
 }
 
-func NewDispatcher(log *zap.Logger, ps nats.PubSub, pacfac protocol.PacketFactory, auth *auth2.Auther) *DispatcherTransmitter {
+func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A) *DispatcherTransmitter {
 	return &DispatcherTransmitter{
-		log:    log,
-		ps:     ps,
-		auth:   auth,
-		pacFac: pacfac,
+		log:  log,
+		ps:   ps,
+		auth: auth,
 	}
 }
 
@@ -79,7 +76,14 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 		return
 	}
 	if err = d.dispatchSPacket(conn, sPacket); err != nil {
-		log.Error("cannot handle new packet - failed to dispatch handling", zap.Error(err))
+		if errors.Is(err, handlers.InvalidLoginErr) {
+			log.Info("invalid login attempt, evicting user", zap.Error(err))
+			if err := conn.Close(); err != nil {
+				log.Error("error while closing connection", zap.Error(err))
+			}
+		} else {
+			log.Error("cannot handle new packet - failed to dispatch handling", zap.Error(err))
+		}
 		return
 	}
 	log.Debug("handled incoming packet", zap.String("type", sPacket.Type().String()), zap.Any("data", sPacket))
@@ -97,7 +101,7 @@ func (d *DispatcherTransmitter) parseSPacket(connState protocol.State, packetByt
 		pacType = protocol.MakeSType(connState, protocolPacketID)
 	}
 
-	sPacket, err := d.pacFac.MakeSPacket(pacType)
+	sPacket, err := protocol.GetPacketFactory().MakeSPacket(pacType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make SPacket: %w", err)
 	}
@@ -109,28 +113,30 @@ func (d *DispatcherTransmitter) parseSPacket(connState protocol.State, packetByt
 }
 
 // dispatchSPacket dispatches handling for the provided packet according to it's type.
-func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, spacket protocol.SPacket) error {
+func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protocol.SPacket) error {
 	var err error
-	var cpacket protocol.CPacket
+	var cPackets []protocol.CPacket
 
-	pacType := spacket.Type()
+	pacType := sPacket.Type()
 	switch pacType {
 	case protocol.SHandshake:
-		stateSetter := func(state protocol.State) {
+		debugStateSetter := func(state protocol.State) { // only needed to add the debug log line
 			conn := conn
 			conn.SetState(state)
 			d.log.Debug("changed connState", zap.String("conn", conn.ID().String()), zap.String("state", state.String()))
 		}
 
-		err = handlers.HandleSHandshake(stateSetter, spacket)
+		err = handlers.HandleSHandshake(debugStateSetter, sPacket)
 	case protocol.SRequest:
-		if cpacket, err = handlers.HandleSRequest(d.pacFac, spacket); err != nil {
+		if cPackets, err = handlers.HandleSRequest(sPacket); err != nil {
 			return fmt.Errorf("failed to handle SRequest packet: %w", err)
 		}
 	case protocol.SPing:
-		cpacket, err = handlers.HandleSPing(d.pacFac, spacket)
+		cPackets, err = handlers.HandleSPing(sPacket)
 	case protocol.SLoginStart:
-		cpacket, err = handlers.HandleSLoginStart(d.auth.AddNewbie, d.pacFac, conn.ID(), spacket)
+		cPackets, err = handlers.HandleSLoginStart(d.auth, conn.ID(), sPacket)
+	case protocol.SEncryptionResponse:
+		cPackets, err = handlers.HandleSEncryptionResponse(d.auth, conn.EnableEncryption, conn.EnableCompression, conn.ID(), sPacket)
 	default:
 		return fmt.Errorf("unhandled packet type: %X", int32(pacType))
 	}
@@ -138,9 +144,11 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, spacket protoco
 	if err != nil {
 		return fmt.Errorf("failed to handle %s packet: %w", pacType.String(), err)
 	}
-	if cpacket != nil {
-		if err := d.transmitCPacket(conn, cpacket); err != nil {
-			return fmt.Errorf("failed to transmit %s packet: %w", cpacket.Type().String(), err)
+	if cPackets != nil {
+		for _, cPacket := range cPackets {
+			if err := d.transmitCPacket(conn, cPacket); err != nil {
+				return fmt.Errorf("failed to transmit %s packet: %w", cPacket.Type().String(), err)
+			}
 		}
 	}
 
@@ -152,14 +160,7 @@ func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut buffer.B)
 		return fmt.Errorf("buffer data is too short")
 	}
 
-	temp := buffer.New()
-	temp.PushVrI(bufOut.Len())
-
-	deflated := buffer.New()
-	deflated.PushUAS(conn.Deflate(bufOut.UAS()), false)
-	temp.PushUAS(deflated.UAS(), false)
-
-	if _, err := conn.Push(conn.Encrypt(temp.UAS())); err != nil {
+	if _, err := conn.Transmit(bufOut); err != nil {
 		return fmt.Errorf("failed to push client bound data: %w", err)
 	}
 	return nil

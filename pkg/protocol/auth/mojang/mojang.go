@@ -14,7 +14,7 @@ import (
 
 const mojangSessionServerURL = "https://sessionserver.mojang.com/session/minecraft/hasJoined"
 
-type auth struct {
+type AuthResponse struct {
 	UUID       uuid.UUID
 	Name       string
 	Properties []prop
@@ -38,7 +38,7 @@ type propJson struct {
 	Sign string `json:"signature"`
 }
 
-func RunMojangSessionAuth(sharedSecret []byte, publicKeyDER []byte, username string) (*auth, error) {
+func RunMojangSessionAuth(username string, publicKeyDER []byte, sharedSecret []byte) (*AuthResponse, error) {
 	jsonRes, err := getMojangSessionAuth(username, generateAuthSHAHex(sharedSecret, publicKeyDER))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Mojang session auth: %w", err)
@@ -49,7 +49,7 @@ func RunMojangSessionAuth(sharedSecret []byte, publicKeyDER []byte, username str
 		return nil, fmt.Errorf("failed to parse Mojang profile ID: %w", err)
 	}
 
-	auth := auth{
+	auth := AuthResponse{
 		UUID:       id,
 		Name:       jsonRes.Name,
 		Properties: make([]prop, 0, len(jsonRes.Prop)),

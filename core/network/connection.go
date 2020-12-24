@@ -1,19 +1,13 @@
 package network
 
 import (
-	"bytes"
-	"compress/zlib"
-	"crypto/cipher"
-	"crypto/rand"
 	"fmt"
-	"io"
 	"net"
 
 	"github.com/google/uuid"
 
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/protocol"
-	"github.com/alexykot/cncraft/pkg/protocol/crypto"
 )
 
 type Connection interface {
@@ -23,23 +17,13 @@ type Connection interface {
 	GetState() protocol.State
 	SetState(protocol.State)
 
-	Encrypt([]byte) []byte
-	Decrypt([]byte) []byte
+	EnableEncryption(secret []byte) error
+	EnableCompression()
 
-	CertifyName() string
-	CertifyData() []byte
-	CertifyValues(name string)
-	CertifyUpdate(secret []byte)
-
-	Deflate([]byte) []byte
-	Inflate([]byte) []byte
-
-	Pull(data []byte) (len int, err error)
-	Push(data []byte) (len int, err error)
+	Receive(bufIn buffer.B) (len int, err error)
+	Transmit(bufOut buffer.B) (len int, err error)
 
 	Close() error
-
-	SendPacket(protocol.CPacket)
 }
 
 type connection struct {
@@ -48,8 +32,8 @@ type connection struct {
 
 	state protocol.State
 
-	certify Certify
-	compact Compact
+	aes crypter
+	zip compressor
 }
 
 func NewConnection(conn *net.TCPConn) Connection {
@@ -57,8 +41,8 @@ func NewConnection(conn *net.TCPConn) Connection {
 		tcp: conn,
 		id:  uuid.New(),
 
-		certify: Certify{},
-		compact: Compact{},
+		aes: crypter{},
+		zip: compressor{},
 	}
 }
 
@@ -78,136 +62,70 @@ func (c *connection) SetState(state protocol.State) {
 	c.state = state
 }
 
-type Certify struct {
-	name string
-
-	used bool
-	data []byte
-
-	encrypt cipher.Stream
-	decrypt cipher.Stream
-}
-
-func (c *connection) Encrypt(data []byte) (output []byte) {
-	if !c.certify.used {
-		return data
-	}
-
-	output = make([]byte, len(data))
-	c.certify.encrypt.XORKeyStream(output, data)
-
-	return
-}
-
-func (c *connection) Decrypt(data []byte) (output []byte) {
-	if !c.certify.used {
-		return data
-	}
-
-	output = make([]byte, len(data))
-	c.certify.decrypt.XORKeyStream(output, data)
-
-	return
-}
-
-func (c *connection) CertifyName() string {
-	return c.certify.name
-}
-
-func (c *connection) CertifyData() []byte {
-	return c.certify.data
-}
-
-func (c *connection) CertifyUpdate(secret []byte) {
-	encrypt, decrypt, err := crypto.NewEncryptAndDecrypt(secret)
-
-	c.certify.encrypt = encrypt
-	c.certify.decrypt = decrypt
-
-	if err != nil {
-		panic(fmt.Errorf("failed to enable encryption for user: %s\n%v", c.CertifyName(), err))
-	}
-
-	c.certify.used = true
-	c.certify.data = secret
-}
-
-func (c *connection) CertifyValues(name string) {
-	c.certify.name = name
-	c.certify.data = randomByteArray(4)
-}
-
-type Compact struct {
-	used bool
-	size int32
-}
-
-func (c *connection) Deflate(data []byte) (output []byte) {
-	if !c.compact.used {
-		return data
-	}
-
-	var out bytes.Buffer
-
-	writer, _ := zlib.NewWriterLevel(&out, zlib.BestCompression)
-	_, _ = writer.Write(data)
-	_ = writer.Close()
-
-	output = out.Bytes()
-
-	return
-}
-
-func (c *connection) Inflate(data []byte) (output []byte) {
-	if !c.compact.used {
-		return data
-	}
-
-	reader, err := zlib.NewReader(bytes.NewReader(data))
-	if err != nil {
-		panic(err)
-	}
-
-	var out bytes.Buffer
-	_, _ = io.Copy(&out, reader)
-
-	output = out.Bytes()
-
-	return
-}
-
-func (c *connection) Pull(data []byte) (len int, err error) {
-	len, err = c.tcp.Read(data)
-	return
-}
-
-func (c *connection) Push(data []byte) (len int, err error) {
-	len, err = c.tcp.Write(data)
-	return
-}
-
+// Close closes underlying TCP connection.
 func (c *connection) Close() (err error) {
-	err = c.tcp.Close()
-	return
+	return c.tcp.Close()
 }
 
-func (c *connection) SendPacket(packet protocol.CPacket) {
-	bufO := buffer.New()
+func (c *connection) EnableEncryption(secret []byte) error {
+	if err := c.aes.Enable(secret); err != nil {
+		return fmt.Errorf("failed to enable AES encryption: %w", err)
+	}
+	return nil
+}
+func (c *connection) EnableCompression() {
+	c.zip.Enable()
+}
+
+func (c *connection) Receive(bufIn buffer.B) (len int, err error) {
+	data := make([]byte, 1024)
+
+	readLen, err := c.pull(data)
+	if err != nil {
+		return 0, err
+	}
+	if c.aes.enabled {
+		data = c.aes.Decrypt(data[:readLen])
+	}
+
+	if c.zip.enabled {
+		bufIn.PushUAS(c.zip.Inflate(data), false)
+	} else {
+		bufIn.PushUAS(data, false)
+	}
+	return readLen, nil
+}
+
+func (c *connection) Transmit(bufOut buffer.B) (len int, err error) {
 	temp := buffer.New()
+	temp.PushVrI(bufOut.Len())
 
-	// write buffer
-	bufO.PushVrI(int32(packet.Type()))
-	packet.Push(bufO)
+	if c.zip.enabled {
+		deflated := buffer.New()
+		deflated.PushUAS(c.zip.Deflate(bufOut.UAS()), false)
+	} else {
+		temp.PushUAS(bufOut.UAS(), false)
+	}
 
-	temp.PushVrI(bufO.Len())
-	temp.PushUAS(bufO.UAS(), false)
-
-	_, _ = c.tcp.Write(c.Encrypt(temp.UAS()))
+	if c.aes.enabled {
+		return c.push(c.aes.Encrypt(temp.UAS()))
+	} else {
+		return c.push(temp.UAS())
+	}
 }
 
-func randomByteArray(len int) []byte {
-	array := make([]byte, len)
-	_, _ = rand.Read(array)
+func (c *connection) pull(data []byte) (int, error) {
+	readLen, err := c.tcp.Read(data)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read from TCP: %w", err)
+	}
+	return readLen, nil
+}
 
-	return array
+func (c *connection) push(data []byte) (int, error) {
+	wroteLen, err := c.tcp.Write(data)
+	if err != nil {
+		return 0, fmt.Errorf("failed to write to TCP: %w", err)
+	}
+	return wroteLen, nil
 }

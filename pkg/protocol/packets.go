@@ -112,7 +112,7 @@ const stateStatus = 0x0100
 const stateLogin = 0x0200
 const statePlay = 0x0300
 
-const Unspecified = -0x0001 // packet type unspecified
+const TypeUnspecified = PacketType(-0x0001) // packet type unspecified
 
 // server bound (incoming) packets
 const (

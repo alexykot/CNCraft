@@ -22,7 +22,7 @@ func RegisterHandlersState3(ps nats.PubSub, logger *zap.Logger) {
 	//		conn := api.ConnByUUID(player.UUID())
 	//
 	//		// keep player connection alive via keep alive
-	//		conn.SendPacket(&protocol.CPacketKeepAlive{KeepAliveID: time.Now().UnixNano() / 1e6})
+	//		conn.Transmit(&protocol.CPacketKeepAlive{KeepAliveID: time.Now().UnixNano() / 1e6})
 	//	}
 	//})
 	//
@@ -66,7 +66,7 @@ func RegisterHandlersState3(ps nats.PubSub, logger *zap.Logger) {
 	//	for conn := range join {
 	//		apis.MinecraftServer().Watcher().Publish(implEvent.PlayerConnJoinEvent{Conn: conn})
 	//
-	//		conn.SendPacket(&protocol.CPacketJoinGame{
+	//		conn.Transmit(&protocol.CPacketJoinGame{
 	//			EntityID:      int32(conn.EntityUUID()),
 	//			Hardcore:      false,
 	//			GameMode:      game.CREATIVE,
@@ -79,18 +79,18 @@ func RegisterHandlersState3(ps nats.PubSub, logger *zap.Logger) {
 	//			RespawnScreen: false,
 	//		})
 	//
-	//		conn.SendPacket(&protocol.CPacketPluginMessage{
+	//		conn.Transmit(&protocol.CPacketPluginMessage{
 	//			Message: &plugin.Brand{
 	//				Name: chat.Translate(fmt.Sprintf("&b%s&r &a%s&r", "GoLangMc", apis.MinecraftServer().ServerVersion())),
 	//			},
 	//		})
 	//
-	//		conn.SendPacket(&protocol.CPacketServerDifficulty{
+	//		conn.Transmit(&protocol.CPacketServerDifficulty{
 	//			Difficulty: game.PEACEFUL,
 	//			Locked:     true,
 	//		})
 	//
-	//		conn.SendPacket(&protocol.CPacketPlayerAbilities{
+	//		conn.Transmit(&protocol.CPacketPlayerAbilities{
 	//			Abilities: client.PlayerAbilities{
 	//				Invulnerable: true,
 	//				Flying:       true,
@@ -101,13 +101,13 @@ func RegisterHandlersState3(ps nats.PubSub, logger *zap.Logger) {
 	//			FieldOfView: 0.1,  // default value
 	//		})
 	//
-	//		conn.SendPacket(&protocol.CPacketHeldItemChange{
+	//		conn.Transmit(&protocol.CPacketHeldItemChange{
 	//			Slot: client.SLOT_0,
 	//		})
 	//
-	//		conn.SendPacket(&protocol.CPacketDeclareRecipes{})
+	//		conn.Transmit(&protocol.CPacketDeclareRecipes{})
 	//
-	//		conn.SendPacket(&protocol.CPacketPlayerLocation{
+	//		conn.Transmit(&protocol.CPacketPlayerLocation{
 	//			SomeID: 0,
 	//			Location: data.Location{
 	//				PositionF: data.PositionF{
@@ -123,25 +123,25 @@ func RegisterHandlersState3(ps nats.PubSub, logger *zap.Logger) {
 	//			Relative: client.Relativity{},
 	//		})
 	//
-	//		conn.SendPacket(&protocol.CPacketPlayerInfo{
+	//		conn.Transmit(&protocol.CPacketPlayerInfo{
 	//			Action: client.AddPlayer,
 	//			Values: []client.PlayerInfo{
 	//				&client.PlayerInfoAddPlayer{Player: conn.Player},
 	//			},
 	//		})
 	//
-	//		conn.SendPacket(&protocol.CPacketEntityMetadata{Entity: conn.Player})
+	//		conn.Transmit(&protocol.CPacketEntityMetadata{Entity: conn.Player})
 	//
 	//		level := implLevel.NewLevel("test")
 	//		implLevel.GenSuperFlat(level, 6)
 	//
 	//		for _, chunk := range level.Chunks() {
-	//			conn.SendPacket(&protocol.CPacketChunkData{Chunk: chunk})
+	//			conn.Transmit(&protocol.CPacketChunkData{Chunk: chunk})
 	//		}
 	//
 	//		logger.DebugF("chunks sent to player: %s", conn.Player.Name())
 	//
-	//		conn.SendPacket(&protocol.CPacketPlayerLocation{
+	//		conn.Transmit(&protocol.CPacketPlayerLocation{
 	//			SomeID: 1,
 	//			Location: data.Location{
 	//				PositionF: data.PositionF{

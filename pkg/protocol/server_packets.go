@@ -71,15 +71,15 @@ func (p *SPacketLoginStart) Pull(reader buffer.B) error {
 }
 
 type SPacketEncryptionResponse struct {
-	Secret []byte
-	Verify []byte
+	SharedSecret []byte
+	VerifyToken  []byte
 }
 
 func (p *SPacketEncryptionResponse) ProtocolID() ProtocolPacketID { return protocolSEncryptionResponse }
 func (p *SPacketEncryptionResponse) Type() PacketType             { return SEncryptionResponse }
 func (p *SPacketEncryptionResponse) Pull(reader buffer.B) error {
-	p.Secret = reader.PullUAS()
-	p.Verify = reader.PullUAS()
+	p.SharedSecret = reader.PullUAS()
+	p.VerifyToken = reader.PullUAS()
 	return nil // DEBT actually check for errors
 }
 

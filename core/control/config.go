@@ -5,8 +5,9 @@ import "github.com/google/uuid"
 func DefaultConfig() ServerConf {
 	return ServerConf{
 		Network: NetworkConf{
-			Host: "0.0.0.0",
-			Port: 25565,
+			Host:        "0.0.0.0",
+			Port:        25565,
+			ZipTreshold: 1,
 		},
 		LogLevel:  "DEBUG",
 		IsCracked: true,
@@ -22,6 +23,7 @@ type ServerConf struct {
 }
 
 type NetworkConf struct {
-	Host string `yaml:"host"` // resolvable hostname/IP to bind to. Set to `localhost` by default.
-	Port int    `yaml:"port"` // TCP port to serve on. Set to 25566 by default.
+	Host        string `yaml:"host"` // resolvable hostname/IP to bind to. Set to `localhost` by default.
+	Port        int    `yaml:"port"` // TCP port to serve on. Set to 25566 by default.
+	ZipTreshold int32  // size of packet in bytes from which to start compressing the packets. Cannot be set externally.
 }

@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alexykot/cncraft/core/network/auth"
+	"github.com/alexykot/cncraft/pkg/protocol/auth"
 
 	"go.uber.org/zap"
 
@@ -17,7 +17,6 @@ import (
 	"github.com/alexykot/cncraft/core/network"
 	"github.com/alexykot/cncraft/core/players"
 	"github.com/alexykot/cncraft/pkg/log"
-	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
 type Server interface {
@@ -56,8 +55,7 @@ func NewServer(conf control.ServerConf) (Server, error) {
 
 	controlChan := make(chan control.Command)
 	pubSub := nats.NewPubSub(logger.Named("pubsub"), nats.NewNats(), controlChan)
-	auther := auth.NewAuther(logger.Named("auther"), pubSub)
-	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), pubSub, protocol.NewPacketFactory(), auther)
+	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), pubSub, auth.GetAuther())
 
 	return &server{
 		config:  conf,

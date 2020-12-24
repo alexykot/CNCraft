@@ -95,12 +95,9 @@ func (n *Network) handleNewConnection(conn Connection) {
 		return
 	}
 
-	var inf []byte
 	for {
-		inf = make([]byte, 1024)
-		size, err := conn.Pull(inf)
-		n.log.Sugar().Debugf("received %d bytes from connection", size)
-
+		bufIn := buffer.New()
+		size, err := conn.Receive(bufIn)
 		if err != nil && err.Error() == "EOF" {
 			// TODO broadcast player disconnect
 
@@ -112,17 +109,15 @@ func (n *Network) handleNewConnection(conn Connection) {
 			break
 		}
 
-		buf := buffer.NewFrom(conn.Decrypt(inf[:size]))
-
 		// decompression
 		// decryption
 
-		if buf.UAS()[0] == 0xFE { // LEGACY PING
+		if bufIn.UAS()[0] == 0xFE { // LEGACY PING
 			continue
 		}
 
-		packetLen := buf.PullVrI()
-		packetBytes := buf.UAS()[buf.InI() : buf.InI()+packetLen]
+		packetLen := bufIn.PullVrI()
+		packetBytes := bufIn.UAS()[bufIn.InI() : bufIn.InI()+packetLen]
 
 		n.dispatcher.HandleSPacket(conn, packetBytes)
 		n.log.Debug("received packet from client", zap.String("conn", conn.ID().String()))
