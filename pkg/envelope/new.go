@@ -25,10 +25,18 @@ func CPacket(cpacket *pb.CPacket) *E {
 	}
 }
 
-func JoinedPlayer(joinedPlayer *pb.JoinedPlayer) *E {
+func PlayerLoading(loadingPlayer *pb.PlayerLoading) *E {
 	return &E{
 		Envelope: pb.Envelope{
-			Message: &pb.Envelope_JoinedPlayer{JoinedPlayer: joinedPlayer},
+			Message: &pb.Envelope_PlayerLoading{PlayerLoading: loadingPlayer},
+		},
+	}
+}
+
+func PlayerJoined(joinedPlayer *pb.PlayerJoined) *E {
+	return &E{
+		Envelope: pb.Envelope{
+			Message: &pb.Envelope_PlayerJoined{PlayerJoined: joinedPlayer},
 		},
 	}
 }

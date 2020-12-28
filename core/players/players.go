@@ -2,6 +2,7 @@ package players
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -10,11 +11,14 @@ import (
 	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/game/entities"
+	"github.com/alexykot/cncraft/pkg/game/players"
 )
 
+// Tally holds the map of all players logged into this server.
 type Tally struct {
 	log *zap.Logger
 	ps  nats.PubSub
+	mu  sync.Mutex
 
 	players map[uuid.UUID]Player // ID of the user always matches ID of the corresponding connection.
 }
@@ -22,6 +26,12 @@ type Tally struct {
 type Player struct {
 	PC       entities.PlayerCharacter
 	Username string
+	Settings settings
+}
+
+// TODO implement proper player settings
+type settings struct {
+	ViewDistance int32
 }
 
 func NewTally(log *zap.Logger, ps nats.PubSub) *Tally {
@@ -35,38 +45,52 @@ func NewTally(log *zap.Logger, ps nats.PubSub) *Tally {
 
 // RegisterHandlers creates subscriptions to all relevant global subjects.
 func (u *Tally) RegisterHandlers() error {
-	playerJoinedHandler := func(lope *envelope.E) {
-		log := u.log
-
-		joined := lope.GetJoinedPlayer()
-		if joined == nil {
-			log.Error("failed to parse envelope - there is no player inside", zap.Any("envelope", lope))
-			return
-		}
-
-		userId, err := uuid.Parse(joined.Id)
-		if err != nil {
-			log.Error("failed to parse user ID as UUID", zap.Any("id", joined.Id))
-			return
-		}
-
-		u.players[userId] = Player{
-			Username: joined.Username,
-		}
-
-		log.Debug("added new player", zap.String("username", joined.Username))
-	}
-
-	if err := u.ps.Subscribe(subj.MkJoinedPlayers(), playerJoinedHandler); err != nil {
-		return fmt.Errorf("failed to subscribe for added players: %w", err)
+	if err := u.ps.Subscribe(subj.MkPlayerJoined(), u.playerJoinedHandler); err != nil {
+		return fmt.Errorf("failed to subscribe for joined players: %w", err)
 	}
 
 	u.log.Info("global player handlers registered")
 	return nil
 }
 
-func (u *Tally) AddUnauthenticated(id uuid.UUID, username string) {
-	u.players[id] = Player{
-		Username: username,
+func (u *Tally) AddPlayer(userID uuid.UUID, username string) *Player {
+	u.mu.Lock()
+	defer u.mu.Lock()
+
+	if existing, ok := u.players[userID]; ok {
+		u.log.Error("player already exists", zap.String("id", userID.String()),
+			zap.String("existing", existing.Username), zap.String("new", username))
+		return nil
 	}
+	p := Player{
+		PC:       entities.NewPC(username, players.PlayerMaxHealth),
+		Username: username,
+		Settings: settings{ // TODO all settings are hardcoded until properly implemented
+			ViewDistance: 7,
+		},
+	}
+
+	u.players[userID] = p
+	return &p
+}
+
+func (u *Tally) playerJoinedHandler(lope *envelope.E) {
+	//joined := lope.GetPlayerJoined()
+	//if joined == nil {
+	//	u.log.Error("failed to parse envelope - no JoinedPlayer inside", zap.Any("envelope", lope))
+	//	return
+	//}
+	//
+	//userId, err := uuid.Parse(joined.Id)
+	//if err != nil {
+	//	u.log.Error("failed to parse user ID as UUID", zap.Any("id", joined.Id))
+	//	return
+	//}
+
+	// TODO implement this
+}
+
+func (u *Tally) GetPlayer(userID uuid.UUID) (Player, bool) {
+	player, ok := u.players[userID]
+	return player, ok
 }

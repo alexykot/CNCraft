@@ -9,8 +9,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/entities"
 	"github.com/alexykot/cncraft/pkg/game/level"
-	"github.com/alexykot/cncraft/pkg/game/player"
-	"github.com/alexykot/cncraft/pkg/game/world"
+	"github.com/alexykot/cncraft/pkg/game/players"
 	"github.com/alexykot/cncraft/pkg/protocol/status"
 )
 
@@ -125,12 +124,11 @@ func (p *CPacketChatMessage) Push(writer buffer.B) {
 
 type CPacketJoinGame struct {
 	EntityID      int32
-	Hardcore      bool
-	GameMode      game.GameMode
+	IsHardcore    game.Coreness
+	GameMode      game.Gamemode
 	Dimension     game.Dimension
 	HashedSeed    int64
-	MaxPlayers    int
-	LevelType     world.WorldType
+	LevelType     game.WorldType
 	ViewDistance  int32
 	ReduceDebug   bool
 	RespawnScreen bool
@@ -140,10 +138,10 @@ func (p *CPacketJoinGame) ProtocolID() ProtocolPacketID { return protocolCJoinGa
 func (p *CPacketJoinGame) Type() PacketType             { return CJoinGame }
 func (p *CPacketJoinGame) Push(writer buffer.B) {
 	writer.PushI32(p.EntityID)
-	writer.PushByt(p.GameMode.Encoded(p.Hardcore /* pull this value from somewhere */))
+	writer.PushByt(p.GameMode.Encoded(bool(p.IsHardcore)))
 	writer.PushI32(int32(p.Dimension))
 	writer.PushI64(p.HashedSeed)
-	writer.PushByt(uint8(p.MaxPlayers))
+	writer.PushByt(uint8(0)) // is ignored by the Notchian client
 	writer.PushTxt(p.LevelType.String())
 	writer.PushVrI(p.ViewDistance)
 	writer.PushBit(p.ReduceDebug)
@@ -162,7 +160,7 @@ func (p *CPacketJoinGame) Push(writer buffer.B) {
 
 type CPacketPlayerLocation struct {
 	Location data.Location
-	Relative player.Relativity
+	Relative players.Relativity
 
 	SomeID int32 // no idea what ID is this, the packet type 3/0x36 in the protocol 754 does not have this field
 }
@@ -205,7 +203,7 @@ func (p *CPacketServerDifficulty) Push(writer buffer.B) {
 }
 
 type CPacketPlayerAbilities struct {
-	Abilities   player.PlayerAbilities
+	Abilities   players.PlayerAbilities
 	FlyingSpeed float32
 	FieldOfView float32
 }
@@ -220,7 +218,7 @@ func (p *CPacketPlayerAbilities) Push(writer buffer.B) {
 }
 
 type CPacketHeldItemChange struct {
-	Slot player.HotBarSlot
+	Slot players.HotBarSlot
 }
 
 func (p *CPacketHeldItemChange) ProtocolID() ProtocolPacketID { return protocolCHeldItemChange }
@@ -280,8 +278,8 @@ func (p *CPacketChunkData) Push(writer buffer.B) {
 }
 
 type CPacketPlayerInfo struct {
-	Action player.PlayerInfoAction
-	Values []player.PlayerInfo
+	Action players.PlayerInfoAction
+	Values []players.PlayerInfo
 }
 
 func (p *CPacketPlayerInfo) ProtocolID() ProtocolPacketID { return protocolCPlayerInfo }
@@ -311,7 +309,7 @@ func (p *CPacketEntityMetadata) Push(writer buffer.B) {
 		writer.PushByt(16) // index | displayed skin parts
 		writer.PushVrI(0)  // type | byte
 
-		skin := player.SkinParts{
+		skin := players.SkinParts{
 			Cape: true,
 			Head: true,
 			Body: true,

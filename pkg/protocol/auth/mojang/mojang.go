@@ -15,9 +15,9 @@ import (
 const mojangSessionServerURL = "https://sessionserver.mojang.com/session/minecraft/hasJoined"
 
 type AuthResponse struct {
-	UUID       uuid.UUID
-	Name       string
-	Properties []prop
+	ProfileID  uuid.UUID // id of the Mojang account profile
+	Username   string    // username as recorded by Mojang
+	Properties []prop    // user properties, currently only skin picture payload
 }
 
 type prop struct {
@@ -50,8 +50,8 @@ func RunMojangSessionAuth(username string, publicKeyDER []byte, sharedSecret []b
 	}
 
 	auth := AuthResponse{
-		UUID:       id,
-		Name:       jsonRes.Name,
+		ProfileID:  id,
+		Username:   jsonRes.Name,
 		Properties: make([]prop, 0, len(jsonRes.Prop)),
 	}
 

@@ -87,7 +87,7 @@ func (n *Network) startListening() error {
 func (n *Network) handleNewConnection(conn Connection) {
 	n.log.Debug("new connection", zap.Any("address", conn.Address().String()))
 
-	if err := n.dispatcher.RegisterConnHandlers(conn); err != nil {
+	if err := n.dispatcher.RegisterNewConn(conn); err != nil {
 		n.log.Error("failed to register conn subscriptions", zap.Error(err), zap.Any("conn", conn))
 		if err = conn.Close(); err != nil {
 			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))

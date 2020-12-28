@@ -6,7 +6,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/data"
-	"github.com/alexykot/cncraft/pkg/game/player"
+	"github.com/alexykot/cncraft/pkg/game/players"
 )
 
 // HANDSHAKE STATE PACKETS
@@ -180,23 +180,23 @@ func (p *SPacketSetDifficulty) Pull(reader buffer.B) error {
 //}
 
 type SPacketClientStatus struct {
-	Action player.StatusAction
+	Action players.StatusAction
 }
 
 func (p *SPacketClientStatus) ProtocolID() ProtocolPacketID { return protocolSClientStatus }
 func (p *SPacketClientStatus) Type() PacketType             { return SClientStatus }
 func (p *SPacketClientStatus) Pull(reader buffer.B) error {
-	p.Action = player.StatusAction(reader.PullVrI())
+	p.Action = players.StatusAction(reader.PullVrI())
 	return nil // DEBT actually check for errors
 }
 
 type SPacketClientSettings struct {
 	Locale       string
 	ViewDistance byte
-	ChatMode     player.ChatMode
+	ChatMode     players.ChatMode
 	ChatColors   bool // if false, strip messages of colors before sending
-	SkinParts    player.SkinParts
-	MainHand     player.MainHand
+	SkinParts    players.SkinParts
+	MainHand     players.MainHand
 }
 
 func (p *SPacketClientSettings) ProtocolID() ProtocolPacketID { return protocolSClientSettings }
@@ -204,19 +204,19 @@ func (p *SPacketClientSettings) Type() PacketType             { return SClientSe
 func (p *SPacketClientSettings) Pull(reader buffer.B) error {
 	p.Locale = reader.PullTxt()
 	p.ViewDistance = reader.PullByt()
-	p.ChatMode = player.ChatMode(reader.PullVrI())
+	p.ChatMode = players.ChatMode(reader.PullVrI())
 	p.ChatColors = reader.PullBit()
 
-	parts := player.SkinParts{}
+	parts := players.SkinParts{}
 	parts.Pull(reader)
 
 	p.SkinParts = parts
-	p.MainHand = player.MainHand(reader.PullVrI())
+	p.MainHand = players.MainHand(reader.PullVrI())
 	return nil // DEBT actually check for errors
 }
 
 type SPacketPlayerAbilities struct {
-	Abilities   player.PlayerAbilities
+	Abilities   players.PlayerAbilities
 	FlightSpeed float32
 	GroundSpeed float32
 }
@@ -224,7 +224,7 @@ type SPacketPlayerAbilities struct {
 func (p *SPacketPlayerAbilities) ProtocolID() ProtocolPacketID { return protocolSPlayerAbilities }
 func (p *SPacketPlayerAbilities) Type() PacketType             { return SPlayerAbilities }
 func (p *SPacketPlayerAbilities) Pull(reader buffer.B) error {
-	abilities := player.PlayerAbilities{}
+	abilities := players.PlayerAbilities{}
 	abilities.Pull(reader)
 
 	p.Abilities = abilities

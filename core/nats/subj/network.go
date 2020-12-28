@@ -15,6 +15,11 @@ func MkConnStateChange(connID uuid.UUID) string { return "conn." + connID.String
 // MkNewConn creates a subject name string for announcing new connections appearing.
 func MkNewConn() string { return "conn.new" }
 
-// *** User related subjects ***
-// MkJoinedPlayers creates a subject name string for announcing new users joining server after successful login.
-func MkJoinedPlayers() string { return "users.joined" }
+// *** Player related subjects ***
+// MkPlayerLoading creates a subject name string for announcing new users joining server.
+//  This is send after successful login and triggers client world loading and player spawn.
+func MkPlayerLoading() string { return "player.loading" }
+
+// MkPlayerJoined creates a subject name string for announcing new players successfully joined server.
+//  This is sent after the player has successfully spawned in the world.
+func MkPlayerJoined() string { return "player.joined" }

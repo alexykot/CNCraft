@@ -1,9 +1,12 @@
-package player
+package players
 
 import (
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/mask"
 )
+
+// PlayerMaxHealth is max health player can have.
+const PlayerMaxHealth = 20.0
 
 type PlayerAbilities struct {
 	mask.Masking

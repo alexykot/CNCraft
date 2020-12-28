@@ -5,21 +5,21 @@ import "fmt"
 type Difficulty byte
 
 const (
-	PEACEFUL Difficulty = iota
-	EASY
-	NORMAL
-	HARD
+	Peaceful Difficulty = iota
+	Easy
+	Normal
+	Hard
 )
 
 func (d Difficulty) String() string {
 	switch d {
-	case PEACEFUL:
+	case Peaceful:
 		return "Peaceful"
-	case EASY:
+	case Easy:
 		return "Easy"
-	case NORMAL:
+	case Normal:
 		return "Normal"
-	case HARD:
+	case Hard:
 		return "Hard"
 	default:
 		panic(fmt.Errorf("no difficulty for id %d", byte(d)))
@@ -33,13 +33,13 @@ func ValueOfDifficulty(d Difficulty) byte {
 func DifficultyValueOf(id byte) Difficulty {
 	switch id {
 	case 0:
-		return PEACEFUL
+		return Peaceful
 	case 1:
-		return EASY
+		return Easy
 	case 2:
-		return NORMAL
+		return Normal
 	case 3:
-		return HARD
+		return Hard
 	default:
 		panic(fmt.Errorf("no difficulty for id %d", id))
 	}
@@ -48,21 +48,21 @@ func DifficultyValueOf(id byte) Difficulty {
 type Dimension int
 
 const (
-	NETHER    = -1
-	OVERWORLD = 0
-	THE_END   = 1
+	Nether    = -1
+	Overworld = 0
+	TheEnd    = 1
 )
 
-type GameMode int
+type Gamemode uint8
 
 const (
-	SURVIVAL GameMode = iota
-	CREATIVE
-	ADVENTURE
-	SPECTATOR
+	Survival Gamemode = iota
+	Creative
+	Adventure
+	Spectator
 )
 
-func (g GameMode) Encoded(hardcore bool) byte {
+func (g Gamemode) Encoded(hardcore bool) byte {
 
 	bit := 0
 	if hardcore {
@@ -70,4 +70,37 @@ func (g GameMode) Encoded(hardcore bool) byte {
 	}
 
 	return byte(g) | byte(bit)
+}
+
+type Coreness bool
+
+const (
+	Hardcore Coreness = true
+	Softcore Coreness = false
+)
+
+type WorldType int
+
+const (
+	WorldDefault WorldType = iota
+	WorldFlat
+	WorldLargebiomes
+	WorldAmplified
+	WorldCustomized
+	WorldBuffet
+	WorldDefault11
+)
+
+var typeToName = map[WorldType]string{
+	WorldDefault:     "default",
+	WorldFlat:        "flat",
+	WorldLargebiomes: "largeBiomes",
+	WorldAmplified:   "amplified",
+	WorldCustomized:  "customized",
+	WorldBuffet:      "buffet",
+	WorldDefault11:   "default_1_1",
+}
+
+func (l WorldType) String() string {
+	return typeToName[l]
 }

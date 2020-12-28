@@ -1,4 +1,4 @@
-package player
+package players
 
 import (
 	"github.com/alexykot/cncraft/pkg/buffer"

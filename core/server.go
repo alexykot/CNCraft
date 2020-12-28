@@ -2,12 +2,11 @@ package core
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/alexykot/cncraft/pkg/protocol/auth"
 
 	"go.uber.org/zap"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/alexykot/cncraft/core/network"
 	"github.com/alexykot/cncraft/core/players"
 	"github.com/alexykot/cncraft/pkg/log"
+	"github.com/alexykot/cncraft/pkg/protocol/auth"
 )
 
 type Server interface {
@@ -113,6 +113,8 @@ func (s *server) stopServer(after time.Duration) {
 }
 
 func (s *server) startServer() error {
+	rand.Seed(time.Now().UnixNano())
+
 	if err := s.ps.Start(); err != nil {
 		return fmt.Errorf("failed to start nats: %w", err)
 	}
@@ -127,53 +129,11 @@ func (s *server) startServer() error {
 
 	handlers.RegisterConf(s.config)
 
+	if err := handlers.RegisterHandlersState3(s.ps, s.log.Named("play"), s.players); err != nil {
+		return fmt.Errorf("failed to register Play state handlers: %w", err)
+	}
+
 	return nil
-
-	//s.console.Load()
-	//s.command.Load()
-	//s.tasking.Load()
-
-	//state.RegisterHandlersState0(s.ps)
-	//state.RegisterHandlersState1(s.ps)
-	//state.RegisterHandlersState2(s.ps, join)
-	//state.RegisterHandlersState3(s.ps, logger, tasking, join, quit)
-
-	//s.ps.Subscribe(func(event apisEvent.PlayerJoinEvent) {
-	//	s.log.InfoF("player %s logged in with uuid:%v", event.PlayerCharacter.Name(), event.PlayerCharacter.UUID())
-	//
-	//	s.Broadcast(chat.Translate(fmt.Sprintf("%s%s has joined!", chat.Yellow, event.PlayerCharacter.Name())))
-	//})
-
-	//s.ps.Subscribe(func(event apisEvent.PlayerQuitEvent) {
-	//	s.log.InfoF("%s disconnected!", event.PlayerCharacter.Name())
-	//
-	//	s.Broadcast(chat.Translate(fmt.Sprintf("%s%s has left!", chat.Yellow, event.PlayerCharacter.Name())))
-	//})
-
-	//s.ps.Subscribe(func(event implEvent.PlayerConnJoinEvent) {
-	//	s.users.addData(event.Conn)
-	//
-	//	s.ps.Publish(apisEvent.PlayerJoinEvent{PlayerEvent: apisEvent.PlayerEvent{PlayerCharacter: event.Conn.PlayerCharacter}})
-	//})
-
-	//s.ps.Subscribe(func(event implEvent.PlayerConnQuitEvent) {
-	//	player := s.users.playerByConn(event.Conn.Connection)
-	//
-	//	if player != nil {
-	//		s.ps.Publish(apisEvent.PlayerQuitEvent{PlayerEvent: apisEvent.PlayerEvent{PlayerCharacter: player}})
-	//	}
-	//
-	//	s.users.delData(event.Conn)
-	//})
-
-	//s.ps.Subscribe(func(event implEvent.PlayerPluginMessagePullEvent) {
-	//	s.log.DebugF("received message on channel '%s' from player %s:%s", event.Channel, event.Conn.Name(), event.Conn.UUID())
-	//
-	//	switch event.Channel {
-	//	case plugin.CHANNEL_BRAND:
-	//		s.log.DebugF("their client's brand is '%s'", event.Message.(*plugin.Brand).Name)
-	//	}
-	//})
 }
 
 func (s *server) startControlLoop() {

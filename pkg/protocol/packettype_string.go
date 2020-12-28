@@ -8,6 +8,7 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
+	_ = x[TypeUnspecified - -1]
 	_ = x[SHandshake-4096]
 	_ = x[SRequest-4352]
 	_ = x[SPing-4353]
@@ -47,46 +48,47 @@ func _() {
 	_ = x[CEntityMetadata-62276]
 }
 
-const _PacketType_name = "SHandshakeSRequestSPingSLoginStartSEncryptionResponseSLoginPluginResponseSTeleportConfirmSQueryBlockNBTSSetDifficultySChatMessageSClientStatusSClientSettingsSPluginMessageSKeepAliveSPlayerPositionSPlayerLocationSPlayerRotationSPlayerAbilitiesCResponseCPongCDisconnectCEncryptionRequestCLoginSuccessCSetCompressionCLoginPluginRequestCServerDifficultyCChatMessageCPluginMessageCKeepAliveCChunkDataCJoinGameCPlayerAbilitiesCPlayerInfoCPlayerLocationCHeldItemChangeCEntityMetadataCDeclareRecipes"
+const _PacketType_name = "TypeUnspecifiedSHandshakeSRequestSPingSLoginStartSEncryptionResponseSLoginPluginResponseSTeleportConfirmSQueryBlockNBTSSetDifficultySChatMessageSClientStatusSClientSettingsSPluginMessageSKeepAliveSPlayerPositionSPlayerLocationSPlayerRotationSPlayerAbilitiesCResponseCPongCDisconnectCEncryptionRequestCLoginSuccessCSetCompressionCLoginPluginRequestCServerDifficultyCChatMessageCPluginMessageCKeepAliveCChunkDataCJoinGameCPlayerAbilitiesCPlayerInfoCPlayerLocationCHeldItemChangeCEntityMetadataCDeclareRecipes"
 
 var _PacketType_map = map[PacketType]string{
-	4096:  _PacketType_name[0:10],
-	4352:  _PacketType_name[10:18],
-	4353:  _PacketType_name[18:23],
-	4608:  _PacketType_name[23:34],
-	4609:  _PacketType_name[34:53],
-	4610:  _PacketType_name[53:73],
-	4864:  _PacketType_name[73:89],
-	4865:  _PacketType_name[89:103],
-	4866:  _PacketType_name[103:117],
-	4867:  _PacketType_name[117:129],
-	4868:  _PacketType_name[129:142],
-	4869:  _PacketType_name[142:157],
-	4875:  _PacketType_name[157:171],
-	4879:  _PacketType_name[171:181],
-	4881:  _PacketType_name[181:196],
-	4882:  _PacketType_name[196:211],
-	4883:  _PacketType_name[211:226],
-	4889:  _PacketType_name[226:242],
-	61696: _PacketType_name[242:251],
-	61697: _PacketType_name[251:256],
-	61952: _PacketType_name[256:267],
-	61953: _PacketType_name[267:285],
-	61954: _PacketType_name[285:298],
-	61955: _PacketType_name[298:313],
-	61956: _PacketType_name[313:332],
-	62222: _PacketType_name[332:349],
-	62223: _PacketType_name[349:361],
-	62233: _PacketType_name[361:375],
-	62241: _PacketType_name[375:385],
-	62242: _PacketType_name[385:395],
-	62246: _PacketType_name[395:404],
-	62258: _PacketType_name[404:420],
-	62260: _PacketType_name[420:431],
-	62262: _PacketType_name[431:446],
-	62272: _PacketType_name[446:461],
-	62276: _PacketType_name[461:476],
-	62299: _PacketType_name[476:491],
+	-1:    _PacketType_name[0:15],
+	4096:  _PacketType_name[15:25],
+	4352:  _PacketType_name[25:33],
+	4353:  _PacketType_name[33:38],
+	4608:  _PacketType_name[38:49],
+	4609:  _PacketType_name[49:68],
+	4610:  _PacketType_name[68:88],
+	4864:  _PacketType_name[88:104],
+	4865:  _PacketType_name[104:118],
+	4866:  _PacketType_name[118:132],
+	4867:  _PacketType_name[132:144],
+	4868:  _PacketType_name[144:157],
+	4869:  _PacketType_name[157:172],
+	4875:  _PacketType_name[172:186],
+	4879:  _PacketType_name[186:196],
+	4881:  _PacketType_name[196:211],
+	4882:  _PacketType_name[211:226],
+	4883:  _PacketType_name[226:241],
+	4889:  _PacketType_name[241:257],
+	61696: _PacketType_name[257:266],
+	61697: _PacketType_name[266:271],
+	61952: _PacketType_name[271:282],
+	61953: _PacketType_name[282:300],
+	61954: _PacketType_name[300:313],
+	61955: _PacketType_name[313:328],
+	61956: _PacketType_name[328:347],
+	62222: _PacketType_name[347:364],
+	62223: _PacketType_name[364:376],
+	62233: _PacketType_name[376:390],
+	62241: _PacketType_name[390:400],
+	62242: _PacketType_name[400:410],
+	62246: _PacketType_name[410:419],
+	62258: _PacketType_name[419:435],
+	62260: _PacketType_name[435:446],
+	62262: _PacketType_name[446:461],
+	62272: _PacketType_name[461:476],
+	62276: _PacketType_name[476:491],
+	62299: _PacketType_name[491:506],
 }
 
 func (i PacketType) String() string {

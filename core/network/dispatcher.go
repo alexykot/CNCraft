@@ -3,7 +3,9 @@ package network
 import (
 	"errors"
 	"fmt"
+	"sync"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/handlers"
@@ -21,13 +23,16 @@ type DispatcherTransmitter struct {
 	log  *zap.Logger
 	ps   nats.PubSub
 	auth auth.A
+
+	connMu map[uuid.UUID]*sync.Mutex
 }
 
 func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A) *DispatcherTransmitter {
 	return &DispatcherTransmitter{
-		log:  log,
-		ps:   ps,
-		auth: auth,
+		log:    log,
+		ps:     ps,
+		auth:   auth,
+		connMu: make(map[uuid.UUID]*sync.Mutex),
 	}
 }
 
@@ -41,10 +46,15 @@ func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A) *DispatcherTran
 //	}
 //}
 
-func (d *DispatcherTransmitter) RegisterConnHandlers(conn Connection) error {
+func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
+	d.connMu[conn.ID()] = &sync.Mutex{}
+
 	transmitHandler := func(lope *envelope.E) {
 		conn := conn
 		log := d.log.With(zap.String("conn", conn.ID().String()))
+
+		d.connMu[conn.ID()].Lock()
+		defer d.connMu[conn.ID()].Unlock()
 
 		cpacket := lope.GetCpacket()
 		if cpacket == nil {
@@ -69,6 +79,9 @@ func (d *DispatcherTransmitter) RegisterConnHandlers(conn Connection) error {
 
 func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byte) {
 	log := d.log.With(zap.String("connId", conn.ID().String()))
+	d.connMu[conn.ID()].Lock()
+	defer d.connMu[conn.ID()].Unlock()
+
 	sPacket, err := d.parseSPacket(conn.GetState(), packetBytes)
 
 	if err != nil {
@@ -136,7 +149,8 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	case protocol.SLoginStart:
 		cPackets, err = handlers.HandleSLoginStart(d.auth, conn.ID(), sPacket)
 	case protocol.SEncryptionResponse:
-		cPackets, err = handlers.HandleSEncryptionResponse(d.auth, conn.EnableEncryption, conn.EnableCompression, conn.ID(), sPacket)
+		cPackets, err = handlers.HandleSEncryptionResponse(
+			d.auth, d.ps, conn.SetState, conn.EnableEncryption, conn.EnableCompression, conn.ID(), sPacket)
 	default:
 		return fmt.Errorf("unhandled packet type: %X", int32(pacType))
 	}
@@ -190,9 +204,10 @@ func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protoco
 }
 
 // checkIsStatusHandshake checks if the packet looks like a Handshake packet. This is needed because in Status
-// connection mode there is no way in the protocol to correctly signal upgrade to login mode, so the Notchian client
-// sends a SHandshake packet, which belongs to Handshake state and it's packetID collides with the SRequest packet.
-// So we have to hack around this by checking the packet size, if the connState is Handshake and packetID is 0x00.
+// connection state there is no way in the protocol to correctly signal upgrade to Login state, so the Notchian client
+// sends a SHandshake packet, which belongs to Handshake state and it's packetID collides with the SRequest packet
+// from the Status state. So we have to hack around this by checking the packet size, and if the connState is Status,
+// packetID is 0x00  and size is bigger than 1 byte - assume it is an SHandshake, not SRequest as it normally would be.
 func (d *DispatcherTransmitter) checkIsStatusHandshake(connState protocol.State, packetBytes []byte) bool {
 	if connState != protocol.Status { // if the connState is not Status - this hack does not apply.
 		return false

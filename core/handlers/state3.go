@@ -1,167 +1,63 @@
 package handlers
 
 import (
+	"encoding/binary"
+	"fmt"
+
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/nats"
+	"github.com/alexykot/cncraft/core/nats/subj"
+	"github.com/alexykot/cncraft/core/players"
+	"github.com/alexykot/cncraft/core/world"
+	"github.com/alexykot/cncraft/pkg/envelope"
+	"github.com/alexykot/cncraft/pkg/game"
+	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
-// RegisterHandlersState3 registers handlers for packets transmitted/received in the Play connection state.
-func RegisterHandlersState3(ps nats.PubSub, logger *zap.Logger) {
-	// TODO replace `join chan base.PlayerAndConnection`, `quit chan base.PlayerAndConnection` params with pubsub
-	// TODO figure out what `tasking *task.Tasking` is for
+// RegisterHandlersState3 registers handlers for envelopes broadcast in the Play connection state.
+func RegisterHandlersState3(ps nats.PubSub, log *zap.Logger, tally *players.Tally) error {
+	if err := ps.Subscribe(subj.MkPlayerLoading(), handlePlayerLoading(ps, log, tally)); err != nil {
+		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
+	}
 
-	//tasking.EveryTime(10, time.Second, func(task *task.Task) {
-	//
-	//	api := apis.MinecraftServer()
-	//
-	//	// I hate this, add a functional method for player iterating
-	//	for _, player := range api.Players() {
-	//
-	//		// also probably add one that returns both the player and their connection
-	//		conn := api.ConnByUUID(player.UUID())
-	//
-	//		// keep player connection alive via keep alive
-	//		conn.Transmit(&protocol.CPacketKeepAlive{KeepAliveID: time.Now().UnixNano() / 1e6})
-	//	}
-	//})
-	//
-	//ps.Subscribe(func(packet *protocol.SPacketKeepAlive, conn base.Connection) {
-	//	logger.DebugF("player %s is being kept alive", conn.Address())
-	//})
-	//
-	//ps.Subscribe(func(packet *protocol.SPacketPluginMessage, conn base.Connection) {
-	//	api := apis.MinecraftServer()
-	//
-	//	player := api.PlayerByConn(conn)
-	//	if player == nil {
-	//		return // log no player found?
-	//	}
-	//
-	//	api.Watcher().Publish(implEvent.PlayerPluginMessagePullEvent{
-	//		Conn: base.PlayerAndConnection{
-	//			Connection: conn,
-	//			Player:     player,
-	//		},
-	//		Channel: packet.Message.Chan(),
-	//		Message: packet.Message,
-	//	})
-	//})
-	//
-	//ps.Subscribe(func(packet *protocol.SPacketChatMessage, conn base.Connection) {
-	//	api := apis.MinecraftServer()
-	//
-	//	who := api.PlayerByConn(conn)
-	//	out := msgs.
-	//		New(who.Name()).SetColor(chat.White).
-	//		Add(":").SetColor(chat.Gray).
-	//		Add(" ").
-	//		Add(chat.Translate(packet.Message)).SetColor(chat.White).
-	//		AsText() // why not just use translate?
-	//
-	//	api.Broadcast(out)
-	//})
-	//
-	//go func() {
-	//	for conn := range join {
-	//		apis.MinecraftServer().Watcher().Publish(implEvent.PlayerConnJoinEvent{Conn: conn})
-	//
-	//		conn.Transmit(&protocol.CPacketJoinGame{
-	//			EntityID:      int32(conn.EntityUUID()),
-	//			Hardcore:      false,
-	//			GameMode:      game.CREATIVE,
-	//			Dimension:     game.OVERWORLD,
-	//			HashedSeed:    values.DefaultWorldHashedSeed,
-	//			MaxPlayers:    10,
-	//			LevelType:     game.DEFAULT,
-	//			ViewDistance:  12,
-	//			ReduceDebug:   false,
-	//			RespawnScreen: false,
-	//		})
-	//
-	//		conn.Transmit(&protocol.CPacketPluginMessage{
-	//			Message: &plugin.Brand{
-	//				Name: chat.Translate(fmt.Sprintf("&b%s&r &a%s&r", "GoLangMc", apis.MinecraftServer().ServerVersion())),
-	//			},
-	//		})
-	//
-	//		conn.Transmit(&protocol.CPacketServerDifficulty{
-	//			Difficulty: game.PEACEFUL,
-	//			Locked:     true,
-	//		})
-	//
-	//		conn.Transmit(&protocol.CPacketPlayerAbilities{
-	//			Abilities: client.PlayerAbilities{
-	//				Invulnerable: true,
-	//				Flying:       true,
-	//				AllowFlight:  true,
-	//				InstantBuild: false,
-	//			},
-	//			FlyingSpeed: 0.05, // default value
-	//			FieldOfView: 0.1,  // default value
-	//		})
-	//
-	//		conn.Transmit(&protocol.CPacketHeldItemChange{
-	//			Slot: client.SLOT_0,
-	//		})
-	//
-	//		conn.Transmit(&protocol.CPacketDeclareRecipes{})
-	//
-	//		conn.Transmit(&protocol.CPacketPlayerLocation{
-	//			SomeID: 0,
-	//			Location: data.Location{
-	//				PositionF: data.PositionF{
-	//					X: 0,
-	//					Y: 10,
-	//					Z: 0,
-	//				},
-	//				RotationF: data.RotationF{
-	//					AxisX: 0,
-	//					AxisY: 0,
-	//				},
-	//			},
-	//			Relative: client.Relativity{},
-	//		})
-	//
-	//		conn.Transmit(&protocol.CPacketPlayerInfo{
-	//			Action: client.AddPlayer,
-	//			Values: []client.PlayerInfo{
-	//				&client.PlayerInfoAddPlayer{Player: conn.Player},
-	//			},
-	//		})
-	//
-	//		conn.Transmit(&protocol.CPacketEntityMetadata{Entity: conn.Player})
-	//
-	//		level := implLevel.NewLevel("test")
-	//		implLevel.GenSuperFlat(level, 6)
-	//
-	//		for _, chunk := range level.Chunks() {
-	//			conn.Transmit(&protocol.CPacketChunkData{Chunk: chunk})
-	//		}
-	//
-	//		logger.DebugF("chunks sent to player: %s", conn.Player.Name())
-	//
-	//		conn.Transmit(&protocol.CPacketPlayerLocation{
-	//			SomeID: 1,
-	//			Location: data.Location{
-	//				PositionF: data.PositionF{
-	//					X: 0,
-	//					Y: 10,
-	//					Z: 0,
-	//				},
-	//				RotationF: data.RotationF{
-	//					AxisX: 0,
-	//					AxisY: 0,
-	//				},
-	//			},
-	//			Relative: client.Relativity{},
-	//		})
-	//	}
-	//}()
-	//
-	//go func() {
-	//	for conn := range quit {
-	//		apis.MinecraftServer().Watcher().Publish(implEvent.PlayerConnQuitEvent{Conn: conn})
-	//	}
-	//}()
+	return nil
+}
+
+func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *players.Tally) func(lope *envelope.E) {
+
+	hander := func(lope *envelope.E) {
+		//ps := ps
+		log := log
+		tally := tally
+
+		loading := lope.GetPlayerLoading()
+		if loading == nil {
+			log.Error("failed to parse envelope - no LoadingPlayer inside", zap.Any("envelope", lope))
+			return
+		}
+
+		userId, err := uuid.Parse(loading.Id)
+		if err != nil {
+			log.Error("failed to parse user ID as UUID", zap.String("id", loading.Id))
+			return
+		}
+		p := tally.AddPlayer(userId, loading.Username)
+		currentWorld := world.GetWorld()
+
+		cpacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CJoinGame) // Predefined packet is expected to always exist.
+		joinGame := cpacket.(*protocol.CPacketJoinGame)                           // And always be of the correct type.
+
+		joinGame.EntityID = p.PC.ID()
+		joinGame.GameMode = currentWorld.Gamemode
+		joinGame.Dimension = game.Overworld
+		joinGame.IsHardcore = currentWorld.Coreness
+		joinGame.LevelType = currentWorld.Type
+		joinGame.HashedSeed = int64(binary.LittleEndian.Uint64(currentWorld.SeedHash[:]))
+		joinGame.ViewDistance = p.Settings.ViewDistance
+		joinGame.RespawnScreen = currentConf.EnableRespawnScreen
+	}
+
+	return hander
 }

@@ -9,17 +9,19 @@ func DefaultConfig() ServerConf {
 			Port:        25565,
 			ZipTreshold: 1,
 		},
-		LogLevel:  "DEBUG",
-		IsCracked: true,
-		ServerID:  uuid.New().String(),
+		LogLevel:            "DEBUG",
+		IsCracked:           false,
+		EnableRespawnScreen: true,
+		ServerID:            uuid.New().String(),
 	}
 }
 
 type ServerConf struct {
-	Network   NetworkConf
-	LogLevel  string `yaml:"log-level"` // one of DEBUG, INFO, WARN, ERROR. Set to `INFO` by default.
-	IsCracked bool   // if True - skip player authentication, connection encryption and compression. Set to False by default.
-	ServerID  string // ID of the current server. Set to random UUID by default.
+	Network             NetworkConf
+	LogLevel            string `yaml:"log-level"` // one of DEBUG, INFO, WARN, ERROR. Set to `INFO` by default.
+	IsCracked           bool   // if True - skip player authentication, connection encryption and compression. Set to False by default.
+	ServerID            string // ID of the current server. Set to random UUID by default.
+	EnableRespawnScreen bool
 }
 
 type NetworkConf struct {

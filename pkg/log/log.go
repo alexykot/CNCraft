@@ -3,7 +3,6 @@ package log
 import (
 	"os"
 
-	"github.com/blendle/zapdriver"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/ssh/terminal"
@@ -29,7 +28,7 @@ func GetLogger(level string) (*zap.Logger, error) {
 		logConf.EncoderConfig.CallerKey = ""
 		logConf.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	} else {
-		logConf = zapdriver.NewProductionConfig()
+		logConf = zap.NewProductionConfig()
 	}
 
 	logLevel := zap.NewAtomicLevel()

@@ -2,7 +2,6 @@ package auth
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -18,6 +17,8 @@ type A interface {
 	GetUserVerifyToken(userID uuid.UUID) []byte
 	DecryptUserSharedSecret(userID uuid.UUID, encSharedSecret []byte) ([]byte, error)
 	RunMojangSessionAuth(userID uuid.UUID, sharedSecret []byte) (*mojang.AuthResponse, error)
+	LoginSuccess(userID uuid.UUID)
+	LoginFailure(userID uuid.UUID)
 }
 
 var authRunner auther // the singleton
@@ -128,6 +129,14 @@ func (a *auther) RunMojangSessionAuth(userID uuid.UUID, sharedSecret []byte) (*m
 	return auth, nil
 }
 
-func (a *auther) LoginSuccess(userID uuid.UUID) error {
-	return errors.New("unimplemented")
+func (a *auther) LoginSuccess(userID uuid.UUID) {
+	a.mu.Lock()
+	delete(a.stagingUsers, userID)
+	a.mu.Unlock()
+}
+
+func (a *auther) LoginFailure(userID uuid.UUID) {
+	a.mu.Lock()
+	delete(a.stagingUsers, userID)
+	a.mu.Unlock()
 }

@@ -7,6 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/alexykot/cncraft/core/nats"
+	"github.com/alexykot/cncraft/core/nats/subj"
+	"github.com/alexykot/cncraft/pkg/envelope"
+	"github.com/alexykot/cncraft/pkg/envelope/pb"
 	"github.com/alexykot/cncraft/pkg/protocol"
 	"github.com/alexykot/cncraft/pkg/protocol/auth"
 )
@@ -40,8 +44,9 @@ func HandleSLoginStart(auther auth.A, connID uuid.UUID, sPacket protocol.SPacket
 	return []protocol.CPacket{encRequest}, nil
 }
 
-func HandleSEncryptionResponse(auther auth.A, encSetter func([]byte) error, compSetter func(), connID uuid.UUID,
-	sPacket protocol.SPacket) ([]protocol.CPacket, error) {
+func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
+	stateSetter func(state protocol.State), encSetter func([]byte) error, compSetter func(),
+	connID uuid.UUID, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
 
 	encResponse, ok := sPacket.(*protocol.SPacketEncryptionResponse)
 	if !ok {
@@ -50,16 +55,19 @@ func HandleSEncryptionResponse(auther auth.A, encSetter func([]byte) error, comp
 
 	userID := connID // By design connection ID is also the auth user ID and then the player ID.
 	if bytes.Compare(encResponse.VerifyToken, auther.GetUserVerifyToken(userID)) != 0 {
+		auther.LoginFailure(userID)
 		return nil, newPacketError(InvalidLoginErr, errors.New("supplied verify token does not match the saved one"))
 	}
 
 	sharedSecret, err := auther.DecryptUserSharedSecret(userID, encResponse.SharedSecret)
 	if err != nil {
+		auther.LoginFailure(userID)
 		return nil, newPacketError(InvalidLoginErr, fmt.Errorf("failed to decrypt user shared secret: %w", err))
 	}
 
 	mojangData, err := auther.RunMojangSessionAuth(userID, sharedSecret)
 	if err != nil {
+		auther.LoginFailure(userID)
 		return nil, newPacketError(InvalidLoginErr, fmt.Errorf("failed to run Mojang session server auth: %w", err))
 	}
 
@@ -71,10 +79,21 @@ func HandleSEncryptionResponse(auther auth.A, encSetter func([]byte) error, comp
 	setCompression, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CSetCompression)       // Predefined packet is expected to always exist.
 	setCompression.(*protocol.CPacketSetCompression).Threshold = currentConf.Network.ZipTreshold // And always be of the correct type.
 
-	// Send CSetCompression packet here, before CLoginSuccess.
+	loginSuccess, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CLoginSuccess)
+	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = mojangData.ProfileID.String()
+	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerName = mojangData.Username
 
-	loginSuccess, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CLoginSuccess) // Predefined packet is expected to always exist.
-	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = mojangData.UUID.String() // And always be of the correct type.
-	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerName = mojangData.Name
+	stateSetter(protocol.Play)
+	lope := envelope.PlayerLoading(&pb.PlayerLoading{
+		Id:        userID.String(),
+		ProfileId: mojangData.ProfileID.String(),
+		Username:  mojangData.Username,
+		// TODO also publish skin data
+	})
+	if err := ps.Publish(subj.MkPlayerLoading(), lope); err != nil {
+		return nil, fmt.Errorf("failed to publish player loading envelope: %w", err)
+	}
+
+	auther.LoginSuccess(userID)
 	return []protocol.CPacket{setCompression, loginSuccess}, nil
 }
