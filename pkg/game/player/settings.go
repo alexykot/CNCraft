@@ -1,10 +1,36 @@
-package players
+package player
 
 import (
 	"fmt"
 
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/mask"
+)
+
+type Settings struct {
+	Locale       string
+	ViewDistance int32
+	FlyingSpeed  float32
+	FoVModifier  float32 // Field of View Modifier
+	ClientBrand  string
+	Skin         SkinParts
+	ChatMode     ChatMode
+	ChatColors   bool
+}
+
+type MainHand int
+
+const (
+	HandLeft MainHand = iota
+	HandRight
+)
+
+type ChatMode int
+
+const (
+	Full ChatMode = iota
+	CommandsOnly
+	Hidden
 )
 
 type SkinParts struct {

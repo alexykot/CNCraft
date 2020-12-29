@@ -1,4 +1,4 @@
-package players
+package player
 
 type StatusAction int
 

@@ -13,6 +13,7 @@ import (
 	"github.com/alexykot/cncraft/core/handlers"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
+	"github.com/alexykot/cncraft/core/users"
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/protocol"
@@ -22,18 +23,21 @@ import (
 // DispatcherTransmitter parses and dispatches processing for incoming server bound protocol packets.
 //  Also it collects and transmits outgoing client bound packets.
 type DispatcherTransmitter struct {
-	log  *zap.Logger
-	ps   nats.PubSub
-	auth auth.A
+	log   *zap.Logger
+	ps    nats.PubSub
+	auth  auth.A
+	tally *users.Roster
 
 	connMu map[uuid.UUID]*sync.Mutex
 }
 
-func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A) *DispatcherTransmitter {
+func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *users.Roster) *DispatcherTransmitter {
 	return &DispatcherTransmitter{
-		log:    log,
-		ps:     ps,
-		auth:   auth,
+		log:   log,
+		ps:    ps,
+		auth:  auth,
+		tally: tally,
+
 		connMu: make(map[uuid.UUID]*sync.Mutex),
 	}
 }
@@ -164,6 +168,10 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	case protocol.SEncryptionResponse:
 		cPackets, err = handlers.HandleSEncryptionResponse(
 			d.auth, d.ps, debugStateSetter, conn.EnableEncryption, conn.EnableCompression, conn.ID(), sPacket)
+	case protocol.SPluginMessage:
+		cPackets, err = handlers.HandleSPluginMessage(d.log, d.tally, conn.ID(), sPacket)
+	case protocol.SClientSettings:
+		cPackets, err = handlers.HandleSClientSettings(d.tally, conn.ID(), sPacket)
 	default:
 		return fmt.Errorf("unhandled packet type: %X", int32(pacType))
 	}

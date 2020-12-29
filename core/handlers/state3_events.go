@@ -10,16 +10,16 @@ import (
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
-	"github.com/alexykot/cncraft/core/players"
+	"github.com/alexykot/cncraft/core/users"
 	"github.com/alexykot/cncraft/core/world"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/protocol"
 )
 
-// RegisterHandlersState3 registers handlers for envelopes broadcast in the Play connection state.
+// RegisterEventHandlersState3 registers handlers for envelopes broadcast in the Play connection state.
 //  Play state handlers are entirely asynchronous, so NATS subscriptions need to be created at boot time.
-func RegisterHandlersState3(ps nats.PubSub, log *zap.Logger, tally *players.Tally) error {
+func RegisterEventHandlersState3(ps nats.PubSub, log *zap.Logger, tally *users.Roster) error {
 	if err := ps.Subscribe(subj.MkPlayerLoading(), handlePlayerLoading(ps, log, tally)); err != nil {
 		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
 	}
@@ -27,9 +27,9 @@ func RegisterHandlersState3(ps nats.PubSub, log *zap.Logger, tally *players.Tall
 	return nil
 }
 
-func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *players.Tally) func(lope *envelope.E) {
+func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *users.Roster) func(lope *envelope.E) {
 	return func(inLope *envelope.E) {
-		//ps := ps
+		ps := ps
 		log := log
 		tally := tally
 

@@ -14,7 +14,7 @@ import (
 	"github.com/alexykot/cncraft/core/handlers"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/network"
-	"github.com/alexykot/cncraft/core/players"
+	"github.com/alexykot/cncraft/core/users"
 	"github.com/alexykot/cncraft/pkg/log"
 	"github.com/alexykot/cncraft/pkg/protocol/auth"
 )
@@ -41,7 +41,7 @@ type server struct {
 
 	network *network.Network
 
-	players *players.Tally
+	players *users.Roster
 
 	//chat    // chat implementation needed
 }
@@ -55,7 +55,8 @@ func NewServer(conf control.ServerConf) (Server, error) {
 
 	controlChan := make(chan control.Command)
 	pubSub := nats.NewPubSub(logger.Named("pubsub"), nats.NewNats(), controlChan)
-	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), pubSub, auth.GetAuther())
+	tally := users.NewRoster(logger.Named("players"), pubSub)
+	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), pubSub, auth.GetAuther(), tally)
 
 	return &server{
 		config:  conf,
@@ -64,7 +65,7 @@ func NewServer(conf control.ServerConf) (Server, error) {
 		control: controlChan,
 		signal:  make(chan os.Signal),
 		network: network.NewNetwork(conf.Network, logger.Named("network"), controlChan, pubSub, dispatcher),
-		players: players.NewTally(logger.Named("players"), pubSub),
+		players: tally,
 	}, nil
 }
 
@@ -129,7 +130,7 @@ func (s *server) startServer() error {
 		return fmt.Errorf("failed to register global player handlers: %w", err)
 	}
 
-	if err := handlers.RegisterHandlersState3(s.ps, s.log.Named("play"), s.players); err != nil {
+	if err := handlers.RegisterEventHandlersState3(s.ps, s.log.Named("play"), s.players); err != nil {
 		return fmt.Errorf("failed to register Play state handlers: %w", err)
 	}
 

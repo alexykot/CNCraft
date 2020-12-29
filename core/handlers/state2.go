@@ -7,14 +7,13 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/alexykot/cncraft/core/control"
-	"github.com/alexykot/cncraft/pkg/protocol/auth/mojang"
-
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/envelope/pb"
 	"github.com/alexykot/cncraft/pkg/protocol"
 	"github.com/alexykot/cncraft/pkg/protocol/auth"
+	"github.com/alexykot/cncraft/pkg/protocol/auth/mojang"
 )
 
 // HandleSLoginStart handles the LoginStart packet.

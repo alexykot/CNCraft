@@ -6,49 +6,30 @@ import (
 )
 
 type Message interface {
-	Chan() string
+	Chan() Channel
 
 	buffer.BufferPush
 	buffer.BufferPull
 }
 
-var registry = createMessageRegistry()
-
-type MessageRegistry struct {
-	channels map[string]func() Message
-}
-
-func createMessageRegistry() MessageRegistry {
-	registry := MessageRegistry{make(map[string]func() Message)}
-
-	registry.channels["minecraft:brand"] = func() Message {
+func GetMessageForChannel(channel Channel) Message {
+	switch channel {
+	case ChannelBrand:
 		return &Brand{}
-	}
-
-	registry.channels["minecraft:debug/paths"] = func() Message {
+	case ChannelDebugPaths:
 		return &DebugPaths{}
-	}
-
-	registry.channels["minecraft:debug/neighbors_update"] = func() Message {
+	case ChannelDebugNeighbors:
 		return &DebugNeighbors{}
 	}
-
-	return registry
+	return nil
 }
 
-func GetMessageForChannel(channel string) Message {
-	creator := registry.channels[channel]
-	if creator == nil {
-		return nil
-	}
-
-	return creator()
-}
+type Channel string
 
 const (
-	ChannelBrand          = "minecraft:brand"
-	ChannelDebugPaths     = "minecraft:debug/paths"
-	ChannelDebugNeighbors = "minecraft:debug/neighbors_update"
+	ChannelBrand          Channel = "minecraft:brand"
+	ChannelDebugPaths     Channel = "minecraft:debug/paths"
+	ChannelDebugNeighbors Channel = "minecraft:debug/neighbors_update"
 )
 
 // look, they're like cute little packets :D
@@ -57,7 +38,7 @@ type Brand struct {
 	Name string
 }
 
-func (b *Brand) Chan() string {
+func (b *Brand) Chan() Channel {
 	return ChannelBrand
 }
 
@@ -205,7 +186,7 @@ const (
 	DOOR_IRON_CLOSED
 )
 
-func (d *DebugPaths) Chan() string {
+func (d *DebugPaths) Chan() Channel {
 	return ChannelDebugPaths
 }
 
@@ -230,7 +211,7 @@ type DebugNeighbors struct {
 	Location data.PositionI
 }
 
-func (d *DebugNeighbors) Chan() string {
+func (d *DebugNeighbors) Chan() Channel {
 	return ChannelDebugNeighbors
 }
 

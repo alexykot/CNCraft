@@ -6,7 +6,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/data"
-	"github.com/alexykot/cncraft/pkg/game/players"
+	"github.com/alexykot/cncraft/pkg/game/player"
 	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 )
 
@@ -167,10 +167,9 @@ func (p *SPacketPluginMessage) ProtocolID() ProtocolPacketID { return protocolSP
 func (p *SPacketPluginMessage) Type() PacketType             { return SPluginMessage }
 func (p *SPacketPluginMessage) Pull(reader buffer.B) error {
 	channel := reader.PullTxt()
-	message := plugin.GetMessageForChannel(channel)
-
+	message := plugin.GetMessageForChannel(plugin.Channel(channel))
 	if message == nil {
-		return fmt.Errorf("channel `%s` not found ", channel)
+		return fmt.Errorf("channel `%s` not found", channel)
 	}
 
 	message.Pull(reader)
@@ -181,23 +180,23 @@ func (p *SPacketPluginMessage) Pull(reader buffer.B) error {
 }
 
 type SPacketClientStatus struct {
-	Action players.StatusAction
+	Action player.StatusAction
 }
 
 func (p *SPacketClientStatus) ProtocolID() ProtocolPacketID { return protocolSClientStatus }
 func (p *SPacketClientStatus) Type() PacketType             { return SClientStatus }
 func (p *SPacketClientStatus) Pull(reader buffer.B) error {
-	p.Action = players.StatusAction(reader.PullVrI())
+	p.Action = player.StatusAction(reader.PullVrI())
 	return nil // DEBT actually check for errors
 }
 
 type SPacketClientSettings struct {
 	Locale       string
 	ViewDistance byte
-	ChatMode     players.ChatMode
+	ChatMode     player.ChatMode
 	ChatColors   bool // if false, strip messages of colors before sending
-	SkinParts    players.SkinParts
-	MainHand     players.MainHand
+	SkinParts    player.SkinParts
+	MainHand     player.MainHand
 }
 
 func (p *SPacketClientSettings) ProtocolID() ProtocolPacketID { return protocolSClientSettings }
@@ -205,19 +204,19 @@ func (p *SPacketClientSettings) Type() PacketType             { return SClientSe
 func (p *SPacketClientSettings) Pull(reader buffer.B) error {
 	p.Locale = reader.PullTxt()
 	p.ViewDistance = reader.PullByt()
-	p.ChatMode = players.ChatMode(reader.PullVrI())
+	p.ChatMode = player.ChatMode(reader.PullVrI())
 	p.ChatColors = reader.PullBit()
 
-	parts := players.SkinParts{}
+	parts := player.SkinParts{}
 	parts.Pull(reader)
 
 	p.SkinParts = parts
-	p.MainHand = players.MainHand(reader.PullVrI())
+	p.MainHand = player.MainHand(reader.PullVrI())
 	return nil // DEBT actually check for errors
 }
 
 type SPacketPlayerAbilities struct {
-	Abilities   players.PlayerAbilities
+	Abilities   player.Abilities
 	FlightSpeed float32
 	GroundSpeed float32
 }
@@ -225,7 +224,7 @@ type SPacketPlayerAbilities struct {
 func (p *SPacketPlayerAbilities) ProtocolID() ProtocolPacketID { return protocolSPlayerAbilities }
 func (p *SPacketPlayerAbilities) Type() PacketType             { return SPlayerAbilities }
 func (p *SPacketPlayerAbilities) Pull(reader buffer.B) error {
-	abilities := players.PlayerAbilities{}
+	abilities := player.Abilities{}
 	abilities.Pull(reader)
 
 	p.Abilities = abilities

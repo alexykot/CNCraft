@@ -9,7 +9,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/entities"
 	"github.com/alexykot/cncraft/pkg/game/level"
-	"github.com/alexykot/cncraft/pkg/game/players"
+	"github.com/alexykot/cncraft/pkg/game/player"
 	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 	"github.com/alexykot/cncraft/pkg/protocol/status"
 )
@@ -156,13 +156,13 @@ type CPacketPluginMessage struct {
 func (p *CPacketPluginMessage) ProtocolID() ProtocolPacketID { return protocolCPluginMessage }
 func (p *CPacketPluginMessage) Type() PacketType             { return CPluginMessage }
 func (p *CPacketPluginMessage) Push(writer buffer.B) {
-	writer.PushTxt(p.Message.Chan())
+	writer.PushTxt(string(p.Message.Chan()))
 	p.Message.Push(writer)
 }
 
 type CPacketPlayerLocation struct {
 	Location data.Location
-	Relative players.Relativity
+	Relative player.Relativity
 
 	SomeID int32 // no idea what ID is this, the packet type 3/0x36 in the protocol 754 does not have this field
 }
@@ -205,7 +205,7 @@ func (p *CPacketServerDifficulty) Push(writer buffer.B) {
 }
 
 type CPacketPlayerAbilities struct {
-	Abilities   players.PlayerAbilities
+	Abilities   player.Abilities
 	FlyingSpeed float32
 	FieldOfView float32
 }
@@ -220,7 +220,7 @@ func (p *CPacketPlayerAbilities) Push(writer buffer.B) {
 }
 
 type CPacketHeldItemChange struct {
-	Slot players.HotBarSlot
+	Slot player.HotBarSlot
 }
 
 func (p *CPacketHeldItemChange) ProtocolID() ProtocolPacketID { return protocolCHeldItemChange }
@@ -280,8 +280,8 @@ func (p *CPacketChunkData) Push(writer buffer.B) {
 }
 
 type CPacketPlayerInfo struct {
-	Action players.PlayerInfoAction
-	Values []players.PlayerInfo
+	Action player.PlayerInfoAction
+	Values []player.PlayerInfo
 }
 
 func (p *CPacketPlayerInfo) ProtocolID() ProtocolPacketID { return protocolCPlayerInfo }
@@ -311,7 +311,7 @@ func (p *CPacketEntityMetadata) Push(writer buffer.B) {
 		writer.PushByt(16) // index | displayed skin parts
 		writer.PushVrI(0)  // type | byte
 
-		skin := players.SkinParts{
+		skin := player.SkinParts{
 			Cape: true,
 			Head: true,
 			Body: true,
