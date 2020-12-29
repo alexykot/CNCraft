@@ -15,6 +15,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/protocol"
+	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 )
 
 // RegisterEventHandlersState3 registers handlers for envelopes broadcast in the Play connection state.
@@ -63,23 +64,44 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *users.Roster) f
 		joinGame.RespawnScreen = control.GetCurrentConfig().EnableRespawnScreen
 		outLopes = append(outLopes, mkCpacketEnvelope(joinGame))
 
-		//cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPluginMessage)
-		//pluginMessage := cpacket.(*protocol.CPacketPluginMessage)
-		//pluginMessage.Message = &plugin.Brand{Name: "CNCraft"}
-		//outLopes = append(outLopes, mkCpacketEnvelope(pluginMessage))
-		//
-		//cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CServerDifficulty)
-		//difficulty := cpacket.(*protocol.CPacketServerDifficulty)
-		//difficulty.Difficulty = currentWorld.Difficulty
-		//difficulty.Locked = currentWorld.DifficultyIsLocked
-		//outLopes = append(outLopes, mkCpacketEnvelope(difficulty))
-		//
-		//cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerAbilities)
-		//abilities := cpacket.(*protocol.CPacketPlayerAbilities)
-		//abilities.Abilities = p.Abilities
-		//abilities.FlyingSpeed = p.Settings.FlyingSpeed
-		//abilities.FieldOfView = p.Settings.FoVModifier
-		//outLopes = append(outLopes, mkCpacketEnvelope(abilities))
+		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPluginMessage)
+		pluginMessage := cpacket.(*protocol.CPacketPluginMessage)
+		pluginMessage.Message = &plugin.Brand{Name: control.GetCurrentConfig().Brand}
+		outLopes = append(outLopes, mkCpacketEnvelope(pluginMessage))
+
+		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CServerDifficulty)
+		difficulty := cpacket.(*protocol.CPacketServerDifficulty)
+		difficulty.Difficulty = currentWorld.Difficulty
+		difficulty.Locked = currentWorld.DifficultyIsLocked
+		outLopes = append(outLopes, mkCpacketEnvelope(difficulty))
+
+		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerAbilities)
+		abilities := cpacket.(*protocol.CPacketPlayerAbilities)
+		abilities.Abilities = p.Abilities
+		abilities.FlyingSpeed = p.Settings.FlyingSpeed
+		abilities.FieldOfView = p.Settings.FoVModifier
+		outLopes = append(outLopes, mkCpacketEnvelope(abilities))
+
+		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CHeldItemChange)
+		heldItemChange := cpacket.(*protocol.CPacketHeldItemChange)
+		heldItemChange.Slot = p.State.CurrentHotbarSlot
+		outLopes = append(outLopes, mkCpacketEnvelope(heldItemChange))
+
+		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CDeclareRecipes)
+		declareRecipes := cpacket.(*protocol.CPacketDeclareRecipes)
+		declareRecipes.RecipeCount = 0 // TODO probably will be a static list of recipes defined for current server version
+		outLopes = append(outLopes, mkCpacketEnvelope(declareRecipes))
+
+		// TODO CTags packet is not defined
+		// TODO CEntityStatus packet is not defined
+		// TODO CDeclareCommands packet is not defined
+		// TODO CUnlockRecipes packet is not defined
+
+		// Player Position And Look
+		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerPositionAndLook)
+		posAndLook := cpacket.(*protocol.CPacketPlayerPositionAndLook)
+		posAndLook.Location = p.State.CurrentLocation // Relative is always False here.
+		outLopes = append(outLopes, mkCpacketEnvelope(posAndLook))
 
 		if err := ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
 			log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))

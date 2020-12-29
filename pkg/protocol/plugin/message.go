@@ -217,10 +217,10 @@ func (d *DebugNeighbors) Chan() Channel {
 
 func (d *DebugNeighbors) Push(writer buffer.B) {
 	writer.PushVrL(d.Time)
-	writer.PushPos(d.Location)
+	d.Location.Push(writer)
 }
 
 func (d *DebugNeighbors) Pull(reader buffer.B) {
 	d.Time = reader.PullVrL()
-	d.Location = reader.PullPos()
+	d.Location.Pull(reader)
 }

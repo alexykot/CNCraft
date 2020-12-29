@@ -77,18 +77,18 @@ const (
 	protocolCLoginPluginRequest ProtocolPacketID = 0x04
 
 	// Play state packets
-	protocolCChatMessage      ProtocolPacketID = 0x0F
-	protocolCJoinGame         ProtocolPacketID = 0x26
-	protocolCPluginMessage    ProtocolPacketID = 0x19
-	protocolCPlayerLocation   ProtocolPacketID = 0x36
-	protocolCKeepAlive        ProtocolPacketID = 0x21
-	protocolCServerDifficulty ProtocolPacketID = 0x0E
-	protocolCPlayerAbilities  ProtocolPacketID = 0x32
-	protocolCHeldItemChange   ProtocolPacketID = 0x40
-	protocolCDeclareRecipes   ProtocolPacketID = 0x5B
-	protocolCChunkData        ProtocolPacketID = 0x22
-	protocolCPlayerInfo       ProtocolPacketID = 0x34
-	protocolCEntityMetadata   ProtocolPacketID = 0x44
+	protocolCChatMessage           ProtocolPacketID = 0x0F
+	protocolCJoinGame              ProtocolPacketID = 0x26
+	protocolCPluginMessage         ProtocolPacketID = 0x19
+	protocolCPlayerPositionAndLook ProtocolPacketID = 0x36
+	protocolCKeepAlive             ProtocolPacketID = 0x21
+	protocolCServerDifficulty      ProtocolPacketID = 0x0E
+	protocolCPlayerAbilities       ProtocolPacketID = 0x32
+	protocolCHeldItemChange        ProtocolPacketID = 0x40
+	protocolCDeclareRecipes        ProtocolPacketID = 0x5B
+	protocolCChunkData             ProtocolPacketID = 0x22
+	protocolCPlayerInfo            ProtocolPacketID = 0x34
+	protocolCEntityMetadata        ProtocolPacketID = 0x44
 )
 
 type packetDirection int32
@@ -163,18 +163,18 @@ const (
 	CLoginPluginRequest = PacketType(int32(ClientBound) + stateLogin + int32(protocolCLoginPluginRequest)) // 0xF204
 
 	// Play state packets
-	CChatMessage      = PacketType(int32(ClientBound) + statePlay + int32(protocolCChatMessage))      // 0xF30F
-	CJoinGame         = PacketType(int32(ClientBound) + statePlay + int32(protocolCJoinGame))         // 0xF326
-	CPluginMessage    = PacketType(int32(ClientBound) + statePlay + int32(protocolCPluginMessage))    // 0xF319
-	CPlayerLocation   = PacketType(int32(ClientBound) + statePlay + int32(protocolCPlayerLocation))   // 0xF336
-	CKeepAlive        = PacketType(int32(ClientBound) + statePlay + int32(protocolCKeepAlive))        // 0xF321
-	CServerDifficulty = PacketType(int32(ClientBound) + statePlay + int32(protocolCServerDifficulty)) // 0xF30E
-	CPlayerAbilities  = PacketType(int32(ClientBound) + statePlay + int32(protocolCPlayerAbilities))  // 0xF332
-	CHeldItemChange   = PacketType(int32(ClientBound) + statePlay + int32(protocolCHeldItemChange))   // 0xF340
-	CDeclareRecipes   = PacketType(int32(ClientBound) + statePlay + int32(protocolCDeclareRecipes))   // 0xF35B
-	CChunkData        = PacketType(int32(ClientBound) + statePlay + int32(protocolCChunkData))        // 0xF322
-	CPlayerInfo       = PacketType(int32(ClientBound) + statePlay + int32(protocolCPlayerInfo))       // 0xF334
-	CEntityMetadata   = PacketType(int32(ClientBound) + statePlay + int32(protocolCEntityMetadata))   // 0xF344
+	CChatMessage           = PacketType(int32(ClientBound) + statePlay + int32(protocolCChatMessage))           // 0xF30F
+	CJoinGame              = PacketType(int32(ClientBound) + statePlay + int32(protocolCJoinGame))              // 0xF326
+	CPluginMessage         = PacketType(int32(ClientBound) + statePlay + int32(protocolCPluginMessage))         // 0xF319
+	CPlayerPositionAndLook = PacketType(int32(ClientBound) + statePlay + int32(protocolCPlayerPositionAndLook)) // 0xF336
+	CKeepAlive             = PacketType(int32(ClientBound) + statePlay + int32(protocolCKeepAlive))             // 0xF321
+	CServerDifficulty      = PacketType(int32(ClientBound) + statePlay + int32(protocolCServerDifficulty))      // 0xF30E
+	CPlayerAbilities       = PacketType(int32(ClientBound) + statePlay + int32(protocolCPlayerAbilities))       // 0xF332
+	CHeldItemChange        = PacketType(int32(ClientBound) + statePlay + int32(protocolCHeldItemChange))        // 0xF340
+	CDeclareRecipes        = PacketType(int32(ClientBound) + statePlay + int32(protocolCDeclareRecipes))        // 0xF35B
+	CChunkData             = PacketType(int32(ClientBound) + statePlay + int32(protocolCChunkData))             // 0xF322
+	CPlayerInfo            = PacketType(int32(ClientBound) + statePlay + int32(protocolCPlayerInfo))            // 0xF334
+	CEntityMetadata        = PacketType(int32(ClientBound) + statePlay + int32(protocolCEntityMetadata))        // 0xF344
 )
 
 func makeType(direction packetDirection, state State, pID ProtocolPacketID) PacketType {

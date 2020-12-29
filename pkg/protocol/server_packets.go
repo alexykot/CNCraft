@@ -144,7 +144,7 @@ func (p *SPacketQueryBlockNBT) ProtocolID() ProtocolPacketID { return protocolSQ
 func (p *SPacketQueryBlockNBT) Type() PacketType             { return SQueryBlockNBT }
 func (p *SPacketQueryBlockNBT) Pull(reader buffer.B) error {
 	p.TransactionID = reader.PullVrI()
-	p.Position = reader.PullPos()
+	p.Position.Pull(reader)
 	return nil // DEBT actually check for errors
 }
 
@@ -267,8 +267,8 @@ func (p *SPacketPlayerLocation) Pull(reader buffer.B) error {
 			Z: reader.PullF64(),
 		},
 		RotationF: data.RotationF{
-			AxisX: reader.PullF32(),
-			AxisY: reader.PullF32(),
+			Yaw:   reader.PullF32(),
+			Pitch: reader.PullF32(),
 		},
 	}
 
@@ -285,8 +285,8 @@ func (p *SPacketPlayerRotation) ProtocolID() ProtocolPacketID { return protocolS
 func (p *SPacketPlayerRotation) Type() PacketType             { return SPlayerRotation }
 func (p *SPacketPlayerRotation) Pull(reader buffer.B) error {
 	p.Rotation = data.RotationF{
-		AxisX: reader.PullF32(),
-		AxisY: reader.PullF32(),
+		Yaw:   reader.PullF32(),
+		Pitch: reader.PullF32(),
 	}
 
 	p.OnGround = reader.PullBit()

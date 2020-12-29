@@ -160,22 +160,24 @@ func (p *CPacketPluginMessage) Push(writer buffer.B) {
 	p.Message.Push(writer)
 }
 
-type CPacketPlayerLocation struct {
+type CPacketPlayerPositionAndLook struct {
 	Location data.Location
-	Relative player.Relativity
+	Relative data.Relativity
 
 	SomeID int32 // no idea what ID is this, the packet type 3/0x36 in the protocol 754 does not have this field
 }
 
-func (p *CPacketPlayerLocation) ProtocolID() ProtocolPacketID { return protocolCPlayerLocation }
-func (p *CPacketPlayerLocation) Type() PacketType             { return CPlayerLocation }
-func (p *CPacketPlayerLocation) Push(writer buffer.B) {
+func (p *CPacketPlayerPositionAndLook) ProtocolID() ProtocolPacketID {
+	return protocolCPlayerPositionAndLook
+}
+func (p *CPacketPlayerPositionAndLook) Type() PacketType { return CPlayerPositionAndLook }
+func (p *CPacketPlayerPositionAndLook) Push(writer buffer.B) {
 	writer.PushF64(p.Location.X)
 	writer.PushF64(p.Location.Y)
 	writer.PushF64(p.Location.Z)
 
-	writer.PushF32(p.Location.AxisX)
-	writer.PushF32(p.Location.AxisY)
+	writer.PushF32(p.Location.Yaw)
+	writer.PushF32(p.Location.Pitch)
 
 	p.Relative.Push(writer)
 

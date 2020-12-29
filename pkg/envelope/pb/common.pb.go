@@ -311,7 +311,7 @@ type PlayerLoading struct {
 
 	Id        string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	ProfileId string `protobuf:"bytes,2,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
-	Username  string `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
+	Username  string `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"` // TODO also publish skin data
 }
 
 func (x *PlayerLoading) Reset() {

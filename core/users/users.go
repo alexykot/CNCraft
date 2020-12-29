@@ -28,6 +28,7 @@ type User struct {
 	Username  string
 	Settings  player.Settings
 	Abilities player.Abilities
+	State     player.State
 }
 
 func NewRoster(log *zap.Logger, ps nats.PubSub) *Roster {
@@ -58,14 +59,17 @@ func (r *Roster) AddPlayer(userID uuid.UUID, username string) *User {
 			zap.String("existing", existing.Username), zap.String("new", username))
 		return nil
 	}
+
+	// TODO whole user state hardcoded until persistence is properly implemented
 	p := User{
 		PC:       entities.NewPC(username, player.MaxHealth),
 		Username: username,
-		Settings: player.Settings{ // TODO all settings are hardcoded until properly implemented
+		Settings: player.Settings{
 			ViewDistance: 7,
 			FlyingSpeed:  0.05,
 			FoVModifier:  0.1,
 		},
+		State: player.State{CurrentHotbarSlot: player.Slot0},
 	}
 
 	r.users[userID] = p
@@ -93,6 +97,29 @@ func (r *Roster) GetPlayer(userID uuid.UUID) (User, bool) {
 	return p, ok
 }
 
+func (r *Roster) GetPlayerState(userID uuid.UUID) player.State {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.users[userID]; !ok {
+		return player.State{}
+	}
+
+	return r.users[userID].State
+}
+
+func (r *Roster) SetPlayerState(userID uuid.UUID, state player.State) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	p, ok := r.users[userID]
+	if !ok {
+		return
+	}
+	p.State = state
+	r.users[userID] = p
+}
+
 func (r *Roster) GetPlayerSettings(userID uuid.UUID) player.Settings {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -103,7 +130,8 @@ func (r *Roster) GetPlayerSettings(userID uuid.UUID) player.Settings {
 
 	return r.users[userID].Settings
 }
-func (r *Roster) SetPlayerSettings(userID uuid.UUID, new player.Settings) {
+
+func (r *Roster) SetPlayerSettings(userID uuid.UUID, settings player.Settings) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -111,6 +139,6 @@ func (r *Roster) SetPlayerSettings(userID uuid.UUID, new player.Settings) {
 	if !ok {
 		return
 	}
-	p.Settings = new
+	p.Settings = settings
 	r.users[userID] = p
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/data/tags"
 )
 
@@ -75,8 +74,6 @@ type B interface {
 
 	PullUID() uuid.UUID
 
-	PullPos() data.PositionI
-
 	PullNbt() *tags.NbtCompound
 
 	// push
@@ -105,8 +102,6 @@ type B interface {
 	PushSAS(data []int8, prefixWithLen bool)
 
 	PushUID(data uuid.UUID)
-
-	PushPos(data data.PositionI)
 
 	PushNbt(data *tags.NbtCompound)
 }
@@ -240,20 +235,6 @@ func (b *buffer) PullUID() uuid.UUID {
 	return id
 }
 
-func (b *buffer) PullPos() data.PositionI {
-	val := b.PullU64()
-
-	x := int64(val) >> 38
-	y := int64(val) & 0xFFF
-	z := int64(val) << 26 >> 38
-
-	return data.PositionI{
-		X: x,
-		Y: y,
-		Z: z,
-	}
-}
-
 func (b *buffer) PullNbt() *tags.NbtCompound {
 	typ := tags.Typ(b.PullByt())
 
@@ -380,10 +361,6 @@ func (b *buffer) PushUID(data uuid.UUID) {
 
 	b.PushI64(msb)
 	b.PushI64(lsb)
-}
-
-func (b *buffer) PushPos(data data.PositionI) {
-	b.PushI64(((data.X & 0x3FFFFFF) << 38) | ((data.Z & 0x3FFFFFF) << 12) | (data.Y & 0xFFF))
 }
 
 func (b *buffer) PushNbt(data *tags.NbtCompound) {

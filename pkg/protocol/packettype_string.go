@@ -37,7 +37,7 @@ func _() {
 	_ = x[CChatMessage-62223]
 	_ = x[CJoinGame-62246]
 	_ = x[CPluginMessage-62233]
-	_ = x[CPlayerLocation-62262]
+	_ = x[CPlayerPositionAndLook-62262]
 	_ = x[CKeepAlive-62241]
 	_ = x[CServerDifficulty-62222]
 	_ = x[CPlayerAbilities-62258]
@@ -48,7 +48,7 @@ func _() {
 	_ = x[CEntityMetadata-62276]
 }
 
-const _PacketType_name = "TypeUnspecifiedSHandshakeSRequestSPingSLoginStartSEncryptionResponseSLoginPluginResponseSTeleportConfirmSQueryBlockNBTSSetDifficultySChatMessageSClientStatusSClientSettingsSPluginMessageSKeepAliveSPlayerPositionSPlayerLocationSPlayerRotationSPlayerAbilitiesCResponseCPongCDisconnectCEncryptionRequestCLoginSuccessCSetCompressionCLoginPluginRequestCServerDifficultyCChatMessageCPluginMessageCKeepAliveCChunkDataCJoinGameCPlayerAbilitiesCPlayerInfoCPlayerLocationCHeldItemChangeCEntityMetadataCDeclareRecipes"
+const _PacketType_name = "TypeUnspecifiedSHandshakeSRequestSPingSLoginStartSEncryptionResponseSLoginPluginResponseSTeleportConfirmSQueryBlockNBTSSetDifficultySChatMessageSClientStatusSClientSettingsSPluginMessageSKeepAliveSPlayerPositionSPlayerLocationSPlayerRotationSPlayerAbilitiesCResponseCPongCDisconnectCEncryptionRequestCLoginSuccessCSetCompressionCLoginPluginRequestCServerDifficultyCChatMessageCPluginMessageCKeepAliveCChunkDataCJoinGameCPlayerAbilitiesCPlayerInfoCPlayerPositionAndLookCHeldItemChangeCEntityMetadataCDeclareRecipes"
 
 var _PacketType_map = map[PacketType]string{
 	-1:    _PacketType_name[0:15],
@@ -85,10 +85,10 @@ var _PacketType_map = map[PacketType]string{
 	62246: _PacketType_name[410:419],
 	62258: _PacketType_name[419:435],
 	62260: _PacketType_name[435:446],
-	62262: _PacketType_name[446:461],
-	62272: _PacketType_name[461:476],
-	62276: _PacketType_name[476:491],
-	62299: _PacketType_name[491:506],
+	62262: _PacketType_name[446:468],
+	62272: _PacketType_name[468:483],
+	62276: _PacketType_name[483:498],
+	62299: _PacketType_name[498:513],
 }
 
 func (i PacketType) String() string {

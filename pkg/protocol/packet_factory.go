@@ -149,8 +149,8 @@ func createCPacketsMap() map[PacketType]func() CPacket {
 		CPluginMessage: func() CPacket {
 			return &CPacketPluginMessage{}
 		},
-		CPlayerLocation: func() CPacket {
-			return &CPacketPlayerLocation{}
+		CPlayerPositionAndLook: func() CPacket {
+			return &CPacketPlayerPositionAndLook{}
 		},
 		CKeepAlive: func() CPacket {
 			return &CPacketKeepAlive{}
