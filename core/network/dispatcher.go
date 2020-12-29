@@ -1,6 +1,8 @@
 package network
 
 import (
+	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -37,7 +39,7 @@ func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A) *DispatcherTran
 }
 
 //func (d *DispatcherTransmitter) Register() {
-//	if err := d.ps.Publish(subj.MkNewConn(), envelope.NewConn(&pb.NewConnection{Id: conn.ID().String()}, nil)); err != nil {
+//	if err := d.ps.Publish(subj.MkNewConn(), envelope.NewConn(&pb.NewConnection{Id: conn.ID().String()})); err != nil {
 //		d.log.Error("failed to publish conn.new message", zap.Error(err), zap.Any("conn", conn))
 //		if err = conn.Close(); err != nil {
 //			d.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
@@ -56,17 +58,26 @@ func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
 		d.connMu[conn.ID()].Lock()
 		defer d.connMu[conn.ID()].Unlock()
 
-		cpacket := lope.GetCpacket()
-		if cpacket == nil {
+		pbCPacket := lope.GetCpacket()
+		if pbCPacket == nil {
 			log.Error("failed to parse envelope - there is no CPacket inside", zap.Any("envelope", lope))
 			return
 		}
+		pacType := protocol.PacketType(pbCPacket.PacketType)
+		log.Debug("transmitting CPacket", zap.String("type", pacType.String()))
 
-		if err := d.transmitBytes(conn, cpacket.GetBytes()); err != nil {
+		bufOut := buffer.New()
+		bufOut.PushVrI(int32(pacType.ProtocolID()))
+
+		packetBytes := bytes.Join([][]byte{
+			bufOut.UAS(),
+			pbCPacket.GetBytes(),
+		}, nil)
+
+		if err := d.transmitBytes(conn, packetBytes); err != nil {
 			log.Error("failed to transmit CPacket", zap.Error(err))
 			return
 		}
-		log.Debug("transmitted CPacket", zap.String("type", fmt.Sprintf("%X", cpacket.PacketType)))
 	}
 
 	if err := d.ps.Subscribe(subj.MkConnTransmit(conn.ID()), transmitHandler); err != nil {
@@ -83,14 +94,17 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 	defer d.connMu[conn.ID()].Unlock()
 
 	sPacket, err := d.parseSPacket(conn.GetState(), packetBytes)
-
 	if err != nil {
 		log.Error("cannot handle new SPacket - could not parse bytes", zap.Error(err))
 		return
 	}
+	log.Debug("handling SPacket", zap.String("type", sPacket.Type().String()), zap.Any("data", sPacket))
+
 	if err = d.dispatchSPacket(conn, sPacket); err != nil {
 		if errors.Is(err, handlers.InvalidLoginErr) {
+			// Send CDisconnect packet here.
 			log.Info("invalid login attempt, evicting user", zap.Error(err))
+			d.auth.LoginFailure(conn.ID())
 			if err := conn.Close(); err != nil {
 				log.Error("error while closing connection", zap.Error(err))
 			}
@@ -99,7 +113,6 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 		}
 		return
 	}
-	log.Debug("handled incoming packet", zap.String("type", sPacket.Type().String()), zap.Any("data", sPacket))
 }
 
 func (d *DispatcherTransmitter) parseSPacket(connState protocol.State, packetBytes []byte) (protocol.SPacket, error) {
@@ -130,15 +143,15 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	var err error
 	var cPackets []protocol.CPacket
 
+	debugStateSetter := func(state protocol.State) { // only needed to add the debug log line
+		conn := conn
+		conn.SetState(state)
+		d.log.Debug("changed connState", zap.String("conn", conn.ID().String()), zap.String("state", state.String()))
+	}
+
 	pacType := sPacket.Type()
 	switch pacType {
 	case protocol.SHandshake:
-		debugStateSetter := func(state protocol.State) { // only needed to add the debug log line
-			conn := conn
-			conn.SetState(state)
-			d.log.Debug("changed connState", zap.String("conn", conn.ID().String()), zap.String("state", state.String()))
-		}
-
 		err = handlers.HandleSHandshake(debugStateSetter, sPacket)
 	case protocol.SRequest:
 		if cPackets, err = handlers.HandleSRequest(sPacket); err != nil {
@@ -147,10 +160,10 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	case protocol.SPing:
 		cPackets, err = handlers.HandleSPing(sPacket)
 	case protocol.SLoginStart:
-		cPackets, err = handlers.HandleSLoginStart(d.auth, conn.ID(), sPacket)
+		cPackets, err = handlers.HandleSLoginStart(d.auth, d.ps, debugStateSetter, conn.ID(), sPacket)
 	case protocol.SEncryptionResponse:
 		cPackets, err = handlers.HandleSEncryptionResponse(
-			d.auth, d.ps, conn.SetState, conn.EnableEncryption, conn.EnableCompression, conn.ID(), sPacket)
+			d.auth, d.ps, debugStateSetter, conn.EnableEncryption, conn.EnableCompression, conn.ID(), sPacket)
 	default:
 		return fmt.Errorf("unhandled packet type: %X", int32(pacType))
 	}
@@ -174,18 +187,23 @@ func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut buffer.B)
 		return fmt.Errorf("buffer data is too short")
 	}
 
-	if _, err := conn.Transmit(bufOut); err != nil {
+	count, err := conn.Transmit(bufOut)
+	if err != nil {
 		return fmt.Errorf("failed to push client bound data: %w", err)
 	}
+
+	d.log.Debug("transmitted bytes", zap.String("conn", conn.ID().String()), zap.Int("count", count))
 	return nil
 }
 
 func (d *DispatcherTransmitter) transmitBytes(conn Connection, packetBytes []byte) error {
+	d.log.Debug("pushing bytes to conn", zap.String("conn", conn.ID().String()),
+		zap.String("bytes", hex.EncodeToString(packetBytes)))
+
 	if err := d.transmitBuffer(conn, buffer.NewFrom(packetBytes)); err != nil {
 		return fmt.Errorf("failed to transmit buffer: %w", err)
 	}
 
-	d.log.Debug("pushed bytes to conn", zap.String("conn", conn.ID().String()), zap.Int("len", len(packetBytes)))
 	return nil
 }
 
@@ -194,12 +212,13 @@ func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protoco
 	bufOut.PushVrI(int32(cpacket.ProtocolID()))
 	cpacket.Push(bufOut)
 
+	d.log.Debug("pushing packet to conn", zap.String("conn", conn.ID().String()),
+		zap.String("type", cpacket.Type().String()), zap.String("bytes", hex.EncodeToString(bufOut.UAS())))
+
 	if err := d.transmitBuffer(conn, bufOut); err != nil {
 		return fmt.Errorf("failed to transmit buffer: %w", err)
 	}
 
-	d.log.Debug("pushed packet to conn", zap.String("conn", conn.ID().String()),
-		zap.String("type", cpacket.Type().String()))
 	return nil
 }
 

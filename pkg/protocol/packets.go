@@ -106,6 +106,9 @@ const ClientBound = packetDirection(0xF000)
 type PacketType int32
 
 func (i PacketType) Value() int32 { return int32(i) }
+func (i PacketType) ProtocolID() ProtocolPacketID {
+	return ProtocolPacketID(0x00FF & int32(i))
+}
 
 const stateShake = 0x0000
 const stateStatus = 0x0100

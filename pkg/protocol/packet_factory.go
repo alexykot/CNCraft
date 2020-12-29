@@ -91,10 +91,9 @@ func createSPacketsMap() map[PacketType]func() SPacket {
 		SClientSettings: func() SPacket {
 			return &SPacketClientSettings{}
 		},
-		// TODO plugins are not supported atm
-		//SPluginMessage: func() SPacket {
-		//	return &SPacketPluginMessage{}
-		//},
+		SPluginMessage: func() SPacket {
+			return &SPacketPluginMessage{}
+		},
 		SKeepAlive: func() SPacket {
 			return &SPacketKeepAlive{}
 		},
@@ -147,10 +146,9 @@ func createCPacketsMap() map[PacketType]func() CPacket {
 		CJoinGame: func() CPacket {
 			return &CPacketJoinGame{}
 		},
-		// TODO plugins are not supported atm
-		//protocol.CPluginMessage: func() protocol.CPacket{
-		//	return &protocol.CPacketPluginMessage{}
-		//},
+		CPluginMessage: func() CPacket {
+			return &CPacketPluginMessage{}
+		},
 		CPlayerLocation: func() CPacket {
 			return &CPacketPlayerLocation{}
 		},

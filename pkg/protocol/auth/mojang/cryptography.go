@@ -14,17 +14,6 @@ type RSACrypter struct {
 	publicKeyBytes  []byte
 }
 
-func NewCrypt() (private []byte, public []byte) {
-	privateKey, publicKey, _ := generateRandomKey()
-
-	x509Private := x509.MarshalPKCS1PrivateKey(privateKey)
-	x509Public, _ := x509.MarshalPKIXPublicKey(publicKey)
-
-	privateArr := x509Private
-	publicArr := x509Public
-	return privateArr, publicArr
-}
-
 func NewRSACrypter() (*RSACrypter, error) {
 	privateKey, publicKey, err := generateRandomKey()
 	if err != nil {

@@ -13,9 +13,11 @@ import (
 // A handles player authentication before they are allowed to join the server.
 type A interface {
 	BootstrapUser(userID uuid.UUID, username string) error
+	GetUserName(userID uuid.UUID) string
 	GetUserPubkey(userID uuid.UUID) []byte
 	GetUserVerifyToken(userID uuid.UUID) []byte
-	DecryptUserSharedSecret(userID uuid.UUID, encSharedSecret []byte) ([]byte, error)
+	DecryptUserVerifyToken(userID uuid.UUID, encVerifyToken []byte) (plainTextToken []byte, err error)
+	DecryptUserSharedSecret(userID uuid.UUID, encSharedSecret []byte) (plainTextSecret []byte, err error)
 	RunMojangSessionAuth(userID uuid.UUID, sharedSecret []byte) (*mojang.AuthResponse, error)
 	LoginSuccess(userID uuid.UUID)
 	LoginFailure(userID uuid.UUID)
@@ -81,25 +83,49 @@ func (a *auther) BootstrapUser(userID uuid.UUID, username string) error {
 	return nil
 }
 
+func (a *auther) GetUserName(userID uuid.UUID) string {
+	a.mu.Lock()
+	user, _ := a.stagingUsers[userID]
+	a.mu.Unlock()
+	return user.username
+}
+
 func (a *auther) GetUserPubkey(userID uuid.UUID) []byte {
-	user, ok := a.stagingUsers[userID]
-	if !ok {
-		return nil
-	}
+	a.mu.Lock()
+	user, _ := a.stagingUsers[userID]
+	a.mu.Unlock()
 	return user.secretCrypter.GetPubKey()
 }
 
 func (a *auther) GetUserVerifyToken(userID uuid.UUID) []byte {
-	user, ok := a.stagingUsers[userID]
-	if !ok {
-		return nil
-	}
+	a.mu.Lock()
+	user, _ := a.stagingUsers[userID]
+	a.mu.Unlock()
 	return user.verifyToken
 }
 
-// SetUserSharedSecret decrypts and saves shared secret for given user.
-func (a *auther) DecryptUserSharedSecret(userID uuid.UUID, encSharedSecret []byte) ([]byte, error) {
+// DecryptUserVerifyToken decrypts and returns verification token for given user.
+func (a *auther) DecryptUserVerifyToken(userID uuid.UUID, encVerifyToken []byte) ([]byte, error) {
+	a.mu.Lock()
 	user, ok := a.stagingUsers[userID]
+	a.mu.Unlock()
+	if !ok {
+		return nil, fmt.Errorf("stagingUser %s not found", userID.String())
+	}
+
+	verifyToken, err := user.secretCrypter.Decrypt(encVerifyToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt verification token: %w", err)
+	}
+
+	return verifyToken, nil
+}
+
+// DecryptUserSharedSecret decrypts and returns shared secret for given user.
+func (a *auther) DecryptUserSharedSecret(userID uuid.UUID, encSharedSecret []byte) ([]byte, error) {
+	a.mu.Lock()
+	user, ok := a.stagingUsers[userID]
+	a.mu.Unlock()
 	if !ok {
 		return nil, fmt.Errorf("stagingUser %s not found", userID.String())
 	}

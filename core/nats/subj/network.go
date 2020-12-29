@@ -6,8 +6,8 @@ import "github.com/google/uuid"
 // MkConnReceive creates a subject name string for given connection ID for receiving server bound packets.
 func MkConnReceive(connID uuid.UUID) string { return "conn." + connID.String() + ".receive" }
 
-// MkConnTransmit creates a subject name string for given connection ID for sending client bound packets.
-func MkConnTransmit(connID uuid.UUID) string { return "conn." + connID.String() + ".send" }
+// MkConnTransmit creates a subject name string for given connection ID for transmitting client bound packets.
+func MkConnTransmit(connID uuid.UUID) string { return "conn." + connID.String() + ".transmit" }
 
 // MkConnStateChange creates a subject name string for given connection ID for handling connection state changes.
 func MkConnStateChange(connID uuid.UUID) string { return "conn." + connID.String() + ".state" }

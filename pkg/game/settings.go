@@ -91,16 +91,22 @@ const (
 	WorldDefault11
 )
 
-var typeToName = map[WorldType]string{
-	WorldDefault:     "default",
-	WorldFlat:        "flat",
-	WorldLargebiomes: "largeBiomes",
-	WorldAmplified:   "amplified",
-	WorldCustomized:  "customized",
-	WorldBuffet:      "buffet",
-	WorldDefault11:   "default_1_1",
-}
-
 func (l WorldType) String() string {
-	return typeToName[l]
+	switch l {
+	case WorldDefault:
+		return "default"
+	case WorldFlat:
+		return "flat"
+	case WorldLargebiomes:
+		return "largeBiomes"
+	case WorldAmplified:
+		return "amplified"
+	case WorldCustomized:
+		return "customized"
+	case WorldBuffet:
+		return "buffet"
+	case WorldDefault11:
+		return "default_1_1"
+	}
+	return ""
 }

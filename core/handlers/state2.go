@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+
+	"github.com/alexykot/cncraft/core/control"
+	"github.com/alexykot/cncraft/pkg/protocol/auth/mojang"
 
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
@@ -16,7 +18,8 @@ import (
 )
 
 // HandleSLoginStart handles the LoginStart packet.
-func HandleSLoginStart(auther auth.A, connID uuid.UUID, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
+func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(state protocol.State),
+	connID uuid.UUID, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
 	loginStart, ok := sPacket.(*protocol.SPacketLoginStart)
 	if !ok {
 		return nil, fmt.Errorf("received packet is not a loginStart: %v", sPacket)
@@ -27,17 +30,29 @@ func HandleSLoginStart(auther auth.A, connID uuid.UUID, sPacket protocol.SPacket
 		return nil, fmt.Errorf("failed to bootstrap user: %w", err)
 	}
 
-	if currentConf.IsCracked { // "cracked" or "offline-mode" server does not do authentication or encryption
+	if control.GetCurrentConfig().IsCracked { // "cracked" or "offline-mode" server does not do authentication or encryption
 		loginSuccess, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CLoginSuccess) // Predefined packet is expected to always exist.
-		loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = userID.String()          // And always be of the correct type.
+		loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = userID.String()
 		loginSuccess.(*protocol.CPacketLoginSuccess).PlayerName = loginStart.Username
+
+		stateSetter(protocol.Play)
+		lope := envelope.PlayerLoading(&pb.PlayerLoading{
+			Id:        userID.String(),
+			ProfileId: userID.String(),
+			Username:  loginStart.Username,
+			// TODO also publish skin data
+		})
+		if err := ps.Publish(subj.MkPlayerLoading(), lope); err != nil {
+			return nil, fmt.Errorf("failed to publish player loading envelope: %w", err)
+		}
+
 		return []protocol.CPacket{loginSuccess}, nil
 	}
 
 	cpacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CEncryptionRequest) // Predefined packet is expected to always exist.
 	encRequest := cpacket.(*protocol.CPacketEncryptionRequest)                         // And always be of the correct type.
 
-	encRequest.ServerID = currentConf.ServerID
+	encRequest.ServerID = control.GetCurrentConfig().ServerID
 	encRequest.PublicKey = auther.GetUserPubkey(userID)
 	encRequest.VerifyToken = auther.GetUserVerifyToken(userID)
 
@@ -50,25 +65,32 @@ func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
 
 	encResponse, ok := sPacket.(*protocol.SPacketEncryptionResponse)
 	if !ok {
-		return nil, fmt.Errorf("received packet is not a loginStart: %v", sPacket)
+		return nil, fmt.Errorf("received packet is not an SEncryptionResponse: %v", sPacket)
 	}
 
 	userID := connID // By design connection ID is also the auth user ID and then the player ID.
-	if bytes.Compare(encResponse.VerifyToken, auther.GetUserVerifyToken(userID)) != 0 {
-		auther.LoginFailure(userID)
-		return nil, newPacketError(InvalidLoginErr, errors.New("supplied verify token does not match the saved one"))
+
+	savedToken := auther.GetUserVerifyToken(userID)
+	returnedToken, err := auther.DecryptUserVerifyToken(userID, encResponse.VerifyToken)
+	if bytes.Compare(returnedToken, savedToken) != 0 {
+		return nil, newPacketError(InvalidLoginErr, fmt.Errorf("supplied verify token does not match the saved one: %X != %X",
+			returnedToken, savedToken))
 	}
 
 	sharedSecret, err := auther.DecryptUserSharedSecret(userID, encResponse.SharedSecret)
 	if err != nil {
-		auther.LoginFailure(userID)
 		return nil, newPacketError(InvalidLoginErr, fmt.Errorf("failed to decrypt user shared secret: %w", err))
 	}
 
-	mojangData, err := auther.RunMojangSessionAuth(userID, sharedSecret)
-	if err != nil {
-		auther.LoginFailure(userID)
-		return nil, newPacketError(InvalidLoginErr, fmt.Errorf("failed to run Mojang session server auth: %w", err))
+	//mojangData, err := auther.RunMojangSessionAuth(userID, sharedSecret)
+	//if err != nil {
+	//	return nil, newPacketError(InvalidLoginErr, fmt.Errorf("failed to run Mojang session server auth: %w", err))
+	//}
+	// DEBT mojang session auth returns HTTP 204, unclear why, to debug later
+	mojangData := &mojang.AuthResponse{
+		ProfileID:  uuid.New(),
+		Username:   auther.GetUserName(userID),
+		Properties: nil,
 	}
 
 	compSetter()
@@ -76,8 +98,8 @@ func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
 		return nil, fmt.Errorf("failed to enable conn encryption: %w", err)
 	}
 
-	setCompression, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CSetCompression)       // Predefined packet is expected to always exist.
-	setCompression.(*protocol.CPacketSetCompression).Threshold = currentConf.Network.ZipTreshold // And always be of the correct type.
+	setCompression, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CSetCompression)                      // Predefined packet is expected to always exist.
+	setCompression.(*protocol.CPacketSetCompression).Threshold = control.GetCurrentConfig().Network.ZipTreshold // And always be of the correct type.
 
 	loginSuccess, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CLoginSuccess)
 	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = mojangData.ProfileID.String()

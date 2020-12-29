@@ -119,7 +119,7 @@ func (n *Network) handleNewConnection(conn Connection) {
 		packetLen := bufIn.PullVrI()
 		packetBytes := bufIn.UAS()[bufIn.InI() : bufIn.InI()+packetLen]
 
-		n.dispatcher.HandleSPacket(conn, packetBytes)
 		n.log.Debug("received packet from client", zap.String("conn", conn.ID().String()))
+		n.dispatcher.HandleSPacket(conn, packetBytes)
 	}
 }

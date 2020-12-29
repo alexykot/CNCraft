@@ -13,12 +13,14 @@ import (
 
 // World holds details of the current world.
 type World struct {
-	Coreness game.Coreness
-	Gamemode game.Gamemode
-	Type     game.WorldType
-	Name     string
-	Seed     []byte
-	SeedHash [32]byte
+	Coreness           game.Coreness
+	Gamemode           game.Gamemode
+	Type               game.WorldType
+	Difficulty         game.Difficulty
+	DifficultyIsLocked bool
+	Name               string
+	Seed               []byte
+	SeedHash           [32]byte
 }
 
 func GetWorld() *World {
@@ -27,10 +29,13 @@ func GetWorld() *World {
 
 func getDefaultWorld() *World {
 	defaultWorld := &World{
-		Name:     "Default World",
-		Coreness: game.Softcore,
-		Type:     game.WorldFlat,
-		Gamemode: game.Survival,
+		Name:               "Default World",
+		Coreness:           game.Softcore,
+		Type:               game.WorldFlat,
+		Gamemode:           game.Survival,
+		Difficulty:         game.Peaceful,
+		DifficultyIsLocked: true,
+		Seed:               make([]byte, 4, 4),
 	}
 	binary.LittleEndian.PutUint32(defaultWorld.Seed, rand.Uint32())
 	defaultWorld.SeedHash = sha256.Sum256(defaultWorld.Seed)

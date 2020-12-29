@@ -82,6 +82,7 @@ func getMojangSessionAuth(username, hash string) (*authJson, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to call session server: %w", err)
 	}
+
 	response, err := ioutil.ReadAll(out.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
@@ -95,13 +96,12 @@ func getMojangSessionAuth(username, hash string) (*authJson, error) {
 	return &auth, nil
 }
 
+// generateAuthSHAHex implementes Mojang's custom SHA1 hex encoding. See https://wiki.vg/Protocol_Encryption#Authentication for details.
 func generateAuthSHAHex(sharedSecret, publicKey []byte) string {
 	sha := sha1.New()
 	sha.Write(sharedSecret)
 	sha.Write(publicKey)
 	hash := sha.Sum(nil)
-
-	// Below is Mojang's custom SHA1 encoding. See https://wiki.vg/Protocol_Encryption#Authentication for details.
 
 	// Check for negative hashes
 	negative := (hash[0] & 0x80) == 0x80

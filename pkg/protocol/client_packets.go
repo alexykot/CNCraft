@@ -10,6 +10,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/entities"
 	"github.com/alexykot/cncraft/pkg/game/level"
 	"github.com/alexykot/cncraft/pkg/game/players"
+	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 	"github.com/alexykot/cncraft/pkg/protocol/status"
 )
 
@@ -148,15 +149,16 @@ func (p *CPacketJoinGame) Push(writer buffer.B) {
 	writer.PushBit(p.RespawnScreen)
 }
 
-//type CPacketPluginMessage struct {
-//	Message plugin.Message
-//}
-//
-//func (p *CPacketPluginMessage) Type() PacketType { return CPluginMessage }
-//func (p *CPacketPluginMessage) Push(writer buffers.Buffer) {
-//	writer.PushTxt(p.Message.Chan())
-//	p.Message.Push(writer)
-//}
+type CPacketPluginMessage struct {
+	Message plugin.Message
+}
+
+func (p *CPacketPluginMessage) ProtocolID() ProtocolPacketID { return protocolCPluginMessage }
+func (p *CPacketPluginMessage) Type() PacketType             { return CPluginMessage }
+func (p *CPacketPluginMessage) Push(writer buffer.B) {
+	writer.PushTxt(p.Message.Chan())
+	p.Message.Push(writer)
+}
 
 type CPacketPlayerLocation struct {
 	Location data.Location

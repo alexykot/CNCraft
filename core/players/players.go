@@ -24,14 +24,10 @@ type Tally struct {
 }
 
 type Player struct {
-	PC       entities.PlayerCharacter
-	Username string
-	Settings settings
-}
-
-// TODO implement proper player settings
-type settings struct {
-	ViewDistance int32
+	PC        entities.PlayerCharacter
+	Username  string
+	Settings  players.PlayerSettings
+	Abilities players.PlayerAbilities
 }
 
 func NewTally(log *zap.Logger, ps nats.PubSub) *Tally {
@@ -55,7 +51,7 @@ func (u *Tally) RegisterHandlers() error {
 
 func (u *Tally) AddPlayer(userID uuid.UUID, username string) *Player {
 	u.mu.Lock()
-	defer u.mu.Lock()
+	defer u.mu.Unlock()
 
 	if existing, ok := u.players[userID]; ok {
 		u.log.Error("player already exists", zap.String("id", userID.String()),
@@ -65,8 +61,10 @@ func (u *Tally) AddPlayer(userID uuid.UUID, username string) *Player {
 	p := Player{
 		PC:       entities.NewPC(username, players.PlayerMaxHealth),
 		Username: username,
-		Settings: settings{ // TODO all settings are hardcoded until properly implemented
+		Settings: players.PlayerSettings{ // TODO all settings are hardcoded until properly implemented
 			ViewDistance: 7,
+			FlyingSpeed:  0.05,
+			FoVModifier:  0.1,
 		},
 	}
 

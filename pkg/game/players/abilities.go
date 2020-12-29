@@ -14,7 +14,7 @@ type PlayerAbilities struct {
 	Invulnerable bool
 	Flying       bool
 	AllowFlight  bool
-	InstantBuild bool // creative??
+	InstantBuild bool
 }
 
 func (p *PlayerAbilities) Push(writer buffer.B) {
@@ -35,4 +35,10 @@ func (p *PlayerAbilities) Pull(reader buffer.B) {
 	p.Flying = p.Has(flags, 0x02)
 	p.AllowFlight = p.Has(flags, 0x04)
 	p.InstantBuild = p.Has(flags, 0x08)
+}
+
+type PlayerSettings struct {
+	ViewDistance int32
+	FlyingSpeed  float32
+	FoVModifier  float32 // Field of View Modifier
 }

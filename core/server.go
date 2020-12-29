@@ -115,6 +115,8 @@ func (s *server) stopServer(after time.Duration) {
 func (s *server) startServer() error {
 	rand.Seed(time.Now().UnixNano())
 
+	control.RegisterCurrentConfig(s.config)
+
 	if err := s.ps.Start(); err != nil {
 		return fmt.Errorf("failed to start nats: %w", err)
 	}
@@ -126,8 +128,6 @@ func (s *server) startServer() error {
 	if err := s.players.RegisterHandlers(); err != nil {
 		return fmt.Errorf("failed to register global player handlers: %w", err)
 	}
-
-	handlers.RegisterConf(s.config)
 
 	if err := handlers.RegisterHandlersState3(s.ps, s.log.Named("play"), s.players); err != nil {
 		return fmt.Errorf("failed to register Play state handlers: %w", err)

@@ -7,6 +7,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/players"
+	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 )
 
 // HANDSHAKE STATE PACKETS
@@ -158,26 +159,26 @@ func (p *SPacketSetDifficulty) Pull(reader buffer.B) error {
 	return nil // DEBT actually check for errors
 }
 
-// TODO plugins are not supported
-//type SPacketPluginMessage struct {
-//	Message plugin.Message
-//}
-//
-//func (p *SPacketPluginMessage) Type() PacketType { return SPluginMessage }
-//func (p *SPacketPluginMessage) Pull(reader buffers.Buffer) error {
-//	channel := reader.PullTxt()
-//	message := plugin.GetMessageForChannel(channel)
-//
-//	if message == nil {
-//		return fmt.Errorf("channel `%s` not found ", channel)
-//	}
-//
-//	message.Pull(reader)
-//
-//	p.Message = message
-//
-//	return nil // DEBT actually check for errors
-//}
+type SPacketPluginMessage struct {
+	Message plugin.Message
+}
+
+func (p *SPacketPluginMessage) ProtocolID() ProtocolPacketID { return protocolSPluginMessage }
+func (p *SPacketPluginMessage) Type() PacketType             { return SPluginMessage }
+func (p *SPacketPluginMessage) Pull(reader buffer.B) error {
+	channel := reader.PullTxt()
+	message := plugin.GetMessageForChannel(channel)
+
+	if message == nil {
+		return fmt.Errorf("channel `%s` not found ", channel)
+	}
+
+	message.Pull(reader)
+
+	p.Message = message
+
+	return nil // DEBT actually check for errors
+}
 
 type SPacketClientStatus struct {
 	Action players.StatusAction
