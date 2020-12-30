@@ -2,6 +2,7 @@ package network
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -16,41 +17,80 @@ import (
 	"github.com/alexykot/cncraft/core/users"
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/envelope"
+	"github.com/alexykot/cncraft/pkg/envelope/pb"
 	"github.com/alexykot/cncraft/pkg/protocol"
 	"github.com/alexykot/cncraft/pkg/protocol/auth"
 )
 
 // DispatcherTransmitter parses and dispatches processing for incoming server bound protocol packets.
-//  Also it collects and transmits outgoing client bound packets.
+//  Also it collects and transmits outgoing client bound packets and handles disconnections.
 type DispatcherTransmitter struct {
-	log   *zap.Logger
-	ps    nats.PubSub
-	auth  auth.A
-	tally *users.Roster
+	log    *zap.Logger
+	ps     nats.PubSub
+	auth   auth.A
+	tally  *users.Roster
+	aliver *KeepAliver
 
 	connMu map[uuid.UUID]*sync.Mutex
 }
 
-func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *users.Roster) *DispatcherTransmitter {
+func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *users.Roster, aliver *KeepAliver) *DispatcherTransmitter {
 	return &DispatcherTransmitter{
-		log:   log,
-		ps:    ps,
-		auth:  auth,
-		tally: tally,
+		log:    log,
+		ps:     ps,
+		auth:   auth,
+		tally:  tally,
+		aliver: aliver,
 
 		connMu: make(map[uuid.UUID]*sync.Mutex),
 	}
 }
 
-//func (d *DispatcherTransmitter) Register() {
-//	if err := d.ps.Publish(subj.MkNewConn(), envelope.NewConn(&pb.NewConnection{Id: conn.ID().String()})); err != nil {
-//		d.log.Error("failed to publish conn.new message", zap.Error(err), zap.Any("conn", conn))
-//		if err = conn.Close(); err != nil {
-//			d.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
-//		}
-//		return
-//	}
-//}
+func (d *DispatcherTransmitter) Start(ctx context.Context) error {
+	d.aliver.Start(ctx)
+	if err := d.register(); err != nil {
+		return fmt.Errorf("failed to register dispatcher: %w", err)
+	}
+	return nil
+}
+
+func (d *DispatcherTransmitter) register() error {
+	closeHandler := func(lope *envelope.E) {
+		closeConn := lope.GetCloseConn()
+		if closeConn == nil {
+			d.log.Error("failed to parse envelope - there is no closeConn inside", zap.Any("envelope", lope))
+			return
+		}
+
+		connID, err := uuid.Parse(closeConn.Id)
+		if err != nil {
+			d.log.Error("failed to parse conn ID as UUID", zap.String("id", closeConn.Id))
+			return
+		}
+		d.log.Debug("connection closing requested", zap.String("conn", closeConn.Id))
+
+		var connState protocol.State
+		switch protocol.State(closeConn.State) {
+		case protocol.Login:
+			connState = protocol.Login
+		case protocol.Play:
+			connState = protocol.Play
+		default:
+			return // other connection states do not have a defined disconnect procedure
+		}
+
+		if err := d.triggerDisconnect(connState, connID); err != nil {
+			d.log.Error("failed to trigger disconnect", zap.String("conn", closeConn.Id))
+			return
+		}
+	}
+
+	if err := d.ps.Subscribe(subj.MkConnClose(), closeHandler); err != nil {
+		return fmt.Errorf("failed to subscribe to connClose: %w", err)
+	}
+	d.log.Info("registered connClose handler")
+	return nil
+}
 
 func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
 	d.connMu[conn.ID()] = &sync.Mutex{}
@@ -79,7 +119,23 @@ func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
 		}, nil)
 
 		if err := d.transmitBytes(conn, packetBytes); err != nil {
-			log.Error("failed to transmit CPacket", zap.Error(err))
+			if errors.Is(err, ErrTCPWriteFail) {
+				log.Info("closing failed connection", zap.Error(err)) // assuming connection dead and client gone
+				d.aliver.DropDeadConn(conn.ID())
+				if err := conn.Close(); err != nil {
+					log.Warn("error while closing connection", zap.Error(err))
+				}
+			} else {
+				log.Error("failed to transmit bytes", zap.Error(err))
+			}
+			return
+		}
+
+		if pacType == protocol.CDisconnectLogin || pacType == protocol.CDisconnectPlay {
+			d.aliver.DropDeadConn(conn.ID())
+			if err := conn.Close(); err != nil {
+				log.Warn("error while closing connection", zap.Error(err))
+			}
 			return
 		}
 	}
@@ -88,7 +144,7 @@ func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
 		return fmt.Errorf("failed to subscribe to connTransmit: %w", err)
 	}
 
-	d.log.Debug("handled new connection", zap.Any("conn", conn.ID()))
+	d.log.Info("new connection opened", zap.Any("conn", conn.ID()))
 	return nil
 }
 
@@ -102,15 +158,15 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 		log.Error("cannot handle new SPacket - could not parse bytes", zap.Error(err))
 		return
 	}
-	log.Debug("handling SPacket", zap.String("type", sPacket.Type().String()), zap.Any("data", sPacket))
+	log.Debug("handling SPacket", zap.String("type", sPacket.Type().String()))
+	//println(fmt.Sprintf("packet data: %v", sPacket))
 
 	if err = d.dispatchSPacket(conn, sPacket); err != nil {
 		if errors.Is(err, handlers.InvalidLoginErr) {
-			// Send CDisconnect packet here.
 			log.Info("invalid login attempt, evicting user", zap.Error(err))
 			d.auth.LoginFailure(conn.ID())
-			if err := conn.Close(); err != nil {
-				log.Error("error while closing connection", zap.Error(err))
+			if err := d.triggerDisconnect(conn.GetState(), conn.ID()); err != nil {
+				log.Error("failed to trigger disconnect", zap.Error(err))
 			}
 		} else {
 			log.Error("cannot handle new packet - failed to dispatch handling", zap.Error(err))
@@ -164,16 +220,21 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	case protocol.SPing:
 		cPackets, err = handlers.HandleSPing(sPacket)
 	case protocol.SLoginStart:
-		cPackets, err = handlers.HandleSLoginStart(d.auth, d.ps, debugStateSetter, conn.ID(), sPacket)
+		cPackets, err = handlers.HandleSLoginStart(d.auth, d.ps, debugStateSetter, d.aliver.AddAliveConn, conn.ID(), sPacket)
 	case protocol.SEncryptionResponse:
 		cPackets, err = handlers.HandleSEncryptionResponse(
-			d.auth, d.ps, debugStateSetter, conn.EnableEncryption, conn.EnableCompression, conn.ID(), sPacket)
+			d.auth, d.ps, debugStateSetter, conn.EnableEncryption, conn.EnableCompression, d.aliver.AddAliveConn,
+			conn.ID(), sPacket)
 	case protocol.SPluginMessage:
 		cPackets, err = handlers.HandleSPluginMessage(d.log, d.tally, conn.ID(), sPacket)
 	case protocol.SClientSettings:
 		cPackets, err = handlers.HandleSClientSettings(d.tally, conn.ID(), sPacket)
+	case protocol.SKeepAlive:
+		cPackets, err = handlers.HandleSKeepAlive(d.aliver.receiveKeepAlive, conn.ID(), sPacket)
 	default:
-		return fmt.Errorf("unhandled packet type: %X", int32(pacType))
+		return nil
+		// DEBT turn this error back on once all expected packets are handled
+		//return fmt.Errorf("unhandled packet type: %X", int32(pacType))
 	}
 
 	if err != nil {
@@ -190,17 +251,18 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	return nil
 }
 
-func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut buffer.B) error {
-	if bufOut.Len() < 2 {
-		return fmt.Errorf("buffer data is too short")
+func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protocol.CPacket) error {
+	bufOut := buffer.New()
+	bufOut.PushVrI(int32(cpacket.ProtocolID()))
+	cpacket.Push(bufOut)
+
+	d.log.Debug("transmitting packet", zap.String("conn", conn.ID().String()),
+		zap.String("type", cpacket.Type().String()))
+
+	if err := d.transmitBuffer(conn, bufOut); err != nil {
+		return fmt.Errorf("failed to transmit buffer: %w", err)
 	}
 
-	count, err := conn.Transmit(bufOut)
-	if err != nil {
-		return fmt.Errorf("failed to push client bound data: %w", err)
-	}
-
-	d.log.Debug("transmitted bytes", zap.String("conn", conn.ID().String()), zap.Int("count", count))
 	return nil
 }
 
@@ -215,16 +277,50 @@ func (d *DispatcherTransmitter) transmitBytes(conn Connection, packetBytes []byt
 	return nil
 }
 
-func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protocol.CPacket) error {
+func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut buffer.B) error {
+	if bufOut.Len() < 2 {
+		return fmt.Errorf("buffer data is too short")
+	}
+
+	count, err := conn.Transmit(bufOut)
+	if err != nil {
+		return fmt.Errorf("failed to push client bound data: %w", err)
+	}
+
+	d.log.Debug("transmitted bytes", zap.String("conn", conn.ID().String()), zap.Int("count", count))
+	//println(fmt.Sprintf("bytes: %X", bufOut.UAS()))
+	return nil
+}
+
+// TODO add chat message here to tell user why they were disconnected
+func (d *DispatcherTransmitter) triggerDisconnect(connState protocol.State, connID uuid.UUID) error {
+	d.log.Info("connection closing initiated", zap.String("conn", connID.String()))
+
 	bufOut := buffer.New()
-	bufOut.PushVrI(int32(cpacket.ProtocolID()))
-	cpacket.Push(bufOut)
+	var pacType protocol.PacketType
 
-	d.log.Debug("pushing packet to conn", zap.String("conn", conn.ID().String()),
-		zap.String("type", cpacket.Type().String()), zap.String("bytes", hex.EncodeToString(bufOut.UAS())))
+	switch connState {
+	case protocol.Login:
+		cpacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CDisconnectLogin)
+		disconnect := cpacket.(*protocol.CPacketDisconnectLogin)
+		disconnect.Push(bufOut)
+		pacType = disconnect.Type()
+	case protocol.Play:
+		cpacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CDisconnectPlay)
+		disconnect := cpacket.(*protocol.CPacketDisconnectPlay)
+		disconnect.Push(bufOut)
+		pacType = disconnect.Type()
+	default:
+		return fmt.Errorf("cannot trigger disconnect on conn %s for state %d", connID.String(), connState)
+	}
 
-	if err := d.transmitBuffer(conn, bufOut); err != nil {
-		return fmt.Errorf("failed to transmit buffer: %w", err)
+	lope := envelope.CPacket(&pb.CPacket{
+		Bytes:      bufOut.UAS(),
+		PacketType: pacType.Value(),
+	})
+
+	if err := d.ps.Publish(subj.MkConnTransmit(connID), lope); err != nil {
+		return fmt.Errorf("failed to publish conn disconnect CPacket: %w", err)
 	}
 
 	return nil

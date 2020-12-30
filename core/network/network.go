@@ -1,6 +1,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -35,11 +36,15 @@ func NewNetwork(conf control.NetworkConf, log *zap.Logger, report chan control.C
 	}
 }
 
-func (n *Network) Start() error {
-	if err := n.startListening(); err != nil {
+func (n *Network) Start(ctx context.Context) error {
+	if err := n.startListening(ctx); err != nil {
 		return fmt.Errorf("failed to start listening on %s:%d: %w", n.host, n.port, err)
 	}
-	n.log.Info("started listening", zap.String("host", n.host), zap.Int("port", n.port))
+	n.log.Info("started TCP listener", zap.String("host", n.host), zap.Int("port", n.port))
+
+	if err := n.dispatcher.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start dispatcher: %w", err)
+	}
 
 	return nil
 }
@@ -48,43 +53,55 @@ func (n *Network) Stop() {
 	// TODO gracefully close all connections here
 }
 
-func (n *Network) startListening() error {
-	ser, err := net.ResolveTCPAddr("tcp", n.host+":"+strconv.Itoa(n.port))
+func (n *Network) startListening(ctx context.Context) error {
+	tcpAddress, err := net.ResolveTCPAddr("tcp", n.host+":"+strconv.Itoa(n.port))
 	if err != nil {
 		return fmt.Errorf("address resolution failed: %w", err)
 	}
 
-	tcp, err := net.ListenTCP("tcp", ser)
+	tcpListener, err := net.ListenTCP("tcp", tcpAddress)
 	if err != nil {
 		return fmt.Errorf("failed to bind TCP: %w", err)
 	}
 
-	// TODO add supervisor and ensure server gracefully stops if the connections goroutine fails.
-	go func() {
-		for {
-			conn, err := tcp.AcceptTCP()
-
-			if err != nil {
-				n.log.Error("failed to accept a TCP connection",
-					zap.String("host", n.host), zap.Int("port", n.port), zap.Error(err))
-				n.control <- control.Command{Signal: control.FAIL, Message: err.Error()}
-				break
+	go func(ctx context.Context) {
+		defer func() {
+			if r := recover(); r != nil { // stop the server if the TCP listener goroutine dies
+				n.control <- control.Command{Signal: control.FAIL, Message: fmt.Sprintf("TCP listener panicked: %v", r)}
 			}
+		}()
 
-			n.log.Debug("received TCP connection",
-				zap.String("from", conn.RemoteAddr().String()), zap.Any("conn", conn))
+		for {
+			select {
+			case <-ctx.Done():
+				n.log.Info("TCP listener closing")
+				return
+			default:
+				conn, err := tcpListener.AcceptTCP()
+				if err != nil {
+					n.log.Error("failed to accept a TCP connection",
+						zap.String("host", n.host), zap.Int("port", n.port), zap.Error(err))
+					n.control <- control.Command{Signal: control.FAIL, Message: err.Error()}
+					return
+				}
 
-			_ = conn.SetNoDelay(true)
-			_ = conn.SetKeepAlive(true)
+				n.log.Debug("received TCP connection",
+					zap.String("from", conn.RemoteAddr().String()), zap.Any("conn", conn))
 
-			go n.handleNewConnection(NewConnection(conn))
+				_ = conn.SetNoDelay(true)
+				_ = conn.SetKeepAlive(true)
+
+				go n.handleNewConnection(ctx, NewConnection(conn))
+			}
 		}
-	}()
+
+		n.control <- control.Command{Signal: control.FAIL, Message: fmt.Sprintf("TCP listener stopped unexpectedly")}
+	}(ctx)
 
 	return nil
 }
 
-func (n *Network) handleNewConnection(conn Connection) {
+func (n *Network) handleNewConnection(ctx context.Context, conn Connection) {
 	n.log.Debug("new connection", zap.Any("address", conn.Address().String()))
 
 	if err := n.dispatcher.RegisterNewConn(conn); err != nil {
@@ -96,30 +113,36 @@ func (n *Network) handleNewConnection(conn Connection) {
 	}
 
 	for {
-		bufIn := buffer.New()
-		size, err := conn.Receive(bufIn)
-		if err != nil && err.Error() == "EOF" {
-			// TODO broadcast player disconnect
+		select {
+		case <-ctx.Done():
+			n.log.Info("connection closing")
+			return
+		default:
+			bufIn := buffer.New()
+			size, err := conn.Receive(bufIn)
+			if err != nil && err.Error() == "EOF" {
+				// TODO broadcast player disconnect if conn.GetState() == Play.
 
-			break
-		} else if err != nil || size == 0 {
-			_ = conn.Close()
+				break
+			} else if err != nil || size == 0 {
+				_ = conn.Close()
+				// TODO broadcast player disconnect if conn.GetState() == Play.
+				break
+			}
 
-			// TODO broadcast player disconnect
-			break
+			// decompression
+			// decryption
+
+			if bufIn.UAS()[0] == 0xFE { // LEGACY PING
+				continue
+			}
+
+			packetLen := bufIn.PullVrI()
+			packetBytes := bufIn.UAS()[bufIn.InI() : bufIn.InI()+packetLen]
+
+			n.log.Debug("received packet from client", zap.String("conn", conn.ID().String()))
+			n.dispatcher.HandleSPacket(conn, packetBytes)
 		}
 
-		// decompression
-		// decryption
-
-		if bufIn.UAS()[0] == 0xFE { // LEGACY PING
-			continue
-		}
-
-		packetLen := bufIn.PullVrI()
-		packetBytes := bufIn.UAS()[bufIn.InI() : bufIn.InI()+packetLen]
-
-		n.log.Debug("received packet from client", zap.String("conn", conn.ID().String()))
-		n.dispatcher.HandleSPacket(conn, packetBytes)
 	}
 }

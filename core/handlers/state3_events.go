@@ -48,7 +48,7 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *users.Roster) f
 		log.Debug("handling player loading", zap.String("user", userId.String()))
 
 		p := tally.AddPlayer(userId, loading.Username)
-		currentWorld := world.GetWorld()
+		currentWorld := world.GetDefaultWorld()
 		var outLopes []*envelope.E
 
 		cpacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CJoinGame) // Predefined packet is expected to always exist.

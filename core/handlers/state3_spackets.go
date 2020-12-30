@@ -39,7 +39,7 @@ func HandleSPluginMessage(log *zap.Logger, tally *users.Roster, connID uuid.UUID
 func HandleSClientSettings(tally *users.Roster, connID uuid.UUID, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
 	clientSettings, ok := sPacket.(*protocol.SPacketClientSettings)
 	if !ok {
-		return nil, fmt.Errorf("received packet is not a pluginMessage: %v", sPacket)
+		return nil, fmt.Errorf("received packet is not clientSettings: %v", sPacket)
 	}
 
 	userID := connID // By design connection ID is also the auth user ID and then the player ID.
@@ -52,5 +52,15 @@ func HandleSClientSettings(tally *users.Roster, connID uuid.UUID, sPacket protoc
 	current.ChatColors = clientSettings.ChatColors
 	tally.SetPlayerSettings(userID, current)
 
+	return nil, nil
+}
+
+func HandleSKeepAlive(aliveRecorder func(uuid.UUID, int64), connID uuid.UUID, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
+	keepAlive, ok := sPacket.(*protocol.SPacketKeepAlive)
+	if !ok {
+		return nil, fmt.Errorf("received packet is not a keepAlive: %v", sPacket)
+	}
+
+	aliveRecorder(connID, keepAlive.KeepAliveID)
 	return nil, nil
 }

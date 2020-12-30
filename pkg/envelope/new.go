@@ -40,3 +40,11 @@ func PlayerJoined(joinedPlayer *pb.PlayerJoined) *E {
 		},
 	}
 }
+
+func CloseConn(closeConn *pb.CloseConn) *E {
+	return &E{
+		Envelope: pb.Envelope{
+			Message: &pb.Envelope_CloseConn{CloseConn: closeConn},
+		},
+	}
+}

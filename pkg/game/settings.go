@@ -1,3 +1,5 @@
+//go:generate stringer -type=Dimension settings.go
+
 package game
 
 import "fmt"
@@ -48,9 +50,9 @@ func DifficultyValueOf(id byte) Difficulty {
 type Dimension int
 
 const (
-	Nether    = -1
-	Overworld = 0
-	TheEnd    = 1
+	Nether    Dimension = -1
+	Overworld Dimension = 0
+	TheEnd    Dimension = 1
 )
 
 type Gamemode uint8

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -56,7 +57,8 @@ func NewServer(conf control.ServerConf) (Server, error) {
 	controlChan := make(chan control.Command)
 	pubSub := nats.NewPubSub(logger.Named("pubsub"), nats.NewNats(), controlChan)
 	tally := users.NewRoster(logger.Named("players"), pubSub)
-	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), pubSub, auth.GetAuther(), tally)
+	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), pubSub,
+		auth.GetAuther(), tally, network.NewKeepAliver(controlChan, pubSub))
 
 	return &server{
 		config:  conf,
@@ -113,6 +115,7 @@ func (s *server) stopServer(after time.Duration) {
 	}
 }
 
+// TODO use context when starting all subsystems and use cancellation to signal graceful shutdown.
 func (s *server) startServer() error {
 	rand.Seed(time.Now().UnixNano())
 
@@ -122,7 +125,7 @@ func (s *server) startServer() error {
 		return fmt.Errorf("failed to start nats: %w", err)
 	}
 
-	if err := s.network.Start(); err != nil {
+	if err := s.network.Start(context.TODO()); err != nil {
 		return fmt.Errorf("failed to start network: %w", err)
 	}
 

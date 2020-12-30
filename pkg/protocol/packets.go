@@ -70,13 +70,14 @@ const (
 	protocolCPong     ProtocolPacketID = 0x01
 
 	// Login state packets
-	protocolCDisconnect         ProtocolPacketID = 0x00
+	protocolCDisconnectLogin    ProtocolPacketID = 0x00
 	protocolCEncryptionRequest  ProtocolPacketID = 0x01
 	protocolCLoginSuccess       ProtocolPacketID = 0x02
 	protocolCSetCompression     ProtocolPacketID = 0x03
 	protocolCLoginPluginRequest ProtocolPacketID = 0x04
 
 	// Play state packets
+	protocolCDisconnectPlay        ProtocolPacketID = 0x1B
 	protocolCChatMessage           ProtocolPacketID = 0x0F
 	protocolCJoinGame              ProtocolPacketID = 0x26
 	protocolCPluginMessage         ProtocolPacketID = 0x19
@@ -156,13 +157,14 @@ const (
 	CPong     = PacketType(int32(ClientBound) + stateStatus + int32(protocolCPong))     // 0xF101
 
 	// Login state packets
-	CDisconnect         = PacketType(int32(ClientBound) + stateLogin + int32(protocolCDisconnect))         // 0xF200
+	CDisconnectLogin    = PacketType(int32(ClientBound) + stateLogin + int32(protocolCDisconnectLogin))    // 0xF200
 	CEncryptionRequest  = PacketType(int32(ClientBound) + stateLogin + int32(protocolCEncryptionRequest))  // 0xF201
 	CLoginSuccess       = PacketType(int32(ClientBound) + stateLogin + int32(protocolCLoginSuccess))       // 0xF202
 	CSetCompression     = PacketType(int32(ClientBound) + stateLogin + int32(protocolCSetCompression))     // 0xF203
 	CLoginPluginRequest = PacketType(int32(ClientBound) + stateLogin + int32(protocolCLoginPluginRequest)) // 0xF204
 
 	// Play state packets
+	CDisconnectPlay        = PacketType(int32(ClientBound) + statePlay + int32(protocolCDisconnectPlay))        // 0xF30F
 	CChatMessage           = PacketType(int32(ClientBound) + statePlay + int32(protocolCChatMessage))           // 0xF30F
 	CJoinGame              = PacketType(int32(ClientBound) + statePlay + int32(protocolCJoinGame))              // 0xF326
 	CPluginMessage         = PacketType(int32(ClientBound) + statePlay + int32(protocolCPluginMessage))         // 0xF319

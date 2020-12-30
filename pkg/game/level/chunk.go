@@ -5,15 +5,17 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/data/tags"
 )
 
+type ChunkID string
+
 type Chunk interface {
 	buffer.BufferPush
+
+	ID() ChunkID
 
 	ChunkX() int
 	ChunkZ() int
 
 	Slices() []Slice
-
-	Level() Level
 
 	// supports values y:[0:15]
 	GetSlice(y int) Slice
@@ -22,4 +24,10 @@ type Chunk interface {
 	GetBlock(x, y, z int) Block
 
 	HeightMapNbtCompound() *tags.NbtCompound
+}
+
+// DEBT no performance considerations applied here yet. Likely will have to be redesigned for RAM/CPU efficiency.
+
+type chunk struct {
+	blocks map[int]map[int]map[int]Block // x,y,z coords
 }

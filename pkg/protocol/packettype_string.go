@@ -29,11 +29,12 @@ func _() {
 	_ = x[SPlayerAbilities-4889]
 	_ = x[CResponse-61696]
 	_ = x[CPong-61697]
-	_ = x[CDisconnect-61952]
+	_ = x[CDisconnectLogin-61952]
 	_ = x[CEncryptionRequest-61953]
 	_ = x[CLoginSuccess-61954]
 	_ = x[CSetCompression-61955]
 	_ = x[CLoginPluginRequest-61956]
+	_ = x[CDisconnectPlay-62235]
 	_ = x[CChatMessage-62223]
 	_ = x[CJoinGame-62246]
 	_ = x[CPluginMessage-62233]
@@ -48,7 +49,7 @@ func _() {
 	_ = x[CEntityMetadata-62276]
 }
 
-const _PacketType_name = "TypeUnspecifiedSHandshakeSRequestSPingSLoginStartSEncryptionResponseSLoginPluginResponseSTeleportConfirmSQueryBlockNBTSSetDifficultySChatMessageSClientStatusSClientSettingsSPluginMessageSKeepAliveSPlayerPositionSPlayerLocationSPlayerRotationSPlayerAbilitiesCResponseCPongCDisconnectCEncryptionRequestCLoginSuccessCSetCompressionCLoginPluginRequestCServerDifficultyCChatMessageCPluginMessageCKeepAliveCChunkDataCJoinGameCPlayerAbilitiesCPlayerInfoCPlayerPositionAndLookCHeldItemChangeCEntityMetadataCDeclareRecipes"
+const _PacketType_name = "TypeUnspecifiedSHandshakeSRequestSPingSLoginStartSEncryptionResponseSLoginPluginResponseSTeleportConfirmSQueryBlockNBTSSetDifficultySChatMessageSClientStatusSClientSettingsSPluginMessageSKeepAliveSPlayerPositionSPlayerLocationSPlayerRotationSPlayerAbilitiesCResponseCPongCDisconnectLoginCEncryptionRequestCLoginSuccessCSetCompressionCLoginPluginRequestCServerDifficultyCChatMessageCPluginMessageCDisconnectPlayCKeepAliveCChunkDataCJoinGameCPlayerAbilitiesCPlayerInfoCPlayerPositionAndLookCHeldItemChangeCEntityMetadataCDeclareRecipes"
 
 var _PacketType_map = map[PacketType]string{
 	-1:    _PacketType_name[0:15],
@@ -72,23 +73,24 @@ var _PacketType_map = map[PacketType]string{
 	4889:  _PacketType_name[241:257],
 	61696: _PacketType_name[257:266],
 	61697: _PacketType_name[266:271],
-	61952: _PacketType_name[271:282],
-	61953: _PacketType_name[282:300],
-	61954: _PacketType_name[300:313],
-	61955: _PacketType_name[313:328],
-	61956: _PacketType_name[328:347],
-	62222: _PacketType_name[347:364],
-	62223: _PacketType_name[364:376],
-	62233: _PacketType_name[376:390],
-	62241: _PacketType_name[390:400],
-	62242: _PacketType_name[400:410],
-	62246: _PacketType_name[410:419],
-	62258: _PacketType_name[419:435],
-	62260: _PacketType_name[435:446],
-	62262: _PacketType_name[446:468],
-	62272: _PacketType_name[468:483],
-	62276: _PacketType_name[483:498],
-	62299: _PacketType_name[498:513],
+	61952: _PacketType_name[271:287],
+	61953: _PacketType_name[287:305],
+	61954: _PacketType_name[305:318],
+	61955: _PacketType_name[318:333],
+	61956: _PacketType_name[333:352],
+	62222: _PacketType_name[352:369],
+	62223: _PacketType_name[369:381],
+	62233: _PacketType_name[381:395],
+	62235: _PacketType_name[395:410],
+	62241: _PacketType_name[410:420],
+	62242: _PacketType_name[420:430],
+	62246: _PacketType_name[430:439],
+	62258: _PacketType_name[439:455],
+	62260: _PacketType_name[455:466],
+	62262: _PacketType_name[466:488],
+	62272: _PacketType_name[488:503],
+	62276: _PacketType_name[503:518],
+	62299: _PacketType_name[518:533],
 }
 
 func (i PacketType) String() string {

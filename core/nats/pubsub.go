@@ -25,11 +25,6 @@ import (
 	"github.com/alexykot/cncraft/pkg/envelope"
 )
 
-// DEBT centralising all meta names in one place may not be a great idea
-const (
-	MetaConnID = "conn_id"
-)
-
 const natsStartTimeout = 500 * time.Millisecond
 
 type PubSub interface {

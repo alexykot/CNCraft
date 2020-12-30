@@ -117,7 +117,7 @@ func (c *connection) Transmit(bufOut buffer.B) (len int, err error) {
 func (c *connection) pull(data []byte) (int, error) {
 	readLen, err := c.tcp.Read(data)
 	if err != nil {
-		return 0, fmt.Errorf("failed to read from TCP: %w", err)
+		return 0, newNetworkError(ErrTCPReadFail, err)
 	}
 	return readLen, nil
 }
@@ -125,7 +125,7 @@ func (c *connection) pull(data []byte) (int, error) {
 func (c *connection) push(data []byte) (int, error) {
 	wroteLen, err := c.tcp.Write(data)
 	if err != nil {
-		return 0, fmt.Errorf("failed to write to TCP: %w", err)
+		return 0, newNetworkError(ErrTCPWriteFail, err)
 	}
 	return wroteLen, nil
 }

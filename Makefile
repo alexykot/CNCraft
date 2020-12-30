@@ -14,7 +14,8 @@ lint:
 	@goimports -format-only -local "github.com/alexykot/cncraft" -l -w ./pkg ./cmd ./core
 
 run:
-	go run ./cmd/server/server.go
+	@reset
+	@go run ./cmd/server/server.go
 
 gen:
 	@./proto/gen.sh

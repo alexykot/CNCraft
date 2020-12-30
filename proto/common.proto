@@ -19,8 +19,9 @@ message Envelope {
     oneof message {
         CPacket cpacket = 2;
         SPacket spacket = 3;
-        PlayerLoading player_loading = 4;
-        PlayerJoined player_joined = 5;
+        CloseConn close_conn = 4;
+        PlayerLoading player_loading = 5;
+        PlayerJoined player_joined = 6;
     }
 }
 
@@ -31,6 +32,11 @@ message CPacket {
 
 message SPacket {
     bytes bytes = 1;
+    ConnState state = 2;
+}
+
+message CloseConn {
+    string id = 1;
     ConnState state = 2;
 }
 

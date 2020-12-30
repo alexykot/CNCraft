@@ -15,6 +15,9 @@ func MkConnStateChange(connID uuid.UUID) string { return "conn." + connID.String
 // MkNewConn creates a subject name string for announcing new connections appearing.
 func MkNewConn() string { return "conn.new" }
 
+// MkConnClose creates a subject name string for announcing connection to be closed.
+func MkConnClose() string { return "conn.close" }
+
 // *** Player related subjects ***
 // MkPlayerLoading creates a subject name string for announcing new users joining server.
 //  This is send after successful login and triggers client world loading and player spawn.

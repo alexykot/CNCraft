@@ -42,13 +42,13 @@ func (p *CPacketPong) Push(writer buffer.B) {
 }
 
 // LOGIN STATE PACKETS
-type CPacketDisconnect struct {
+type CPacketDisconnectLogin struct {
 	Reason chat.Message
 }
 
-func (p *CPacketDisconnect) ProtocolID() ProtocolPacketID { return protocolCDisconnect }
-func (p *CPacketDisconnect) Type() PacketType             { return CDisconnect }
-func (p *CPacketDisconnect) Push(writer buffer.B) {
+func (p *CPacketDisconnectLogin) ProtocolID() ProtocolPacketID { return protocolCDisconnectLogin }
+func (p *CPacketDisconnectLogin) Type() PacketType             { return CDisconnectLogin }
+func (p *CPacketDisconnectLogin) Push(writer buffer.B) {
 	message := p.Reason
 
 	writer.PushTxt(message.AsJson())
@@ -105,6 +105,18 @@ func (p *CPacketLoginPluginRequest) Push(writer buffer.B) {
 }
 
 // PLAY STATE PACKETS
+type CPacketDisconnectPlay struct {
+	Reason chat.Message
+}
+
+func (p *CPacketDisconnectPlay) ProtocolID() ProtocolPacketID { return protocolCDisconnectPlay }
+func (p *CPacketDisconnectPlay) Type() PacketType             { return CDisconnectPlay }
+func (p *CPacketDisconnectPlay) Push(writer buffer.B) {
+	message := p.Reason
+
+	writer.PushTxt(message.AsJson())
+}
+
 type CPacketChatMessage struct {
 	Message         chat.Message
 	MessagePosition chat.MessagePosition

@@ -1,16 +1,41 @@
 package level
 
-import "github.com/google/uuid"
+import "github.com/alexykot/cncraft/pkg/game"
 
 type Level interface {
 	Name() string
-	ID() uuid.UUID
 
-	Chunks() []Chunk
+	Chunks() map[ChunkID]Chunk
+	GetChunk(ChunkID) Chunk
 
-	GetChunk(x, z int) Chunk
+	//	GetChunkIfLoaded(x, z int) GetChunk
+	//
+	//	GetBlock(x, y, z int) Block
+}
 
-	GetChunkIfLoaded(x, z int) Chunk
+type level struct {
+	name   string
+	chunks map[ChunkID]Chunk
+}
 
-	GetBlock(x, y, z int) Block
+var defaultLevel *level
+
+func NewLevel(name string) Level {
+	return &level{
+		name: name,
+	}
+}
+
+func (l *level) Name() string              { return l.name }
+func (l *level) Chunks() map[ChunkID]Chunk { return l.chunks }
+func (l *level) GetChunk(id ChunkID) Chunk { return l.chunks[id] }
+
+func GetDefaultLevel() Level {
+	if defaultLevel == nil {
+		defaultLevel = &level{
+			name:   game.Overworld.String(),
+			chunks: map[ChunkID]Chunk{},
+		}
+	}
+	return defaultLevel
 }

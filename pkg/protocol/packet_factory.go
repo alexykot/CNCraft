@@ -123,8 +123,8 @@ func createCPacketsMap() map[PacketType]func() CPacket {
 		},
 
 		// Login state packets
-		CDisconnect: func() CPacket {
-			return &CPacketDisconnect{}
+		CDisconnectLogin: func() CPacket {
+			return &CPacketDisconnectLogin{}
 		},
 		CEncryptionRequest: func() CPacket {
 			return &CPacketEncryptionRequest{}
@@ -140,6 +140,9 @@ func createCPacketsMap() map[PacketType]func() CPacket {
 		},
 
 		// Play state packets
+		CDisconnectPlay: func() CPacket {
+			return &CPacketDisconnectPlay{}
+		},
 		CChatMessage: func() CPacket {
 			return &CPacketChatMessage{}
 		},

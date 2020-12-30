@@ -17,7 +17,7 @@ import (
 )
 
 // HandleSLoginStart handles the LoginStart packet.
-func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(state protocol.State),
+func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(state protocol.State), aliver func(uuid2 uuid.UUID),
 	connID uuid.UUID, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
 	loginStart, ok := sPacket.(*protocol.SPacketLoginStart)
 	if !ok {
@@ -35,6 +35,7 @@ func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(state pro
 		loginSuccess.(*protocol.CPacketLoginSuccess).PlayerName = loginStart.Username
 
 		stateSetter(protocol.Play)
+		aliver(userID)
 		lope := envelope.PlayerLoading(&pb.PlayerLoading{
 			Id:        userID.String(),
 			ProfileId: userID.String(),
@@ -59,7 +60,7 @@ func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(state pro
 }
 
 func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
-	stateSetter func(state protocol.State), encSetter func([]byte) error, compSetter func(),
+	stateSetter func(state protocol.State), encSetter func([]byte) error, compSetter func(), aliver func(uuid2 uuid.UUID),
 	connID uuid.UUID, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
 
 	encResponse, ok := sPacket.(*protocol.SPacketEncryptionResponse)
@@ -105,6 +106,7 @@ func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
 	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerName = mojangData.Username
 
 	stateSetter(protocol.Play)
+	aliver(userID)
 	lope := envelope.PlayerLoading(&pb.PlayerLoading{
 		Id:        userID.String(),
 		ProfileId: mojangData.ProfileID.String(),
@@ -116,5 +118,6 @@ func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
 	}
 
 	auther.LoginSuccess(userID)
+
 	return []protocol.CPacket{setCompression, loginSuccess}, nil
 }
