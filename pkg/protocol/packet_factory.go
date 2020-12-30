@@ -100,8 +100,8 @@ func createSPacketsMap() map[PacketType]func() SPacket {
 		SPlayerPosition: func() SPacket {
 			return &SPacketPlayerPosition{}
 		},
-		SPlayerLocation: func() SPacket {
-			return &SPacketPlayerLocation{}
+		SPlayerPosAndRotation: func() SPacket {
+			return &SPacketPlayerPosAndRotation{}
 		},
 		SPlayerRotation: func() SPacket {
 			return &SPacketPlayerRotation{}

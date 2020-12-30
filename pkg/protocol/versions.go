@@ -7,6 +7,7 @@ const (
 	MC1_13_2
 	MC1_14_4
 	MC1_15_2
+	MC1_16_4
 )
 
 var protocolVersion = map[MinecraftVersion]int{
@@ -14,6 +15,7 @@ var protocolVersion = map[MinecraftVersion]int{
 	MC1_13_2: 404,
 	MC1_14_4: 498,
 	MC1_15_2: 578,
+	MC1_16_4: 754,
 }
 
 func (m MinecraftVersion) Protocol() int {
@@ -30,6 +32,8 @@ func (m MinecraftVersion) String() string {
 		return "1.14.4"
 	case MC1_15_2:
 		return "1.15.2"
+	case MC1_16_4:
+		return "1.16.4"
 	default:
 		return "Unknown"
 	}
