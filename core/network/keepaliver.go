@@ -126,7 +126,7 @@ func (k *KeepAliver) transmitKeepAlive(connID uuid.UUID, timeNow time.Time) {
 	keepAlive.Push(bufOut)
 
 	lope := envelope.CPacket(&pb.CPacket{
-		Bytes:      bufOut.UAS(),
+		Bytes:      bufOut.Bytes(),
 		PacketType: keepAlive.Type().Value(),
 	})
 

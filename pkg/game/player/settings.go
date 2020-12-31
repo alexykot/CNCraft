@@ -60,11 +60,11 @@ func (d *SkinParts) Push(writer buffer.B) {
 	d.Set(&flags, 0x20, d.LegR)
 	d.Set(&flags, 0x40, d.Head)
 
-	writer.PushByt(flags)
+	writer.PushByte(flags)
 }
 
 func (d *SkinParts) Pull(reader buffer.B) {
-	flags := reader.PullByt()
+	flags := reader.PullByte()
 
 	d.Cape = d.Has(flags, 0x01)
 	d.Body = d.Has(flags, 0x02)

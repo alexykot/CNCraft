@@ -22,18 +22,21 @@ func main() {
 
 	cmd := &cobra.Command{Use: "tools", Short: "misc tools"}
 
-	registerTools(cmd)
+	registerPacketTools(cmd)
 
 	if err := cmd.Execute(); err != nil {
 		log.Fatalf("While executing command: %s\n", err)
 	}
 }
 
-func registerTools(cmd *cobra.Command) {
-	cmd.AddCommand(&cobra.Command{
-		Use:   "varint",
+func registerPacketTools(cmd *cobra.Command) {
+	packetCmd := &cobra.Command{Use: "packet {cmd}", Short: "packet tools"}
+
+	decodeCmd := &cobra.Command{Use: "decode {cmd}", Short: "byte value decoding tools"}
+	decodeCmd.AddCommand(&cobra.Command{
+		Use:   "varint {hex value}",
 		Args:  cobra.ExactArgs(1),
-		Short: "varint to decimal",
+		Short: "decode hexed bytes that should represent a varint into a decimal value",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			hexBytes, err := hex.DecodeString(args[0])
 			if err != nil {
@@ -41,10 +44,13 @@ func registerTools(cmd *cobra.Command) {
 			}
 
 			bufTest := buffer.NewFrom(hexBytes)
-			integer := bufTest.PullVrI()
+			integer := bufTest.PullVarInt()
 			println(fmt.Sprintf("integer: %d", integer))
 
 			return nil
 		},
 	})
+
+	cmd.AddCommand(packetCmd)
+	packetCmd.AddCommand(decodeCmd)
 }

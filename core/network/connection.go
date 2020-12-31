@@ -89,28 +89,28 @@ func (c *connection) Receive(bufIn buffer.B) (len int, err error) {
 	}
 
 	if c.zip.enabled {
-		bufIn.PushUAS(c.zip.Inflate(data), false)
+		bufIn.PushBytes(c.zip.Inflate(data), false)
 	} else {
-		bufIn.PushUAS(data, false)
+		bufIn.PushBytes(data, false)
 	}
 	return readLen, nil
 }
 
 func (c *connection) Transmit(bufOut buffer.B) (len int, err error) {
 	temp := buffer.New()
-	temp.PushVrI(bufOut.Len())
+	temp.PushVarInt(int32(bufOut.Len()))
 
 	if c.zip.enabled {
 		deflated := buffer.New()
-		deflated.PushUAS(c.zip.Deflate(bufOut.UAS()), false)
+		deflated.PushBytes(c.zip.Deflate(bufOut.Bytes()), false)
 	} else {
-		temp.PushUAS(bufOut.UAS(), false)
+		temp.PushBytes(bufOut.Bytes(), false)
 	}
 
 	if c.aes.enabled {
-		return c.push(c.aes.Encrypt(temp.UAS()))
+		return c.push(c.aes.Encrypt(temp.Bytes()))
 	} else {
-		return c.push(temp.UAS())
+		return c.push(temp.Bytes())
 	}
 }
 

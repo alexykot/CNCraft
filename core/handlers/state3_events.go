@@ -13,7 +13,6 @@ import (
 	"github.com/alexykot/cncraft/core/users"
 	"github.com/alexykot/cncraft/core/world"
 	"github.com/alexykot/cncraft/pkg/envelope"
-	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/protocol"
 	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 )
@@ -56,12 +55,12 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *users.Roster) f
 
 		joinGame.EntityID = p.PC.ID()
 		joinGame.GameMode = currentWorld.Gamemode
-		joinGame.Dimension = game.Overworld
+		joinGame.DimensionCodec = currentWorld.DimensionCodec
+		joinGame.Dimension = currentWorld.Dimension
 		joinGame.IsHardcore = currentWorld.Coreness
-		joinGame.LevelType = currentWorld.Type
 		joinGame.HashedSeed = int64(binary.LittleEndian.Uint64(currentWorld.SeedHash[:]))
 		joinGame.ViewDistance = p.Settings.ViewDistance
-		joinGame.RespawnScreen = control.GetCurrentConfig().EnableRespawnScreen
+		joinGame.EnableRespawnScreen = control.GetCurrentConfig().EnableRespawnScreen
 		outLopes = append(outLopes, mkCpacketEnvelope(joinGame))
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPluginMessage)

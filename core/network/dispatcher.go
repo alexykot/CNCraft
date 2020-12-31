@@ -111,10 +111,10 @@ func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
 		log.Debug("transmitting CPacket", zap.String("type", pacType.String()))
 
 		bufOut := buffer.New()
-		bufOut.PushVrI(int32(pacType.ProtocolID()))
+		bufOut.PushVarInt(int32(pacType.ProtocolID()))
 
 		packetBytes := bytes.Join([][]byte{
-			bufOut.UAS(),
+			bufOut.Bytes(),
 			pbCPacket.GetBytes(),
 		}, nil)
 
@@ -177,7 +177,7 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 
 func (d *DispatcherTransmitter) parseSPacket(connState protocol.State, packetBytes []byte) (protocol.SPacket, error) {
 	bufI := buffer.NewFrom(packetBytes)
-	protocolPacketID := protocol.ProtocolPacketID(bufI.PullVrI())
+	protocolPacketID := protocol.ProtocolPacketID(bufI.PullVarInt())
 
 	var pacType protocol.PacketType
 	if d.checkIsStatusHandshake(connState, packetBytes) {
@@ -253,7 +253,7 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 
 func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protocol.CPacket) error {
 	bufOut := buffer.New()
-	bufOut.PushVrI(int32(cpacket.ProtocolID()))
+	bufOut.PushVarInt(int32(cpacket.ProtocolID()))
 	cpacket.Push(bufOut)
 
 	d.log.Debug("transmitting packet", zap.String("conn", conn.ID().String()),
@@ -288,7 +288,7 @@ func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut buffer.B)
 	}
 
 	d.log.Debug("transmitted bytes", zap.String("conn", conn.ID().String()), zap.Int("count", count))
-	//println(fmt.Sprintf("bytes: %X", bufOut.UAS()))
+	//println(fmt.Sprintf("bytes: %X", bufOut.Bytes()))
 	return nil
 }
 
@@ -315,7 +315,7 @@ func (d *DispatcherTransmitter) triggerDisconnect(connState protocol.State, conn
 	}
 
 	lope := envelope.CPacket(&pb.CPacket{
-		Bytes:      bufOut.UAS(),
+		Bytes:      bufOut.Bytes(),
 		PacketType: pacType.Value(),
 	})
 
@@ -338,7 +338,7 @@ func (d *DispatcherTransmitter) checkIsStatusHandshake(connState protocol.State,
 		return false
 	}
 
-	protocolID := buffer.NewFrom(packetBytes).PullVrI()
+	protocolID := buffer.NewFrom(packetBytes).PullVarInt()
 	if protocolID != 0x00 { // SHandshake packet protocol ID is 0x00, same as the ID of SRequest packet.
 		return false
 	} else if len(packetBytes) == 1 { // SRequest packet has no fields so it's length is always 1 byte.

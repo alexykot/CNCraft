@@ -25,11 +25,11 @@ func (p *Abilities) Push(writer buffer.B) {
 	p.Set(&flags, 0x04, p.AllowFlight)
 	p.Set(&flags, 0x08, p.InstantBuild)
 
-	writer.PushByt(flags)
+	writer.PushByte(flags)
 }
 
 func (p *Abilities) Pull(reader buffer.B) {
-	flags := reader.PullByt()
+	flags := reader.PullByte()
 
 	p.Invulnerable = p.Has(flags, 0x01)
 	p.Flying = p.Has(flags, 0x02)

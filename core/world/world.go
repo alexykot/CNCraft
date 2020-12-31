@@ -5,13 +5,15 @@ import (
 	"encoding/binary"
 	"math/rand"
 
+	"github.com/alexykot/cncraft/pkg/protocol/tags"
+
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/level"
 )
 
-// DEBT this is wholly hardcoded to single world per server. Will likely have to redesign for multitenancy if
-//  things like lobby will be needed. Not a today's problem, will only be needed if project takes off.
-//  Or maybe lobby can be supported as a separate dimension (level) within the same world? Need more data.
+// DEBT the system is wholly hardcoded to single world per server. May want to redesign for multitenancy later.
+//  Not a today's problem, will only be worth it if project takes off.
+//  Lobby and similar ancillary places can be supported as a separate dimensions within single world.
 
 // World holds details of the current world.
 type World struct {
@@ -24,6 +26,11 @@ type World struct {
 	Type               game.WorldType
 	Difficulty         game.Difficulty
 	DifficultyIsLocked bool
+
+	// TODO not clear where this should be saved and come from. Maybe it should be hardcoded as server defaults and
+	//  not saved with the world at all.
+	DimensionCodec tags.DimensionCodec
+	Dimension      tags.Dimension
 
 	Levels map[string]level.Level
 }
@@ -40,6 +47,8 @@ func GetDefaultWorld() *World {
 			Difficulty:         game.Peaceful,
 			DifficultyIsLocked: true,
 			Seed:               make([]byte, 4, 4),
+			DimensionCodec:     vanillaDimentionsCodec,
+			Dimension:          vanillaDimentionsCodec.Dimensions.RegistryEntries[0].Element,
 		}
 		binary.LittleEndian.PutUint32(defaultWorld.Seed, rand.Uint32())
 		defaultWorld.SeedHash = sha256.Sum256(defaultWorld.Seed)

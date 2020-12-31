@@ -8,8 +8,8 @@ import (
 type Message interface {
 	Chan() Channel
 
-	buffer.BufferPush
-	buffer.BufferPull
+	buffer.BPush
+	buffer.BPull
 }
 
 func GetMessageForChannel(channel Channel) Message {
@@ -43,11 +43,11 @@ func (b *Brand) Chan() Channel {
 }
 
 func (b *Brand) Push(writer buffer.B) {
-	writer.PushTxt(b.Name)
+	writer.PushString(b.Name)
 }
 
 func (b *Brand) Pull(reader buffer.B) {
-	b.Name = reader.PullTxt()
+	b.Name = reader.PullString()
 }
 
 type DebugPaths struct { // unused? honestly why did I do this
@@ -68,28 +68,28 @@ type PathEntity struct {
 }
 
 func (p *PathEntity) Push(writer buffer.B) {
-	writer.PushI32(int32(p.Index))
+	writer.PushInt32(int32(p.Index))
 
 	p.Target.Push(writer)
 
-	writer.PushI32(int32(p.PSetLen))
+	writer.PushInt32(int32(p.PSetLen))
 	for _, point := range p.PSet {
 		point.Push(writer)
 	}
 
-	writer.PushI32(int32(p.OSetLen))
+	writer.PushInt32(int32(p.OSetLen))
 	for _, point := range p.OSet {
 		point.Push(writer)
 	}
 
-	writer.PushI32(int32(p.CSetLen))
+	writer.PushInt32(int32(p.CSetLen))
 	for _, point := range p.CSet {
 		point.Push(writer)
 	}
 }
 
 func (p *PathEntity) Pull(reader buffer.B) {
-	p.Index = int(reader.PullI32())
+	p.Index = int(reader.PullInt32())
 
 	target := PathPoint{}
 	target.Pull(reader)
@@ -97,7 +97,7 @@ func (p *PathEntity) Pull(reader buffer.B) {
 	p.Target = target
 
 	p.PSet = make([]PathPoint, 0)
-	p.PSetLen = int(reader.PullI32())
+	p.PSetLen = int(reader.PullInt32())
 
 	for i := 0; i < p.PSetLen; i++ {
 		point := PathPoint{}
@@ -107,7 +107,7 @@ func (p *PathEntity) Pull(reader buffer.B) {
 	}
 
 	p.OSet = make([]PathPoint, 0)
-	p.OSetLen = int(reader.PullI32())
+	p.OSetLen = int(reader.PullInt32())
 
 	for i := 0; i < p.OSetLen; i++ {
 		point := PathPoint{}
@@ -117,7 +117,7 @@ func (p *PathEntity) Pull(reader buffer.B) {
 	}
 
 	p.CSet = make([]PathPoint, 0)
-	p.CSetLen = int(reader.PullI32())
+	p.CSetLen = int(reader.PullInt32())
 
 	for i := 0; i < p.CSetLen; i++ {
 		point := PathPoint{}
@@ -141,27 +141,27 @@ type PathPoint struct {
 }
 
 func (p *PathPoint) Push(writer buffer.B) {
-	writer.PushI32(p.X)
-	writer.PushI32(p.Y)
-	writer.PushI32(p.Z)
-	writer.PushF32(p.DistanceOrigin)
-	writer.PushF32(p.Cost)
-	writer.PushF32(p.CostMalus)
-	writer.PushBit(p.Visited)
-	writer.PushI32(int32(p.NodeType))
-	writer.PushF32(p.DistanceTarget)
+	writer.PushInt32(p.X)
+	writer.PushInt32(p.Y)
+	writer.PushInt32(p.Z)
+	writer.PushFloat32(p.DistanceOrigin)
+	writer.PushFloat32(p.Cost)
+	writer.PushFloat32(p.CostMalus)
+	writer.PushBool(p.Visited)
+	writer.PushInt32(int32(p.NodeType))
+	writer.PushFloat32(p.DistanceTarget)
 }
 
 func (p *PathPoint) Pull(reader buffer.B) {
-	p.X = reader.PullI32()
-	p.Y = reader.PullI32()
-	p.Z = reader.PullI32()
-	p.DistanceOrigin = reader.PullF32()
-	p.Cost = reader.PullF32()
-	p.CostMalus = reader.PullF32()
-	p.Visited = reader.PullBit()
-	p.NodeType = NodeType(reader.PullI32())
-	p.DistanceTarget = reader.PullF32()
+	p.X = reader.PullInt32()
+	p.Y = reader.PullInt32()
+	p.Z = reader.PullInt32()
+	p.DistanceOrigin = reader.PullFloat32()
+	p.Cost = reader.PullFloat32()
+	p.CostMalus = reader.PullFloat32()
+	p.Visited = reader.PullBool()
+	p.NodeType = NodeType(reader.PullInt32())
+	p.DistanceTarget = reader.PullFloat32()
 }
 
 type NodeType int
@@ -191,14 +191,14 @@ func (d *DebugPaths) Chan() Channel {
 }
 
 func (d *DebugPaths) Push(writer buffer.B) {
-	writer.PushI32(d.UnknownValue1)
-	writer.PushF32(d.UnknownValue2)
+	writer.PushInt32(d.UnknownValue1)
+	writer.PushFloat32(d.UnknownValue2)
 	d.PathEntity.Push(writer)
 }
 
 func (d *DebugPaths) Pull(reader buffer.B) {
-	d.UnknownValue1 = reader.PullI32()
-	d.UnknownValue2 = reader.PullF32()
+	d.UnknownValue1 = reader.PullInt32()
+	d.UnknownValue2 = reader.PullFloat32()
 
 	entity := PathEntity{}
 	entity.Pull(reader)
@@ -216,11 +216,11 @@ func (d *DebugNeighbors) Chan() Channel {
 }
 
 func (d *DebugNeighbors) Push(writer buffer.B) {
-	writer.PushVrL(d.Time)
+	writer.PushVarLong(d.Time)
 	d.Location.Push(writer)
 }
 
 func (d *DebugNeighbors) Pull(reader buffer.B) {
-	d.Time = reader.PullVrL()
+	d.Time = reader.PullVarLong()
 	d.Location.Pull(reader)
 }

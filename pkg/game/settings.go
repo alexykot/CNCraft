@@ -64,16 +64,6 @@ const (
 	Spectator
 )
 
-func (g Gamemode) Encoded(hardcore bool) byte {
-
-	bit := 0
-	if hardcore {
-		bit = 0x8
-	}
-
-	return byte(g) | byte(bit)
-}
-
 type Coreness bool
 
 const (

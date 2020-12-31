@@ -73,6 +73,7 @@ func createSPacketsMap() map[PacketType]func() SPacket {
 		},
 
 		// Play state
+		// TODO unimplemented packets are unimplemented
 		STeleportConfirm: func() SPacket {
 			return &SPacketTeleportConfirm{}
 		},

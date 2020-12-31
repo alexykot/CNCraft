@@ -2,13 +2,12 @@ package level
 
 import (
 	"github.com/alexykot/cncraft/pkg/buffer"
-	"github.com/alexykot/cncraft/pkg/game/data/tags"
 )
 
 type ChunkID string
 
 type Chunk interface {
-	buffer.BufferPush
+	buffer.BPush
 
 	ID() ChunkID
 
@@ -23,7 +22,7 @@ type Chunk interface {
 	// supports values x:[0:15] y:[0:255] z: [0:15]
 	GetBlock(x, y, z int) Block
 
-	HeightMapNbtCompound() *tags.NbtCompound
+	//HeightMapNbtCompound() *tags.NbtCompound
 }
 
 // DEBT no performance considerations applied here yet. Likely will have to be redesigned for RAM/CPU efficiency.

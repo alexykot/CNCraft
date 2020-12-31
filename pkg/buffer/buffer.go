@@ -3,125 +3,101 @@ package buffer
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"strconv"
 
 	"github.com/google/uuid"
-
-	"github.com/alexykot/cncraft/pkg/game/data/tags"
 )
 
-/*
- Language used:
-	- Len = Length
-	- Arr = Array
+type BPush interface {
+	Push(writer B)
+}
 
-	- Bit = Boolean
-	- Byt = Byte
-	- Int = int
-	- VrI = VarInt
-	- Srt = Short
-	- Txt = String
-*/
+type BPull interface {
+	Pull(reader B)
+}
 
 // TODO
 //  - break this interface into parts
 //  - make sure possible reading errors are checked and returned
-//  - rename methods for clarity and get rid of the special dictionary
 type B interface {
-	Len() int32
+	io.ReadWriter
 
-	SAS() []int8
+	Len() int
 
-	UAS() []byte
+	Bytes() []byte
 
-	InI() int32
+	IndexI() int32
 
-	InO() int32
+	IndexO() int32
 
-	SkpAll()
+	SkipAll()
 
-	SkpLen(delta int32)
+	SkipLen(delta int)
 
 	// pull
-	PullBit() bool
+	PullBool() bool
 
-	PullByt() byte
+	PullByte() byte
 
-	PullI16() int16
+	PullInt16() int16
 
-	PullU16() uint16
+	PullUint16() uint16
 
-	PullI32() int32
+	PullInt32() int32
 
-	PullI64() int64
+	PullInt64() int64
 
-	PullU64() uint64
+	PullUint64() uint64
 
-	PullF32() float32
+	PullFloat32() float32
 
-	PullF64() float64
+	PullFloat64() float64
 
-	PullVrI() int32
+	PullVarInt() int32
 
-	PullVrL() int64
+	PullVarLong() int64
 
-	PullTxt() string
+	PullString() string
 
-	PullUAS() []byte
+	PullBytes() []byte
 
-	PullSAS() []int8
+	PullUUID() uuid.UUID
 
-	PullUID() uuid.UUID
-
-	PullNbt() *tags.NbtCompound
+	//PullNbt() *nbt.NbtCompound  // DEBT this is not going to work like that. Figure out idiomatic Go interface here.
 
 	// push
-	PushBit(data bool)
+	PushBool(data bool)
 
-	PushByt(data byte)
+	PushByte(data byte)
 
-	PushI16(data int16)
+	PushInt16(data int16)
 
-	PushI32(data int32)
+	PushInt32(data int32)
 
-	PushI64(data int64)
+	PushInt64(data int64)
 
-	PushF32(data float32)
+	PushFloat32(data float32)
 
-	PushF64(data float64)
+	PushFloat64(data float64)
 
-	PushVrI(data int32)
+	PushVarInt(data int32)
 
-	PushVrL(data int64)
+	PushVarLong(data int64)
 
-	PushTxt(data string)
+	PushString(data string)
 
-	PushUAS(data []byte, prefixWithLen bool)
+	PushBytes(data []byte, prefixWithLen bool)
 
-	PushSAS(data []int8, prefixWithLen bool)
+	PushUUID(data uuid.UUID)
 
-	PushUID(data uuid.UUID)
-
-	PushNbt(data *tags.NbtCompound)
-}
-
-type BufferPush interface {
-	Push(writer B)
-}
-
-type BufferPull interface {
-	Pull(reader B)
-}
-
-type BufferCodec interface {
-	BufferPush
-	BufferPull
+	//PushNbt(data *tags.NbtCompound)  // DEBT this is not going to work like that. Figure out idiomatic Go interface here.
 }
 
 type buffer struct {
-	iIndex int32
-	oIndex int32
+	iIndex int32 // TODO figure out what this means
+	oIndex int32 // TODO figure out what this means
 
 	bArray []byte
 }
@@ -139,86 +115,98 @@ func NewFrom(bArray []byte) B {
 	return &buffer{bArray: bArray}
 }
 
+// stdlib ReadWriter interface
+func (b *buffer) Read(target []byte) (n int, err error) {
+	if b.Len() <= len(target) {
+		copy(target, b.bArray)
+		return b.Len(), nil
+	} else {
+		copy(target, b.bArray[:len(target)])
+		return len(target), nil
+	}
+}
+
+func (b *buffer) Write(data []byte) (n int, err error) {
+	b.pushNext(data...)
+	return len(data), nil
+}
+
 // server_data
-func (b *buffer) Len() int32 {
-	return int32(len(b.bArray))
+func (b *buffer) Len() int {
+	return len(b.bArray)
 }
 
-func (b *buffer) SAS() []int8 {
-	return asSArray(b.bArray)
-}
-
-func (b *buffer) UAS() []byte {
+func (b *buffer) Bytes() []byte {
 	return b.bArray
 }
 
-func (b *buffer) InI() int32 {
+func (b *buffer) IndexI() int32 {
 	return b.iIndex
 }
 
-func (b *buffer) InO() int32 {
+func (b *buffer) IndexO() int32 {
 	return b.oIndex
 }
 
-func (b *buffer) SkpAll() {
-	b.SkpLen(b.Len() - 1)
+func (b *buffer) SkipAll() {
+	b.SkipLen(b.Len() - 1)
 }
 
-func (b *buffer) SkpLen(delta int32) {
-	b.iIndex += delta
+func (b *buffer) SkipLen(delta int) {
+	b.iIndex = b.iIndex + int32(delta)
 }
 
 // pull
-func (b *buffer) PullBit() bool {
+func (b *buffer) PullBool() bool {
 	return b.pullNext() != 0
 }
 
-func (b *buffer) PullByt() byte {
+func (b *buffer) PullByte() byte {
 	return b.pullNext()
 }
 
-func (b *buffer) PullI16() int16 {
+func (b *buffer) PullInt16() int16 {
 	return int16(binary.BigEndian.Uint16(b.pullSize(4)))
 }
 
-func (b *buffer) PullU16() uint16 {
+func (b *buffer) PullUint16() uint16 {
 	return uint16(b.pullNext())<<8 | uint16(b.pullNext())
 }
 
-func (b *buffer) PullI32() int32 {
+func (b *buffer) PullInt32() int32 {
 	return int32(binary.BigEndian.Uint32(b.pullSize(4)))
 }
 
-func (b *buffer) PullI64() int64 {
-	return int64(b.PullU64())
+func (b *buffer) PullInt64() int64 {
+	return int64(b.PullUint64())
 }
 
-func (b *buffer) PullU64() uint64 {
+func (b *buffer) PullUint64() uint64 {
 	return binary.BigEndian.Uint64(b.pullSize(8))
 }
 
-func (b *buffer) PullF32() float32 {
+func (b *buffer) PullFloat32() float32 {
 	return math.Float32frombits(binary.BigEndian.Uint32(b.pullSize(4)))
 }
 
-func (b *buffer) PullF64() float64 {
+func (b *buffer) PullFloat64() float64 {
 	return math.Float64frombits(binary.BigEndian.Uint64(b.pullSize(8)))
 }
 
-func (b *buffer) PullVrI() int32 {
+func (b *buffer) PullVarInt() int32 {
 	return int32(b.pullVariable(5))
 }
 
-func (b *buffer) PullVrL() int64 {
+func (b *buffer) PullVarLong() int64 {
 	return b.pullVariable(10)
 }
 
-func (b *buffer) PullTxt() string {
-	return string(b.PullUAS())
+func (b *buffer) PullString() string {
+	return string(b.PullBytes())
 }
 
-func (b *buffer) PullUAS() []byte {
-	size := b.PullVrI()
+func (b *buffer) PullBytes() []byte {
+	size := b.PullVarInt()
 	array := b.bArray[b.iIndex : b.iIndex+size]
 
 	b.iIndex += size
@@ -226,41 +214,13 @@ func (b *buffer) PullUAS() []byte {
 	return array
 }
 
-func (b *buffer) PullSAS() []int8 {
-	return asSArray(b.PullUAS())
-}
-
-func (b *buffer) PullUID() uuid.UUID {
-	id, _ := bitsToUUID(b.PullI64(), b.PullI64())
+func (b *buffer) PullUUID() uuid.UUID {
+	id, _ := bitsToUUID(b.PullInt64(), b.PullInt64())
 	return id
 }
 
-func (b *buffer) PullNbt() *tags.NbtCompound {
-	typ := tags.Typ(b.PullByt())
-
-	fmt.Println("==type")
-	fmt.Println(typ)
-
-	if typ != tags.TAG_Compound {
-		panic("root tag must be compound") // probably shouldn't panic?
-	}
-
-	name := b.PullTxt()
-	if len(name) != 0 {
-		panic("root compound should have an empty name")
-	}
-
-	fmt.Println("==name")
-	fmt.Println(name)
-
-	tag := &tags.NbtCompound{}
-	b.pullNbt(tag)
-
-	return tag
-}
-
 // push
-func (b *buffer) PushBit(data bool) {
+func (b *buffer) PushBool(data bool) {
 	if data {
 		b.pushNext(byte(0x01))
 	} else {
@@ -268,17 +228,17 @@ func (b *buffer) PushBit(data bool) {
 	}
 }
 
-func (b *buffer) PushByt(data byte) {
+func (b *buffer) PushByte(data byte) {
 	b.pushNext(data)
 }
 
-func (b *buffer) PushI16(data int16) {
+func (b *buffer) PushInt16(data int16) {
 	b.pushNext(
 		byte(data)>>8,
 		byte(data))
 }
 
-func (b *buffer) PushI32(data int32) {
+func (b *buffer) PushInt32(data int32) {
 	b.pushNext(
 		byte(data>>24),
 		byte(data>>16),
@@ -286,7 +246,7 @@ func (b *buffer) PushI32(data int32) {
 		byte(data))
 }
 
-func (b *buffer) PushI64(data int64) {
+func (b *buffer) PushInt64(data int64) {
 	b.pushNext(
 		byte(data>>56),
 		byte(data>>48),
@@ -298,15 +258,15 @@ func (b *buffer) PushI64(data int64) {
 		byte(data))
 }
 
-func (b *buffer) PushF32(data float32) {
-	b.PushI32(int32(math.Float32bits(data)))
+func (b *buffer) PushFloat32(data float32) {
+	b.PushInt32(int32(math.Float32bits(data)))
 }
 
-func (b *buffer) PushF64(data float64) {
-	b.PushI64(int64(math.Float64bits(data)))
+func (b *buffer) PushFloat64(data float64) {
+	b.PushInt64(int64(math.Float64bits(data)))
 }
 
-func (b *buffer) PushVrI(data int32) {
+func (b *buffer) PushVarInt(data int32) {
 	for {
 		temp := data & 0x7F
 		data >>= 7
@@ -323,7 +283,7 @@ func (b *buffer) PushVrI(data int32) {
 	}
 }
 
-func (b *buffer) PushVrL(data int64) {
+func (b *buffer) PushVarLong(data int64) {
 	for {
 		temp := data & 0x7F
 		data >>= 7
@@ -340,44 +300,27 @@ func (b *buffer) PushVrL(data int64) {
 	}
 }
 
-func (b *buffer) PushTxt(data string) {
-	b.PushUAS([]byte(data), true)
+func (b *buffer) PushString(data string) {
+	b.PushBytes([]byte(data), true)
 }
 
-func (b *buffer) PushUAS(data []byte, prefixWithLen bool) {
+func (b *buffer) PushBytes(data []byte, prefixWithLen bool) {
 	if prefixWithLen {
-		b.PushVrI(int32(len(data)))
+		b.PushVarInt(int32(len(data)))
 	}
 
 	b.pushNext(data...)
 }
 
-func (b *buffer) PushSAS(data []int8, prefixWithLen bool) {
-	b.PushUAS(asUArray(data), prefixWithLen)
-}
-
-func (b *buffer) PushUID(data uuid.UUID) {
+func (b *buffer) PushUUID(data uuid.UUID) {
 	msb, lsb := bitsFromUUID(data)
 
-	b.PushI64(msb)
-	b.PushI64(lsb)
-}
-
-func (b *buffer) PushNbt(data *tags.NbtCompound) {
-	if data == nil {
-		b.PushByt(0)
-	} else {
-		b.PushByt(byte(data.Type()))
-
-		b.pushNext(0, 0)
-
-		b.pushNbt(data)
-	}
+	b.PushInt64(msb)
+	b.PushInt64(lsb)
 }
 
 func (b *buffer) pullNext() byte {
-
-	if b.iIndex >= b.Len() {
+	if b.iIndex >= int32(b.Len()) {
 		return 0
 		// panic("reached end of buffer")
 	}
@@ -425,217 +368,6 @@ func (b *buffer) pullVariable(max int) int64 {
 	}
 
 	return res
-}
-
-func asSArray(bytes []byte) []int8 {
-	array := make([]int8, 0)
-
-	for _, b := range bytes {
-		array = append(array, int8(b))
-	}
-
-	return array
-}
-
-func asUArray(bytes []int8) []byte {
-	array := make([]byte, 0)
-
-	for _, b := range bytes {
-		array = append(array, byte(b))
-	}
-
-	return array
-}
-
-var typeToInst = map[tags.Typ]func() tags.Nbt{
-	tags.TAG_End: func() tags.Nbt {
-		return &tags.NbtEnd{}
-	},
-	tags.TAG_Byte: func() tags.Nbt {
-		return &tags.NbtByt{}
-	},
-	tags.TAG_Short: func() tags.Nbt {
-		return &tags.NbtI16{}
-	},
-	tags.TAG_Int: func() tags.Nbt {
-		return &tags.NbtI32{}
-	},
-	tags.TAG_Long: func() tags.Nbt {
-		return &tags.NbtI64{}
-	},
-	tags.TAG_Float: func() tags.Nbt {
-		return &tags.NbtF32{}
-	},
-	tags.TAG_Double: func() tags.Nbt {
-		return &tags.NbtF64{}
-	},
-	tags.TAG_Byte_Array: func() tags.Nbt {
-		return &tags.NbtArrByt{}
-	},
-	tags.TAG_String: func() tags.Nbt {
-		return &tags.NbtTxt{}
-	},
-	tags.TAG_List: func() tags.Nbt {
-		return &tags.NbtArrAny{}
-	},
-	tags.TAG_Compound: func() tags.Nbt {
-		return &tags.NbtCompound{}
-	},
-	tags.TAG_Int_Array: func() tags.Nbt {
-		return &tags.NbtArrI32{}
-	},
-	tags.TAG_Long_Array: func() tags.Nbt {
-		return &tags.NbtArrI64{}
-	},
-}
-
-func (b *buffer) pullNbt(data tags.Nbt) {
-	switch data.Type() {
-	case tags.TAG_End:
-		// nothing
-		break
-	case tags.TAG_Byte:
-		data.(*tags.NbtByt).Value = int8(b.PullByt())
-		break
-	case tags.TAG_Short:
-		panic("unimplemented")
-		break
-	case tags.TAG_Int:
-		panic("unimplemented")
-		break
-	case tags.TAG_Long:
-		panic("unimplemented")
-		break
-	case tags.TAG_Float:
-		panic("unimplemented")
-		break
-	case tags.TAG_Double:
-		panic("unimplemented")
-		break
-	case tags.TAG_Byte_Array:
-		panic("unimplemented")
-		break
-	case tags.TAG_String:
-		panic("unimplemented")
-		break
-	case tags.TAG_List:
-		panic("unimplemented")
-		break
-	case tags.TAG_Compound:
-		value := make(map[string]tags.Nbt)
-
-		fmt.Println("reading compound")
-
-		for {
-			typ := tags.Typ(b.PullByt())
-			if typ == tags.TAG_End {
-				fmt.Println("encountered break")
-				break
-			}
-
-			fmt.Println("===type")
-			fmt.Println(typ)
-
-			name := b.pullNbtTxt()
-
-			fmt.Println("===name")
-			fmt.Println(name)
-
-			inst := typeToInst[typ]()
-			b.pullNbt(inst)
-
-			value[name] = inst
-		}
-
-		data.(*tags.NbtCompound).Value = value
-		break
-	case tags.TAG_Int_Array:
-		panic("unimplemented")
-		break
-	case tags.TAG_Long_Array:
-		value := make([]int64, b.PullI32())
-
-		for i := 0; i < len(value); i++ {
-			value[i] = b.PullI64()
-		}
-
-		data.(*tags.NbtArrI64).Value = value
-		break
-	}
-}
-
-func (b *buffer) pushNbt(data tags.Nbt) {
-	switch data.Type() {
-	case tags.TAG_End:
-		// nothing
-		break
-	case tags.TAG_Byte:
-		b.PushByt(byte(data.(*tags.NbtByt).Value))
-		break
-	case tags.TAG_Short:
-		panic("unimplemented")
-		break
-	case tags.TAG_Int:
-		panic("unimplemented")
-		break
-	case tags.TAG_Long:
-		panic("unimplemented")
-		break
-	case tags.TAG_Float:
-		panic("unimplemented")
-		break
-	case tags.TAG_Double:
-		panic("unimplemented")
-		break
-	case tags.TAG_Byte_Array:
-		panic("unimplemented")
-		break
-	case tags.TAG_String:
-		panic("unimplemented")
-		break
-	case tags.TAG_List:
-		panic("unimplemented")
-		break
-	case tags.TAG_Compound:
-		for name, tag := range data.(*tags.NbtCompound).Value {
-			b.PushByt(byte(tag.Type()))
-
-			if tag.Type() == tags.TAG_End {
-				continue
-			}
-
-			b.pushNbtTxt(name)
-			b.pushNbt(tag)
-		}
-
-		b.PushByt(0)
-		break
-	case tags.TAG_Int_Array:
-		panic("unimplemented")
-		break
-	case tags.TAG_Long_Array:
-		value := data.(*tags.NbtArrI64).Value
-
-		b.PushI32(int32(len(value)))
-
-		for _, value := range value {
-			b.PushI64(value)
-		}
-
-		break
-	}
-}
-
-func (b *buffer) pullNbtTxt() string {
-	size := b.PullI16()
-	data := b.pullSize(int(size))
-
-	return string(data)
-}
-
-func (b *buffer) pushNbtTxt(data string) {
-	b.PushI16(int16(len(data)))
-	b.PushUAS([]byte(data), false)
 }
 
 func bitsToUUID(msb, lsb int64) (data uuid.UUID, err error) {

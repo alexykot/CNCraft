@@ -10,5 +10,5 @@ import (
 func mkCpacketEnvelope(cpacket protocol.CPacket) *envelope.E {
 	bufOut := buffer.New()
 	cpacket.Push(bufOut)
-	return envelope.CPacket(&pb.CPacket{Bytes: bufOut.UAS(), PacketType: cpacket.Type().Value()})
+	return envelope.CPacket(&pb.CPacket{Bytes: bufOut.Bytes(), PacketType: cpacket.Type().Value()})
 }

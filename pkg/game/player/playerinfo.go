@@ -16,7 +16,7 @@ const (
 )
 
 type PlayerInfo interface {
-	buffer.BufferPush
+	buffer.BPush
 }
 
 type PlayerInfoAddPlayer struct {
@@ -25,28 +25,28 @@ type PlayerInfoAddPlayer struct {
 
 func (p *PlayerInfoAddPlayer) Push(writer buffer.B) {
 	//profile := p.Player.GetProfile()
-	//writer.PushUID(profile.UUID)
-	//writer.PushTxt(profile.Name)
+	//writer.PushUUID(profile.UUID)
+	//writer.PushString(profile.Name)
 	//
-	//writer.PushVrI(int32(len(profile.Properties)))
+	//writer.PushVarInt(int32(len(profile.Properties)))
 	//
 	//for _, prop := range profile.Properties {
-	//	writer.PushTxt(prop.Name)
-	//	writer.PushTxt(prop.Value)
+	//	writer.PushString(prop.Name)
+	//	writer.PushString(prop.Value)
 	//
 	//	if prop.Signature == nil {
-	//		writer.PushBit(false)
+	//		writer.PushBool(false)
 	//	} else {
-	//		writer.PushBit(true)
-	//		writer.PushTxt(*prop.Signature)
+	//		writer.PushBool(true)
+	//		writer.PushString(*prop.Signature)
 	//	}
 	//}
 	//
-	//writer.PushVrI(int32(p.Player.GetGameMode()))
+	//writer.PushVarInt(int32(p.Player.GetGameMode()))
 	//
-	//writer.PushVrI(0) // update this to the player's actual ping
+	//writer.PushVarInt(0) // update this to the player's actual ping
 	//
-	//writer.PushBit(false) // update this to be whether the player has a custom display name or not, write that name as json if they do
+	//writer.PushBool(false) // update this to be whether the player has a custom display name or not, write that name as json if they do
 }
 
 type PlayerInfoUpdateLatency struct{}

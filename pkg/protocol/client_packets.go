@@ -2,6 +2,12 @@ package protocol
 
 import (
 	"encoding/json"
+	"fmt"
+
+	"github.com/alexykot/cncraft/pkg/nbt"
+	"github.com/alexykot/cncraft/pkg/protocol/tags"
+
+	"github.com/google/uuid"
 
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/chat"
@@ -27,7 +33,7 @@ func (p *CPacketResponse) Push(writer buffer.B) {
 	if text, err := json.Marshal(p.Status); err != nil {
 		panic(err)
 	} else {
-		writer.PushTxt(string(text))
+		writer.PushString(string(text))
 	}
 }
 
@@ -38,7 +44,7 @@ type CPacketPong struct {
 func (p *CPacketPong) ProtocolID() ProtocolPacketID { return protocolCPong }
 func (p *CPacketPong) Type() PacketType             { return CPong }
 func (p *CPacketPong) Push(writer buffer.B) {
-	writer.PushI64(p.Payload)
+	writer.PushInt64(p.Payload)
 }
 
 // LOGIN STATE PACKETS
@@ -51,7 +57,7 @@ func (p *CPacketDisconnectLogin) Type() PacketType             { return CDisconn
 func (p *CPacketDisconnectLogin) Push(writer buffer.B) {
 	message := p.Reason
 
-	writer.PushTxt(message.AsJson())
+	writer.PushString(message.AsJson())
 }
 
 type CPacketEncryptionRequest struct {
@@ -63,21 +69,21 @@ type CPacketEncryptionRequest struct {
 func (p *CPacketEncryptionRequest) ProtocolID() ProtocolPacketID { return protocolCEncryptionRequest }
 func (p *CPacketEncryptionRequest) Type() PacketType             { return CEncryptionRequest }
 func (p *CPacketEncryptionRequest) Push(writer buffer.B) {
-	writer.PushTxt(p.ServerID)
-	writer.PushUAS(p.PublicKey, true)
-	writer.PushUAS(p.VerifyToken, true)
+	writer.PushString(p.ServerID)
+	writer.PushBytes(p.PublicKey, true)
+	writer.PushBytes(p.VerifyToken, true)
 }
 
 type CPacketLoginSuccess struct {
-	PlayerUUID string
+	PlayerUUID uuid.UUID
 	PlayerName string
 }
 
 func (p *CPacketLoginSuccess) ProtocolID() ProtocolPacketID { return protocolCLoginSuccess }
 func (p *CPacketLoginSuccess) Type() PacketType             { return CLoginSuccess }
 func (p *CPacketLoginSuccess) Push(writer buffer.B) {
-	writer.PushTxt(p.PlayerUUID)
-	writer.PushTxt(p.PlayerName)
+	writer.PushUUID(p.PlayerUUID)
+	writer.PushString(p.PlayerName)
 }
 
 type CPacketSetCompression struct {
@@ -87,7 +93,7 @@ type CPacketSetCompression struct {
 func (p *CPacketSetCompression) ProtocolID() ProtocolPacketID { return protocolCSetCompression }
 func (p *CPacketSetCompression) Type() PacketType             { return CSetCompression }
 func (p *CPacketSetCompression) Push(writer buffer.B) {
-	writer.PushVrI(p.Threshold)
+	writer.PushVarInt(p.Threshold)
 }
 
 type CPacketLoginPluginRequest struct {
@@ -99,9 +105,9 @@ type CPacketLoginPluginRequest struct {
 func (p *CPacketLoginPluginRequest) ProtocolID() ProtocolPacketID { return protocolCLoginPluginRequest }
 func (p *CPacketLoginPluginRequest) Type() PacketType             { return CLoginPluginRequest }
 func (p *CPacketLoginPluginRequest) Push(writer buffer.B) {
-	writer.PushVrI(p.MessageID)
-	writer.PushTxt(p.Channel)
-	writer.PushUAS(p.OptData, false)
+	writer.PushVarInt(p.MessageID)
+	writer.PushString(p.Channel)
+	writer.PushBytes(p.OptData, false)
 }
 
 // PLAY STATE PACKETS
@@ -195,28 +201,28 @@ type CPacketServerDifficulty struct {
 func (p *CPacketServerDifficulty) ProtocolID() ProtocolPacketID { return protocolCServerDifficulty }
 func (p *CPacketServerDifficulty) Type() PacketType             { return CServerDifficulty }
 func (p *CPacketServerDifficulty) Push(writer buffer.B) {
-	writer.PushByt(byte(p.Difficulty))
-	writer.PushBit(p.Locked)
+	writer.PushByte(byte(p.Difficulty))
+	writer.PushBool(p.Locked)
 }
 
 type CPacketChatMessage struct {
 	Message         chat.Message
 	MessagePosition chat.MessagePosition
+	Sender          uuid.UUID
 }
 
 func (p *CPacketChatMessage) ProtocolID() ProtocolPacketID { return protocolCChatMessage }
 func (p *CPacketChatMessage) Type() PacketType             { return CChatMessage }
 func (p *CPacketChatMessage) Push(writer buffer.B) {
-	panic("changes in 1.16.4 need to be implemented")
-
 	message := p.Message
 
 	if p.MessagePosition == chat.HotBarText {
 		message = *chat.New(message.AsText())
 	}
 
-	writer.PushTxt(message.AsJson())
-	writer.PushByt(byte(p.MessagePosition))
+	writer.PushString(message.AsJson())
+	writer.PushByte(byte(p.MessagePosition))
+	writer.PushUUID(p.Sender)
 }
 
 type CPacketTabComplete struct{}
@@ -274,7 +280,7 @@ type CPacketPluginMessage struct {
 func (p *CPacketPluginMessage) ProtocolID() ProtocolPacketID { return protocolCPluginMessage }
 func (p *CPacketPluginMessage) Type() PacketType             { return CPluginMessage }
 func (p *CPacketPluginMessage) Push(writer buffer.B) {
-	writer.PushTxt(string(p.Message.Chan()))
+	writer.PushString(string(p.Message.Chan()))
 	p.Message.Push(writer)
 }
 
@@ -293,7 +299,7 @@ func (p *CPacketDisconnectPlay) Type() PacketType             { return CDisconne
 func (p *CPacketDisconnectPlay) Push(writer buffer.B) {
 	message := p.Reason
 
-	writer.PushTxt(message.AsJson())
+	writer.PushString(message.AsJson())
 }
 
 type CPacketEntityStatus struct{}
@@ -333,7 +339,7 @@ type CPacketKeepAlive struct {
 func (p *CPacketKeepAlive) ProtocolID() ProtocolPacketID { return protocolCKeepAlive }
 func (p *CPacketKeepAlive) Type() PacketType             { return CKeepAlive }
 func (p *CPacketKeepAlive) Push(writer buffer.B) {
-	writer.PushI64(p.KeepAliveID)
+	writer.PushInt64(p.KeepAliveID)
 }
 
 type CPacketChunkData struct {
@@ -345,35 +351,35 @@ func (p *CPacketChunkData) Type() PacketType             { return CChunkData }
 func (p *CPacketChunkData) Push(writer buffer.B) {
 	panic("didn't check for in 1.16.4, to review")
 
-	writer.PushI32(int32(p.Chunk.ChunkX()))
-	writer.PushI32(int32(p.Chunk.ChunkZ()))
-
-	// full chunk (for now >:D)
-	writer.PushBit(true)
-
-	chunkData := buffer.New()
-	p.Chunk.Push(chunkData) // write chunk data and primary bit mask
-
-	// pull primary bit mask and push to writer
-	writer.PushVrI(chunkData.PullVrI())
-
-	// write height-maps
-	writer.PushNbt(p.Chunk.HeightMapNbtCompound())
-
-	biomes := make([]int32, 1024, 1024)
-	for i := range biomes {
-		biomes[i] = 0 // void biome
-	}
-
-	for _, biome := range biomes {
-		writer.PushI32(biome)
-	}
-
-	// data, prefixed with len
-	writer.PushUAS(chunkData.UAS(), true)
-
-	// write block entities
-	writer.PushVrI(0)
+	//writer.PushInt32(int32(p.Chunk.ChunkX()))
+	//writer.PushInt32(int32(p.Chunk.ChunkZ()))
+	//
+	//// full chunk (for now >:D)
+	//writer.PushBool(true)
+	//
+	//chunkData := buffer.New()
+	//p.Chunk.Push(chunkData) // write chunk data and primary bit mask
+	//
+	//// pull primary bit mask and push to writer
+	//writer.PushVarInt(chunkData.PullVarInt())
+	//
+	//// write height-maps
+	//writer.PushNbt(p.Chunk.HeightMapNbtCompound())
+	//
+	//biomes := make([]int32, 1024, 1024)
+	//for i := range biomes {
+	//	biomes[i] = 0 // void biome
+	//}
+	//
+	//for _, biome := range biomes {
+	//	writer.PushInt32(biome)
+	//}
+	//
+	//// data, prefixed with len
+	//writer.PushBytes(chunkData.Bytes(), true)
+	//
+	//// write block entities
+	//writer.PushVarInt(0)
 }
 
 type CPacketEffect struct{}
@@ -395,31 +401,56 @@ func (p *CPacketUpdateLight) Type() PacketType             { return CUpdateLight
 func (p *CPacketUpdateLight) Push(writer buffer.B)         { panic("packet not implemented") }
 
 type CPacketJoinGame struct {
-	EntityID      int32
-	IsHardcore    game.Coreness
-	GameMode      game.Gamemode
-	Dimension     game.Dimension
-	HashedSeed    int64
-	LevelType     game.WorldType
-	ViewDistance  int32
-	ReduceDebug   bool
-	RespawnScreen bool
+	EntityID int32
+
+	WorldNames []string
+
+	GameMode   game.Gamemode
+	IsHardcore game.Coreness
+
+	DimensionCodec tags.DimensionCodec
+	Dimension      tags.Dimension
+
+	WorldName string
+	IsDebug   bool
+	IsFlat    bool
+
+	HashedSeed int64
+
+	ViewDistance        int32
+	IsDebugReduced      bool
+	EnableRespawnScreen bool
 }
 
 func (p *CPacketJoinGame) ProtocolID() ProtocolPacketID { return protocolCJoinGame }
 func (p *CPacketJoinGame) Type() PacketType             { return CJoinGame }
 func (p *CPacketJoinGame) Push(writer buffer.B) {
-	panic("changes in 1.16.4 need to be implemented")
+	writer.PushInt32(p.EntityID)
+	writer.PushBool(bool(p.IsHardcore))
+	writer.PushByte(byte(p.GameMode))
+	writer.PushByte(0xFF) // "Previous Gamemode" field, hardcoded to "-1" which means "none" and ignored.
 
-	writer.PushI32(p.EntityID)
-	writer.PushByt(p.GameMode.Encoded(bool(p.IsHardcore)))
-	writer.PushI32(int32(p.Dimension))
-	writer.PushI64(p.HashedSeed)
-	writer.PushByt(uint8(0)) // is ignored by the Notchian client
-	writer.PushTxt(p.LevelType.String())
-	writer.PushVrI(p.ViewDistance)
-	writer.PushBit(p.ReduceDebug)
-	writer.PushBit(p.RespawnScreen)
+	writer.PushVarInt(int32(len(p.WorldNames)))
+	for _, worldName := range p.WorldNames {
+		writer.PushString(worldName)
+	}
+
+	// DEBT push packet interface should handle and return marshalling errors
+	if err := nbt.Marshal(writer, p.DimensionCodec); err != nil {
+		panic(fmt.Errorf("failed to marshal NBT: %w", err))
+	}
+	if err := nbt.Marshal(writer, p.Dimension); err != nil {
+		panic(fmt.Errorf("failed to marshal NBT: %w", err))
+	}
+
+	writer.PushString(p.WorldName)
+	writer.PushInt64(p.HashedSeed)
+	writer.PushVarInt(0) // "Max Players" is ignored by the Notchian client
+	writer.PushVarInt(p.ViewDistance)
+	writer.PushBool(p.IsDebugReduced)
+	writer.PushBool(p.EnableRespawnScreen)
+	writer.PushBool(p.IsDebug)
+	writer.PushBool(p.IsFlat)
 }
 
 type CPacketMapData struct{}
@@ -503,8 +534,8 @@ func (p *CPacketPlayerAbilities) Type() PacketType             { return CPlayerA
 func (p *CPacketPlayerAbilities) Push(writer buffer.B) {
 	p.Abilities.Push(writer)
 
-	writer.PushF32(p.FlyingSpeed)
-	writer.PushF32(p.FieldOfView)
+	writer.PushFloat32(p.FlyingSpeed)
+	writer.PushFloat32(p.FieldOfView)
 }
 
 type CPacketCombatEvent struct{}
@@ -523,8 +554,8 @@ func (p *CPacketPlayerInfo) Type() PacketType             { return CPlayerInfo }
 func (p *CPacketPlayerInfo) Push(writer buffer.B) {
 	panic("player.PlayerInfo structure may have changed in 1.16.4, need to recheck")
 
-	writer.PushVrI(int32(p.Action))
-	writer.PushVrI(int32(len(p.Values)))
+	writer.PushVarInt(int32(p.Action))
+	writer.PushVarInt(int32(len(p.Values)))
 
 	for _, value := range p.Values {
 		value.Push(writer)
@@ -549,16 +580,16 @@ func (p *CPacketPlayerPositionAndLook) ProtocolID() ProtocolPacketID {
 }
 func (p *CPacketPlayerPositionAndLook) Type() PacketType { return CPlayerPositionAndLook }
 func (p *CPacketPlayerPositionAndLook) Push(writer buffer.B) {
-	writer.PushF64(p.Location.X)
-	writer.PushF64(p.Location.Y)
-	writer.PushF64(p.Location.Z)
+	writer.PushFloat64(p.Location.X)
+	writer.PushFloat64(p.Location.Y)
+	writer.PushFloat64(p.Location.Z)
 
-	writer.PushF32(p.Location.Yaw)
-	writer.PushF32(p.Location.Pitch)
+	writer.PushFloat32(p.Location.Yaw)
+	writer.PushFloat32(p.Location.Pitch)
 
 	p.Relative.Push(writer)
 
-	writer.PushVrI(p.TeleportID)
+	writer.PushVarInt(p.TeleportID)
 }
 
 type CPacketUnlockRecipes struct{}
@@ -630,7 +661,7 @@ type CPacketHeldItemChange struct {
 func (p *CPacketHeldItemChange) ProtocolID() ProtocolPacketID { return protocolCHeldItemChange }
 func (p *CPacketHeldItemChange) Type() PacketType             { return CHeldItemChange }
 func (p *CPacketHeldItemChange) Push(writer buffer.B) {
-	writer.PushByt(byte(p.Slot))
+	writer.PushByte(byte(p.Slot))
 }
 
 type CPacketUpdateViewPosition struct{}
@@ -664,14 +695,14 @@ type CPacketEntityMetadata struct {
 func (p *CPacketEntityMetadata) ProtocolID() ProtocolPacketID { return protocolCEntityMetadata }
 func (p *CPacketEntityMetadata) Type() PacketType             { return CEntityMetadata }
 func (p *CPacketEntityMetadata) Push(writer buffer.B) {
-	writer.PushVrI(p.Entity.ID())
+	writer.PushVarInt(p.Entity.ID())
 
 	// only supporting player metadata for now
 	_, ok := p.Entity.(entities.PlayerCharacter)
 	if ok {
 
-		writer.PushByt(16) // index | displayed skin parts
-		writer.PushVrI(0)  // type | byte
+		writer.PushByte(16)  // index | displayed skin parts
+		writer.PushVarInt(0) // type | byte
 
 		skin := player.SkinParts{
 			Cape: true,
@@ -686,7 +717,7 @@ func (p *CPacketEntityMetadata) Push(writer buffer.B) {
 		skin.Push(writer)
 	}
 
-	writer.PushByt(0xFF)
+	writer.PushByte(0xFF)
 }
 
 type CPacketAttachEntity struct{}
@@ -827,8 +858,8 @@ type CPacketDeclareRecipes struct {
 func (p *CPacketDeclareRecipes) ProtocolID() ProtocolPacketID { return protocolCDeclareRecipes }
 func (p *CPacketDeclareRecipes) Type() PacketType             { return CDeclareRecipes }
 func (p *CPacketDeclareRecipes) Push(writer buffer.B) {
-	writer.PushVrI(p.RecipeCount)
-	// when recipes are implemented, instead of holding a recipe count, simply write the size of the slice, Recipe will implement BufferPush
+	writer.PushVarInt(p.RecipeCount)
+	// when recipes are implemented, instead of holding a recipe count, simply write the size of the slice, Recipe will implement BPush
 }
 
 type CPacketTags struct{}

@@ -5,7 +5,7 @@ import (
 )
 
 type Slice interface {
-	buff.BufferPush
+	buff.BPush
 
 	Index() int
 

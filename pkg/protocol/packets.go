@@ -1,7 +1,7 @@
 //go:generate stringer -type=PacketType packets.go
 
 // Package protocol defines the packets used in the Minecraft wire protocol.
-// Currently supported protocol version is v578, for Minecraft 1.16.4.
+// Currently supported protocol version is v754, for Minecraft 1.16.4.
 package protocol
 
 import (
@@ -9,7 +9,7 @@ import (
 )
 
 // Version defines the version of the minecraft wire protocol the current implementation supports.
-const Version = 578
+const Version = 754
 
 // SPacket is server bound packet type.
 type SPacket interface {

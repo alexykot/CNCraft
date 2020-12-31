@@ -31,7 +31,7 @@ func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(state pro
 
 	if control.GetCurrentConfig().IsCracked { // "cracked" or "offline-mode" server does not do authentication or encryption
 		loginSuccess, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CLoginSuccess) // Predefined packet is expected to always exist.
-		loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = userID.String()
+		loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = userID
 		loginSuccess.(*protocol.CPacketLoginSuccess).PlayerName = loginStart.Username
 
 		stateSetter(protocol.Play)
@@ -102,7 +102,7 @@ func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
 	setCompression.(*protocol.CPacketSetCompression).Threshold = control.GetCurrentConfig().Network.ZipTreshold // And always be of the correct type.
 
 	loginSuccess, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CLoginSuccess)
-	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = mojangData.ProfileID.String()
+	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = mojangData.ProfileID
 	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerName = mojangData.Username
 
 	stateSetter(protocol.Play)

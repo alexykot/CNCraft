@@ -133,12 +133,12 @@ func (n *Network) handleNewConnection(ctx context.Context, conn Connection) {
 			// decompression
 			// decryption
 
-			if bufIn.UAS()[0] == 0xFE { // LEGACY PING
+			if bufIn.Bytes()[0] == 0xFE { // LEGACY PING
 				continue
 			}
 
-			packetLen := bufIn.PullVrI()
-			packetBytes := bufIn.UAS()[bufIn.InI() : bufIn.InI()+packetLen]
+			packetLen := bufIn.PullVarInt()
+			packetBytes := bufIn.Bytes()[bufIn.IndexI() : bufIn.IndexI()+packetLen]
 
 			n.log.Debug("received packet from client", zap.String("conn", conn.ID().String()))
 			n.dispatcher.HandleSPacket(conn, packetBytes)
