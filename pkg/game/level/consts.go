@@ -2,13 +2,12 @@ package level
 
 const (
 	ChunkW = 16
-	ChunkH = 256
 	ChunkL = 16
+	ChunkH = 256
 
-	SliceC = 16
-	SliceH = ChunkH / SliceC
-
-	SliceS = ChunkW * ChunkL * SliceH
+	SliceW = 16
+	SliceL = 16
+	SliceH = 16
 
 	BitsPerBlock = 14
 	MaxPaletteID = (1 << BitsPerBlock) - 1
