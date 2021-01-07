@@ -1,13 +1,23 @@
 package level
 
+import (
+	"github.com/alexykot/cncraft/pkg/game/data"
+	"github.com/alexykot/cncraft/pkg/protocol/blocks"
+)
+
 type Block interface {
-	X() int
-	Y() int
-	Z() int
+	ID() blocks.BlockID
+}
 
-	Chunk() Chunk
-	Level() Level
+type block struct {
+	pos data.PositionI
+	id  blocks.BlockID
+}
 
-	GetBlockType() int
-	SetBlockType(value int)
+func NewBlock(id blocks.BlockID) Block {
+	return &block{id: id}
+}
+
+func (b *block) ID() blocks.BlockID {
+	return b.id
 }

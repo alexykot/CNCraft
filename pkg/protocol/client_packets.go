@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/alexykot/cncraft/pkg/nbt"
-	"github.com/alexykot/cncraft/pkg/protocol/tags"
-
 	"github.com/google/uuid"
 
 	"github.com/alexykot/cncraft/pkg/buffer"
@@ -16,8 +13,10 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/entities"
 	"github.com/alexykot/cncraft/pkg/game/level"
 	"github.com/alexykot/cncraft/pkg/game/player"
+	"github.com/alexykot/cncraft/pkg/nbt"
 	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 	"github.com/alexykot/cncraft/pkg/protocol/status"
+	"github.com/alexykot/cncraft/pkg/protocol/tags"
 )
 
 // HANDSHAKE STATE CLIENT BOUND PACKETS DO NOT EXIST
@@ -350,36 +349,6 @@ func (p *CPacketChunkData) ProtocolID() ProtocolPacketID { return protocolCChunk
 func (p *CPacketChunkData) Type() PacketType             { return CChunkData }
 func (p *CPacketChunkData) Push(writer buffer.B) {
 	panic("didn't check for in 1.16.4, to review")
-
-	//writer.PushInt32(int32(p.Chunk.ChunkX()))
-	//writer.PushInt32(int32(p.Chunk.ChunkZ()))
-	//
-	//// full chunk (for now >:D)
-	//writer.PushBool(true)
-	//
-	//chunkData := buffer.New()
-	//p.Chunk.Push(chunkData) // write chunk data and primary bit mask
-	//
-	//// pull primary bit mask and push to writer
-	//writer.PushVarInt(chunkData.PullVarInt())
-	//
-	//// write height-maps
-	//writer.PushNbt(p.Chunk.HeightMapNbtCompound())
-	//
-	//biomes := make([]int32, 1024, 1024)
-	//for i := range biomes {
-	//	biomes[i] = 0 // void biome
-	//}
-	//
-	//for _, biome := range biomes {
-	//	writer.PushInt32(biome)
-	//}
-	//
-	//// data, prefixed with len
-	//writer.PushBytes(chunkData.Bytes(), true)
-	//
-	//// write block entities
-	//writer.PushVarInt(0)
 }
 
 type CPacketEffect struct{}

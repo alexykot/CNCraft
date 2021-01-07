@@ -78,6 +78,8 @@ type B interface {
 
 	PushInt64(data int64)
 
+	PushUint64(data uint64)
+
 	PushFloat32(data float32)
 
 	PushFloat64(data float64)
@@ -234,7 +236,7 @@ func (b *buffer) PushByte(data byte) {
 
 func (b *buffer) PushInt16(data int16) {
 	b.pushNext(
-		byte(data)>>8,
+		byte(data>>8),
 		byte(data))
 }
 
@@ -247,6 +249,18 @@ func (b *buffer) PushInt32(data int32) {
 }
 
 func (b *buffer) PushInt64(data int64) {
+	b.pushNext(
+		byte(data>>56),
+		byte(data>>48),
+		byte(data>>40),
+		byte(data>>32),
+		byte(data>>24),
+		byte(data>>16),
+		byte(data>>8),
+		byte(data))
+}
+
+func (b *buffer) PushUint64(data uint64) {
 	b.pushNext(
 		byte(data>>56),
 		byte(data>>48),

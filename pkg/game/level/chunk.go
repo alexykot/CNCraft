@@ -28,7 +28,7 @@ type Chunk interface {
 // DEBT no performance considerations applied here yet. Likely will have to be redesigned for RAM/CPU efficiency.
 
 type chunk struct {
-	// Shown below is the 0-0 chunk on the top right of the coord grid from zero.
+	// Shown below is the 0-0 chunk in the top right quarter of the coord grid.
 	//                    ^
 	//                  +z|
 	//                    |
@@ -41,7 +41,7 @@ type chunk struct {
 	//                  -z|
 	//
 	//
-	// y coord makes no sense for chunk as the chunk always occupies whole height of the world.
+	// y coord makes no sense for chunk as the chunk always occupies full height of the world.
 	x int64
 	z int64
 
