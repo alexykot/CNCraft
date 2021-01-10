@@ -13,6 +13,7 @@ import (
 	"github.com/alexykot/cncraft/core/users"
 	"github.com/alexykot/cncraft/core/world"
 	"github.com/alexykot/cncraft/pkg/envelope"
+	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/protocol"
 	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 )
@@ -91,16 +92,25 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *users.Roster) f
 		declareRecipes.RecipeCount = 0 // TODO probably will be a static list of recipes defined for current server version
 		outLopes = append(outLopes, mkCpacketEnvelope(declareRecipes))
 
-		// TODO CTags packet is not defined
-		// TODO CEntityStatus packet is not defined
-		// TODO CDeclareCommands packet is not defined
-		// TODO CUnlockRecipes packet is not defined
+		// DEBT CTags packet is not defined
+		// DEBT CEntityStatus packet is not defined
+		// DEBT CDeclareCommands packet is not defined
+		// DEBT CUnlockRecipes packet is not defined
 
 		// Player Position And Look
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerPositionAndLook)
 		posAndLook := cpacket.(*protocol.CPacketPlayerPositionAndLook)
 		posAndLook.Location = p.State.CurrentLocation // Relative is always False here.
 		outLopes = append(outLopes, mkCpacketEnvelope(posAndLook))
+
+		// TODO move this to a separate world loader
+		chunksToLoad := currentWorld.Levels[game.Overworld.String()].Chunks()
+		for _, chunk := range chunksToLoad {
+			cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CChunkData)
+			chunkData := cpacket.(*protocol.CPacketChunkData)
+			chunkData.Chunk = chunk
+			outLopes = append(outLopes, mkCpacketEnvelope(chunkData))
+		}
 
 		if err := ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
 			log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))

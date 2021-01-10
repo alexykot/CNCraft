@@ -29,15 +29,46 @@ type section struct {
 
 func NewSection(index uint8) Section {
 	return &section{
-		blocks: [16][16][16]Block{},
+		blocks: [SectionX][SectionZ][SectionX]Block{},
 		index:  index,
 	}
+}
+
+// NewDefaultSection creates a flatworld's lowest section, hardcoded.
+func NewDefaultSection(index uint8) Section {
+	flatSection := &section{
+		blocks: [SectionX][SectionZ][SectionX]Block{},
+		index:  index,
+	}
+
+	for x, zBlocks := range flatSection.blocks {
+		for z := range zBlocks {
+			flatSection.blocks[x][z][0] = NewBlock(blocks.Bedrock)
+			flatSection.blocks[x][z][1] = NewBlock(blocks.Dirt)
+			flatSection.blocks[x][z][2] = NewBlock(blocks.Dirt)
+			flatSection.blocks[x][z][3] = NewBlock(blocks.Grass)
+			flatSection.blocks[x][z][4] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][5] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][6] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][7] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][8] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][9] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][10] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][11] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][12] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][13] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][14] = NewBlock(blocks.Air)
+			flatSection.blocks[x][z][15] = NewBlock(blocks.Air)
+		}
+	}
+
+	return flatSection
 }
 
 func (s *section) Index() int { return int(s.index) }
 
 func (s *section) GetBlock(x, y, z int) Block {
-	if x < 0 || x > 15 || y < 0 || y > 15 || z < 0 || z > 15 {
+	if x < 0 || x > SectionX-1 || y < 0 || y > SectionX-1 || z < 0 || z > SectionZ-1 {
 		return nil
 	}
 
@@ -45,7 +76,7 @@ func (s *section) GetBlock(x, y, z int) Block {
 }
 
 func (s *section) SetBlock(x, y, z int, b Block) error {
-	if x < 0 || x > 15 || y < 0 || y > 15 || z < 0 || z > 15 {
+	if x < 0 || x > SectionX-1 || y < 0 || y > SectionY-1 || z < 0 || z > SectionZ-1 {
 		return fmt.Errorf("block coords x,y,z: %d,%d,%d out of range", x, y, z)
 	}
 	s.blocks[x][z][y] = b
@@ -54,7 +85,7 @@ func (s *section) SetBlock(x, y, z int, b Block) error {
 
 func (s *section) Push(writer buff.B) {
 	// push count of non-air blocks
-	writer.PushInt16(4096) // DEBT this does not consider non-air blocks yet
+	writer.PushInt16(SectionX * SectionZ * SectionY) // DEBT this does not consider non-air blocks yet
 
 	palette := s.makePalette()
 	bpb := bitsPerBlock(len(palette))
@@ -85,8 +116,8 @@ func (s *section) makePalette() []blocks.BlockID {
 
 	for _, zBlocks := range s.blocks {
 		for _, yBlocks := range zBlocks {
-			for _, block := range yBlocks {
-				paletteMap[block.ID()] = struct{}{}
+			for _, sectionBlock := range yBlocks {
+				paletteMap[sectionBlock.ID()] = struct{}{}
 			}
 		}
 	}

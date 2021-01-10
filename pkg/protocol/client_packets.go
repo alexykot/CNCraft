@@ -348,7 +348,39 @@ type CPacketChunkData struct {
 func (p *CPacketChunkData) ProtocolID() ProtocolPacketID { return protocolCChunkData }
 func (p *CPacketChunkData) Type() PacketType             { return CChunkData }
 func (p *CPacketChunkData) Push(writer buffer.B) {
-	panic("didn't check for in 1.16.4, to review")
+	writer.PushInt32(int32(p.Chunk.X() / 16))
+	writer.PushInt32(int32(p.Chunk.Z() / 16))
+
+	// Eventually make this conditional and use this packet to send large scale updates
+	writer.PushBool(true) // IsFullChunk, see https://wiki.vg/Chunk_Format#Full_chunk
+
+	var bitMask int32
+	for i, chunkSection := range p.Chunk.Sections() {
+		if chunkSection != nil {
+			bitMask = bitMask | (1 << i)
+		}
+	}
+	writer.PushVarInt(bitMask) // Not sure why section bitmask is VarInt, it's 8 bits exactly, could be a byte ¯\_(ツ)_/¯
+
+	if err := nbt.Marshal(writer, p.Chunk.HeightMap()); err != nil {
+		panic(fmt.Errorf("failed to marshal NBT: %w", err))
+	}
+
+	biomes := [1024]int32{}
+	for _, _ = range biomes {
+		writer.PushInt32(1) // TODO biomes are hardcoded to Plains for now.
+	}
+
+	sectionsBuff := buffer.New()
+	for _, chunkSection := range p.Chunk.Sections() {
+		if chunkSection != nil {
+			chunkSection.Push(sectionsBuff)
+		}
+	}
+
+	writer.PushBytes(sectionsBuff.Bytes(), true)
+
+	writer.PushVarInt(0) // TODO block entities are not implemented, start at https://minecraft.gamepedia.com/Block_entity
 }
 
 type CPacketEffect struct{}

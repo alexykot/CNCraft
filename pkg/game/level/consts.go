@@ -1,14 +1,11 @@
 package level
 
 const (
-	ChunkW = 16
-	ChunkL = 16
-	ChunkH = 256
+	ChunkX = 16  // Width
+	ChunkZ = 16  // Length
+	ChunkY = 256 // Height
 
-	SliceW = 16
-	SliceL = 16
-	SliceH = 16
-
-	BitsPerBlock = 14
-	MaxPaletteID = (1 << BitsPerBlock) - 1
+	SectionX = 16 // Width
+	SectionZ = 16 // Length
+	SectionY = 16 // Height
 )
