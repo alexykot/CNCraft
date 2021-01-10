@@ -1,7 +1,7 @@
 package level
 
 import (
-	"encoding/binary"
+	"fmt"
 
 	buff "github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/protocol/blocks"
@@ -16,12 +16,22 @@ type Section interface {
 
 	// supports values x:[0:15] y:[0:15] z: [0:15]
 	GetBlock(x, y, z int) Block
+
+	// supports values x:[0:15] y:[0:15] z: [0:15]
+	SetBlock(x, y, z int, block Block) error
 }
 
 type section struct {
 	// DEBT will need to store compacted paletted block map and unpack on request to save RAM
 	blocks [16][16][16]Block // x,z,y block coordinates
 	index  uint8
+}
+
+func NewSection(index uint8) Section {
+	return &section{
+		blocks: [16][16][16]Block{},
+		index:  index,
+	}
 }
 
 func (s *section) Index() int { return int(s.index) }
@@ -32,6 +42,14 @@ func (s *section) GetBlock(x, y, z int) Block {
 	}
 
 	return s.blocks[x][z][y]
+}
+
+func (s *section) SetBlock(x, y, z int, b Block) error {
+	if x < 0 || x > 15 || y < 0 || y > 15 || z < 0 || z > 15 {
+		return fmt.Errorf("block coords x,y,z: %d,%d,%d out of range", x, y, z)
+	}
+	s.blocks[x][z][y] = b
+	return nil
 }
 
 func (s *section) Push(writer buff.B) {
@@ -52,7 +70,10 @@ func (s *section) Push(writer buff.B) {
 		}
 	}
 
-	compactData := s.makeBlockData(bpb, palette)
+	compactData, err := s.makeBlockData(bpb, palette)
+	if err != nil {
+		// DEBT update buffer interface to support errors.
+	}
 	writer.PushVarInt(int32(len(compactData)))
 	for _, long := range compactData {
 		writer.PushUint64(long)
@@ -79,25 +100,6 @@ func (s *section) makePalette() []blocks.BlockID {
 	return palette
 }
 
-func (s *section) makeBlockData(bpb uint8, palette []blocks.BlockID) []uint64 {
-	switch bpb {
-	case 4:
-		return compactBlocksBpb4(palette, s.blocks)
-	case 5:
-		return compactBlocksBpb5(palette, s.blocks)
-	case 6:
-		return compactBlocksBpb6(palette, s.blocks)
-	case 7:
-		return compactBlocksBpb7(palette, s.blocks)
-	case 8:
-		return compactBlocksBpb8(palette, s.blocks)
-	case 14:
-		return compactBlocksBpb14(s.blocks)
-	}
-
-	return nil
-}
-
 func bitsPerBlock(len int) uint8 {
 	var bpb uint8
 	palleteSize := 1
@@ -116,6 +118,7 @@ func bitsPerBlock(len int) uint8 {
 	return bpb
 }
 
+// makeBlockData implements the palette-based compaction algorithm for section blocks array.
 // 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000          Long, 8 bytes
 // 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000  bpb=4, 16 blocks
 // 0000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000     bpb=5, 12 blocks
@@ -123,35 +126,59 @@ func bitsPerBlock(len int) uint8 {
 // 0 0000000 0000000 0000000 0000000 0000000 0000000 0000000 0000000 0000000        bpb=7, 9 blocks
 // 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000          bpb=8, 8 blocks
 // 00000000 00000000000000 00000000000000 00000000000000 00000000000000             bpb=14, 4 blocks
+func (s *section) makeBlockData(bpb uint8, palette []blocks.BlockID) ([]uint64, error) {
+	var useGlobalPalette bool
 
-func compactBlocksBpb4(palette []blocks.BlockID, blockList [16][16][16]Block) []uint64 {
+	var tupleSize uint8
+	switch bpb {
+	case 4:
+		tupleSize = 16
+	case 5:
+		tupleSize = 12
+	case 6:
+		tupleSize = 10
+	case 7:
+		tupleSize = 9
+	case 8:
+		tupleSize = 8
+	case 14:
+		tupleSize = 4
+		useGlobalPalette = true
+	default:
+		return nil, fmt.Errorf("bpb value %d not supported", bpb)
+	}
+
 	var compactData []uint64
-	blockTuple := [16]Block{}
-	paletteIndices := [16]uint8{}
+	blocksTuple := make([]Block, tupleSize, tupleSize)
+	paletteIndices := make([]uint32, tupleSize, tupleSize)
 	var i uint8
-	for _, zBlocks := range blockList {
+	for _, zBlocks := range s.blocks {
 		for _, yBlocks := range zBlocks {
-			for _, block := range yBlocks {
-				blockTuple[i] = block
-				for paletteIndex, blockID := range palette {
-					if blockID == block.ID() {
-						paletteIndices[i] = uint8(paletteIndex)
-						break // DEBT this does not handle case when blockID is not found in the palette
+			for _, sectionBlock := range yBlocks {
+				blocksTuple[i] = sectionBlock
+
+				if useGlobalPalette {
+					paletteIndices[i] = uint32(sectionBlock.ID())
+				} else {
+					var found bool
+					for paletteIndex, blockID := range palette {
+						if blockID == sectionBlock.ID() {
+							paletteIndices[i] = uint32(paletteIndex)
+							found = true
+							break
+						}
+					}
+					if !found {
+						return nil, fmt.Errorf("block ID %d not found in palette", sectionBlock.ID())
 					}
 				}
 
-				if i == 15 {
-					dataTuple := make([]byte, 8, 8)
-					dataTuple[0] = (paletteIndices[0] << 4) | paletteIndices[1]
-					dataTuple[1] = (paletteIndices[2] << 4) | paletteIndices[3]
-					dataTuple[2] = (paletteIndices[3] << 4) | paletteIndices[5]
-					dataTuple[3] = (paletteIndices[4] << 4) | paletteIndices[7]
-					dataTuple[4] = (paletteIndices[6] << 4) | paletteIndices[9]
-					dataTuple[5] = (paletteIndices[8] << 4) | paletteIndices[11]
-					dataTuple[6] = (paletteIndices[10] << 4) | paletteIndices[13]
-					dataTuple[7] = (paletteIndices[12] << 4) | paletteIndices[15]
-
-					long, _ := binary.Uvarint(dataTuple)
+				if i == tupleSize-1 {
+					var long uint64
+					for _, paletteIndex := range paletteIndices {
+						long = long << bpb
+						long = long | uint64(paletteIndex)
+					}
 					compactData = append(compactData, long)
 
 					i = 0
@@ -161,25 +188,15 @@ func compactBlocksBpb4(palette []blocks.BlockID, blockList [16][16][16]Block) []
 			}
 		}
 	}
-	return compactData
-}
 
-func compactBlocksBpb5(palette []blocks.BlockID, blocks [16][16][16]Block) []uint64 {
-	return nil
-}
+	if i > 0 { // append any remaining blocks that did not fill a full long
+		var long uint64
+		for _, paletteIndex := range paletteIndices {
+			long = long << bpb
+			long = long | uint64(paletteIndex)
+		}
+		compactData = append(compactData, long)
+	}
 
-func compactBlocksBpb6(palette []blocks.BlockID, blocks [16][16][16]Block) []uint64 {
-	return nil
-}
-
-func compactBlocksBpb7(palette []blocks.BlockID, blocks [16][16][16]Block) []uint64 {
-	return nil
-}
-
-func compactBlocksBpb8(palette []blocks.BlockID, blocks [16][16][16]Block) []uint64 {
-	return nil
-}
-
-func compactBlocksBpb14(blocks [16][16][16]Block) []uint64 {
-	return nil
+	return compactData, nil
 }

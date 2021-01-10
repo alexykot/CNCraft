@@ -1,7 +1,7 @@
 package level
 
 import (
-	"encoding/binary"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,66 +31,424 @@ func TestBitsPerBlock(t *testing.T) {
 	assert.Equal(t, uint8(14), bitsPerBlock(4096))
 }
 
-func TestCompactBlocksBpb4(t *testing.T) {
-	t.Run("2_block", func(t *testing.T) {
+func TestMakeBlockData4(t *testing.T) {
+	t.Run("2_blocks", func(t *testing.T) {
 		palette := []blocks.BlockID{
 			blocks.Air,
 			blocks.Dirt,
 		}
-		blockList := [16][16][16]Block{}
-		for x, zBlocks := range blockList {
-			for z, _ := range zBlocks {
-				blockList[x][z][0] = NewBlock(blocks.Dirt)
-				blockList[x][z][1] = NewBlock(blocks.Dirt)
-				blockList[x][z][2] = NewBlock(blocks.Dirt)
-				blockList[x][z][3] = NewBlock(blocks.Dirt)
-				blockList[x][z][4] = NewBlock(blocks.Air)
-				blockList[x][z][5] = NewBlock(blocks.Air)
-				blockList[x][z][6] = NewBlock(blocks.Air)
-				blockList[x][z][7] = NewBlock(blocks.Air)
-				blockList[x][z][8] = NewBlock(blocks.Air)
-				blockList[x][z][9] = NewBlock(blocks.Air)
-				blockList[x][z][10] = NewBlock(blocks.Air)
-				blockList[x][z][11] = NewBlock(blocks.Air)
-				blockList[x][z][12] = NewBlock(blocks.Air)
-				blockList[x][z][13] = NewBlock(blocks.Air)
-				blockList[x][z][14] = NewBlock(blocks.Air)
-				blockList[x][z][15] = NewBlock(blocks.Air)
+		s := &section{index: 0, blocks: [16][16][16]Block{}}
+		for x, zBlocks := range s.blocks {
+			for z := range zBlocks {
+				s.blocks[x][z][0] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][1] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][2] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][3] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][4] = NewBlock(blocks.Air)
+				s.blocks[x][z][5] = NewBlock(blocks.Air)
+				s.blocks[x][z][6] = NewBlock(blocks.Air)
+				s.blocks[x][z][7] = NewBlock(blocks.Air)
+				s.blocks[x][z][8] = NewBlock(blocks.Air)
+				s.blocks[x][z][9] = NewBlock(blocks.Air)
+				s.blocks[x][z][10] = NewBlock(blocks.Air)
+				s.blocks[x][z][11] = NewBlock(blocks.Air)
+				s.blocks[x][z][12] = NewBlock(blocks.Air)
+				s.blocks[x][z][13] = NewBlock(blocks.Air)
+				s.blocks[x][z][14] = NewBlock(blocks.Air)
+				s.blocks[x][z][15] = NewBlock(blocks.Air)
 			}
 		}
 
-		compacted := compactBlocksBpb4(palette, blockList)
-		expectedLong, _ := binary.Uvarint([]byte{
-			0x11, // 0001 0001
-			0x11, // 0001 0001
-			0x00, // 0000 0000
-			0x00, // 0000 0000
-			0x00, // 0000 0000
-			0x00, // 0000 0000
-			0x00, // 0000 0000
-			0x00, // 0000 0000
-		})
+		compacted, err := s.makeBlockData(4, palette)
+		require.NoError(t, err)
 		require.Len(t, compacted, 256)
-		assert.Equal(t, expectedLong, compacted[0])
+		for i := range compacted {
+			assert.Equal(t, uint64(0x1111000000000000), compacted[i])
+		}
+	})
+	t.Run("8_blocks", func(t *testing.T) {
+		palette := []blocks.BlockID{
+			blocks.Air,       // 0
+			blocks.Dirt,      // 1
+			blocks.Stone,     // 2
+			blocks.Grass,     // 3
+			blocks.Granite,   // 4
+			blocks.Gravel,    // 5
+			blocks.Sand,      // 6
+			blocks.Sandstone, // 7
+		}
+		s := &section{index: 0, blocks: [16][16][16]Block{}}
+		for x, zBlocks := range s.blocks {
+			for z := range zBlocks {
+				s.blocks[x][z][0] = NewBlock(blocks.Air)
+				s.blocks[x][z][1] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][2] = NewBlock(blocks.Stone)
+				s.blocks[x][z][3] = NewBlock(blocks.Grass)
+				s.blocks[x][z][4] = NewBlock(blocks.Granite)
+				s.blocks[x][z][5] = NewBlock(blocks.Gravel)
+				s.blocks[x][z][6] = NewBlock(blocks.Sand)
+				s.blocks[x][z][7] = NewBlock(blocks.Sandstone)
+				s.blocks[x][z][8] = NewBlock(blocks.Air)
+				s.blocks[x][z][9] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][10] = NewBlock(blocks.Stone)
+				s.blocks[x][z][11] = NewBlock(blocks.Grass)
+				s.blocks[x][z][12] = NewBlock(blocks.Granite)
+				s.blocks[x][z][13] = NewBlock(blocks.Gravel)
+				s.blocks[x][z][14] = NewBlock(blocks.Sand)
+				s.blocks[x][z][15] = NewBlock(blocks.Sandstone)
+			}
+		}
+
+		compacted, err := s.makeBlockData(4, palette)
+		require.NoError(t, err)
+		require.Len(t, compacted, 256)
+		for i := range compacted {
+			assert.Equal(t, uint64(0x0123456701234567), compacted[i])
+		}
+	})
+	t.Run("16_blocks", func(t *testing.T) {
+		palette := []blocks.BlockID{
+			blocks.Air,
+			blocks.Dirt,
+			blocks.Stone,
+			blocks.Grass,
+			blocks.Granite,
+			blocks.Gravel,
+			blocks.Sand,
+			blocks.Sandstone,
+			blocks.Ice,
+			blocks.BlackWool,
+			blocks.WhiteWool,
+			blocks.PinkWool,
+			blocks.GrayWool,
+			blocks.BlueWool,
+			blocks.RedWool,
+			blocks.GreenWool,
+		}
+
+		s := &section{index: 0, blocks: [16][16][16]Block{}}
+		for x, zBlocks := range s.blocks {
+			for z := range zBlocks {
+				s.blocks[x][z][0] = NewBlock(blocks.Air)
+				s.blocks[x][z][1] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][2] = NewBlock(blocks.Stone)
+				s.blocks[x][z][3] = NewBlock(blocks.Grass)
+				s.blocks[x][z][4] = NewBlock(blocks.Granite)
+				s.blocks[x][z][5] = NewBlock(blocks.Gravel)
+				s.blocks[x][z][6] = NewBlock(blocks.Sand)
+				s.blocks[x][z][7] = NewBlock(blocks.Sandstone)
+				s.blocks[x][z][8] = NewBlock(blocks.Ice)
+				s.blocks[x][z][9] = NewBlock(blocks.BlackWool)
+				s.blocks[x][z][10] = NewBlock(blocks.WhiteWool)
+				s.blocks[x][z][11] = NewBlock(blocks.PinkWool)
+				s.blocks[x][z][12] = NewBlock(blocks.GrayWool)
+				s.blocks[x][z][13] = NewBlock(blocks.BlueWool)
+				s.blocks[x][z][14] = NewBlock(blocks.RedWool)
+				s.blocks[x][z][15] = NewBlock(blocks.GreenWool)
+			}
+		}
+
+		compacted, err := s.makeBlockData(4, palette)
+		require.NoError(t, err)
+		assert.Len(t, compacted, 256)
+		for i := range compacted {
+			assert.Equal(t, uint64(0x0123456789ABCDEF), compacted[i])
+		}
 	})
 }
 
-func TestCompactBlocksBpb5(t *testing.T) {
+func TestMakeBlockData5(t *testing.T) {
+	t.Run("2_blocks", func(t *testing.T) {
+		palette := []blocks.BlockID{
+			blocks.Air,
+			blocks.Dirt,
+		}
 
+		s := &section{index: 0, blocks: [16][16][16]Block{}}
+		for x, zBlocks := range s.blocks {
+			for z := range zBlocks {
+				s.blocks[x][z][0] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][1] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][2] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][3] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][4] = NewBlock(blocks.Air)
+				s.blocks[x][z][5] = NewBlock(blocks.Air)
+				s.blocks[x][z][6] = NewBlock(blocks.Air)
+				s.blocks[x][z][7] = NewBlock(blocks.Air)
+				s.blocks[x][z][8] = NewBlock(blocks.Air)
+				s.blocks[x][z][9] = NewBlock(blocks.Air)
+				s.blocks[x][z][10] = NewBlock(blocks.Air)
+				s.blocks[x][z][11] = NewBlock(blocks.Air)
+				s.blocks[x][z][12] = NewBlock(blocks.Air)
+				s.blocks[x][z][13] = NewBlock(blocks.Air)
+				s.blocks[x][z][14] = NewBlock(blocks.Air)
+				s.blocks[x][z][15] = NewBlock(blocks.Air)
+			}
+		}
+
+		compacted, err := s.makeBlockData(5, palette)
+		require.NoError(t, err)
+		assert.Len(t, compacted, 342)
+		var i int
+		for ii := range compacted {
+			if ii == len(compacted)-1 {
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii]) // last long is unfinished and only has few blocks
+				break
+			}
+
+			i++
+			if i == 1 {
+				assert.Equal(t, uint64(0x0084210000000000), compacted[ii])
+			}
+			if i == 2 {
+				assert.Equal(t, uint64(0x0000000842100000), compacted[ii])
+			}
+			if i == 3 {
+				assert.Equal(t, uint64(0x0000000000008421), compacted[ii])
+			}
+			if i == 4 {
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii])
+				i = 0
+			}
+		}
+	})
 }
 
-func TestCompactBlocksBpb6(t *testing.T) {
+func TestMakeBlockData6(t *testing.T) {
+	t.Run("2_blocks", func(t *testing.T) {
+		palette := []blocks.BlockID{
+			blocks.Air,
+			blocks.Dirt,
+		}
+		s := &section{index: 0, blocks: [16][16][16]Block{}}
+		for x, zBlocks := range s.blocks {
+			for z := range zBlocks {
+				s.blocks[x][z][0] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][1] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][2] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][3] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][4] = NewBlock(blocks.Air)
+				s.blocks[x][z][5] = NewBlock(blocks.Air)
+				s.blocks[x][z][6] = NewBlock(blocks.Air)
+				s.blocks[x][z][7] = NewBlock(blocks.Air)
+				s.blocks[x][z][8] = NewBlock(blocks.Air)
+				s.blocks[x][z][9] = NewBlock(blocks.Air)
+				s.blocks[x][z][10] = NewBlock(blocks.Air)
+				s.blocks[x][z][11] = NewBlock(blocks.Air)
+				s.blocks[x][z][12] = NewBlock(blocks.Air)
+				s.blocks[x][z][13] = NewBlock(blocks.Air)
+				s.blocks[x][z][14] = NewBlock(blocks.Air)
+				s.blocks[x][z][15] = NewBlock(blocks.Air)
+			}
+		}
 
+		compacted, err := s.makeBlockData(6, palette)
+		require.NoError(t, err)
+		assert.Len(t, compacted, 410)
+		var i int
+		for ii := range compacted {
+			if ii == len(compacted)-1 {
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii]) // last long is unfinished and only has few blocks
+				break
+			}
+
+			i++
+			switch i {
+			case 1:
+				assert.Equal(t, uint64(0x0041041000000000), compacted[ii])
+			case 2:
+				assert.Equal(t, uint64(0x0000000000041041), compacted[ii])
+			case 3:
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii])
+			case 4:
+				assert.Equal(t, uint64(0x0000041041000000), compacted[ii])
+			case 5:
+				assert.Equal(t, uint64(0x0000000000000041), compacted[ii])
+			case 6:
+				assert.Equal(t, uint64(0x0041000000000000), compacted[ii])
+			case 7:
+				assert.Equal(t, uint64(0x0000000041041000), compacted[ii])
+			case 8:
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii])
+				i = 0
+			}
+		}
+	})
 }
 
-func TestCompactBlocksBpb7(t *testing.T) {
+func TestMakeBlockData7(t *testing.T) {
+	t.Run("2_blocks", func(t *testing.T) {
+		palette := []blocks.BlockID{
+			blocks.Air,
+			blocks.Dirt,
+		}
+		s := &section{index: 0, blocks: [16][16][16]Block{}}
+		for x, zBlocks := range s.blocks {
+			for z := range zBlocks {
+				s.blocks[x][z][0] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][1] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][2] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][3] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][4] = NewBlock(blocks.Air)
+				s.blocks[x][z][5] = NewBlock(blocks.Air)
+				s.blocks[x][z][6] = NewBlock(blocks.Air)
+				s.blocks[x][z][7] = NewBlock(blocks.Air)
+				s.blocks[x][z][8] = NewBlock(blocks.Air)
+				s.blocks[x][z][9] = NewBlock(blocks.Air)
+				s.blocks[x][z][10] = NewBlock(blocks.Air)
+				s.blocks[x][z][11] = NewBlock(blocks.Air)
+				s.blocks[x][z][12] = NewBlock(blocks.Air)
+				s.blocks[x][z][13] = NewBlock(blocks.Air)
+				s.blocks[x][z][14] = NewBlock(blocks.Air)
+				s.blocks[x][z][15] = NewBlock(blocks.Air)
+			}
+		}
 
+		compacted, err := s.makeBlockData(7, palette)
+		require.NoError(t, err)
+		assert.Len(t, compacted, 456)
+
+		var i int
+		for ii := range compacted {
+			if ii == len(compacted)-1 {
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii]) // last long is unfinished and only has few blocks
+				break
+			}
+
+			i++
+			switch i {
+			case 1:
+				assert.Equal(t, uint64(0x0102040800000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 2:
+				assert.Equal(t, uint64(0x0000000000000081), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 3:
+				assert.Equal(t, uint64(0x0102000000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 4:
+				assert.Equal(t, uint64(0x0000000000204081), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 5:
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 6:
+				assert.Equal(t, uint64(0x0000000810204000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 7:
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 8:
+				assert.Equal(t, uint64(0x0002040810000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 9:
+				assert.Equal(t, uint64(0x0000000000000001), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 10:
+				assert.Equal(t, uint64(0x0102040000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 11:
+				assert.Equal(t, uint64(0x0000000000004081), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 12:
+				assert.Equal(t, uint64(0x0100000000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 13:
+				assert.Equal(t, uint64(0x0000000010204080), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 14:
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 15:
+				assert.Equal(t, uint64(0x0000040810200000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 16:
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+				i = 0
+			}
+
+		}
+	})
 }
 
-func TestCompactBlocksBpb8(t *testing.T) {
+func TestMakeBlockData8(t *testing.T) {
+	t.Run("2_blocks", func(t *testing.T) {
+		palette := []blocks.BlockID{
+			blocks.Air,
+			blocks.Dirt,
+		}
+		s := &section{index: 0, blocks: [16][16][16]Block{}}
+		for x, zBlocks := range s.blocks {
+			for z := range zBlocks {
+				s.blocks[x][z][0] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][1] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][2] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][3] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][4] = NewBlock(blocks.Air)
+				s.blocks[x][z][5] = NewBlock(blocks.Air)
+				s.blocks[x][z][6] = NewBlock(blocks.Air)
+				s.blocks[x][z][7] = NewBlock(blocks.Air)
+				s.blocks[x][z][8] = NewBlock(blocks.Air)
+				s.blocks[x][z][9] = NewBlock(blocks.Air)
+				s.blocks[x][z][10] = NewBlock(blocks.Air)
+				s.blocks[x][z][11] = NewBlock(blocks.Air)
+				s.blocks[x][z][12] = NewBlock(blocks.Air)
+				s.blocks[x][z][13] = NewBlock(blocks.Air)
+				s.blocks[x][z][14] = NewBlock(blocks.Air)
+				s.blocks[x][z][15] = NewBlock(blocks.Air)
+			}
+		}
 
+		compacted, err := s.makeBlockData(8, palette)
+		require.NoError(t, err)
+		assert.Len(t, compacted, 512)
+
+		var i int
+		for ii := range compacted {
+			i++
+			switch i {
+			case 1:
+				assert.Equal(t, uint64(0x0101010100000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 2:
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+				i = 0
+			}
+
+		}
+	})
 }
 
-func TestCompactBlocksBpb14(t *testing.T) {
+func TestMakeBlockData14(t *testing.T) {
+	t.Run("2_blocks", func(t *testing.T) {
+		palette := []blocks.BlockID{
+			blocks.Air,  //  0, 00000000000000
+			blocks.Dirt, // 10, 00000000001010
+		}
+		s := &section{index: 0, blocks: [16][16][16]Block{}}
+		for x, zBlocks := range s.blocks {
+			for z := range zBlocks {
+				s.blocks[x][z][0] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][1] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][2] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][3] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][4] = NewBlock(blocks.Air)
+				s.blocks[x][z][5] = NewBlock(blocks.Air)
+				s.blocks[x][z][6] = NewBlock(blocks.Air)
+				s.blocks[x][z][7] = NewBlock(blocks.Air)
+				s.blocks[x][z][8] = NewBlock(blocks.Air)
+				s.blocks[x][z][9] = NewBlock(blocks.Air)
+				s.blocks[x][z][10] = NewBlock(blocks.Air)
+				s.blocks[x][z][11] = NewBlock(blocks.Air)
+				s.blocks[x][z][12] = NewBlock(blocks.Air)
+				s.blocks[x][z][13] = NewBlock(blocks.Air)
+				s.blocks[x][z][14] = NewBlock(blocks.Air)
+				s.blocks[x][z][15] = NewBlock(blocks.Air)
+			}
+		}
 
+		compacted, err := s.makeBlockData(14, palette)
+		require.NoError(t, err)
+		assert.Len(t, compacted, 1024)
+
+		var i int
+		for ii := range compacted {
+			i++
+			switch i {
+			case 1:
+				assert.Equal(t, uint64(0x00002800A002800A), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 2:
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 3:
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+			case 4:
+				assert.Equal(t, uint64(0x0000000000000000), compacted[ii], fmt.Sprintf("line %d failed, long #%d", i, ii))
+				i = 0
+			}
+		}
+	})
 }

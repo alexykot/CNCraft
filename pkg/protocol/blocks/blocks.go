@@ -1,9 +1,9 @@
 package blocks
 
-type BlockID int32
+type BlockID uint32
 
 func (b BlockID) String() string { return namesMap[b] }
-func (b BlockID) ID() int32      { return int32(b) }
+func (b BlockID) ID() uint32     { return uint32(b) }
 
 const (
 	MossyCobblestoneStairs_FacingNorthHalfTopShapeStraightWaterloggedTrue                 BlockID = 9993
