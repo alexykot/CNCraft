@@ -27,6 +27,7 @@ func main() {
 
 	registerPacketTools(cmd)
 	registerGenerationTools(cmd)
+	registerMiscTools(cmd)
 
 	if err := cmd.Execute(); err != nil {
 		log.Fatalf("While executing command: %s\n", err)
@@ -158,4 +159,35 @@ func getConstName(blockName string, props map[string]string) string {
 	}
 
 	return blockName
+}
+
+
+func registerMiscTools(cmd *cobra.Command) {
+	miscCmd := &cobra.Command{Use: "misc {cmd}", Short: "misc tools"}
+	miscCmd.AddCommand(&cobra.Command{
+		Use: "readfile {file}",
+		Short: "output binary contents of the fix in hex",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			bytes, err := ioutil.ReadFile(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to read file: %w", err)
+			}
+
+			println(fmt.Sprintf("contents of: %s, total byte length: %d", args[0], len(bytes)))
+
+			var i int
+			for i=64; i < len(bytes); i=i+64 {
+				println(fmt.Sprintf("%X", bytes[i-64:i]))
+			}
+
+			if i-64 < len(bytes) {
+				println(fmt.Sprintf("%X", bytes[i-64:len(bytes)-1]))
+			}
+
+			return nil
+		},
+	})
+
+	cmd.AddCommand(miscCmd)
 }

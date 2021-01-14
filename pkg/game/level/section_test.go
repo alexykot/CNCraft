@@ -31,6 +31,93 @@ func TestBitsPerBlock(t *testing.T) {
 	assert.Equal(t, uint8(14), bitsPerBlock(4096))
 }
 
+func TestMakePalette(t *testing.T) {
+	t.Run("2_blocks", func(t *testing.T) {
+		s := &section{index: 0, blocks: [16][16][16]Block{}}
+		for x, zBlocks := range s.blocks {
+			for z := range zBlocks {
+				s.blocks[x][z][0] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][1] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][2] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][3] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][4] = NewBlock(blocks.Air)
+				s.blocks[x][z][5] = NewBlock(blocks.Air)
+				s.blocks[x][z][6] = NewBlock(blocks.Air)
+				s.blocks[x][z][7] = NewBlock(blocks.Air)
+				s.blocks[x][z][8] = NewBlock(blocks.Air)
+				s.blocks[x][z][9] = NewBlock(blocks.Air)
+				s.blocks[x][z][10] = NewBlock(blocks.Air)
+				s.blocks[x][z][11] = NewBlock(blocks.Air)
+				s.blocks[x][z][12] = NewBlock(blocks.Air)
+				s.blocks[x][z][13] = NewBlock(blocks.Air)
+				s.blocks[x][z][14] = NewBlock(blocks.Air)
+				s.blocks[x][z][15] = NewBlock(blocks.Air)
+			}
+		}
+
+		palette := s.makePalette()
+		require.Len(t, palette, 2)
+		assert.Equal(t, blocks.Dirt, palette[0])
+		assert.Equal(t, blocks.Air, palette[1])
+	})
+	t.Run("16_blocks", func(t *testing.T) {
+		s := &section{index: 0, blocks: [16][16][16]Block{}}
+		for x, zBlocks := range s.blocks {
+			for z := range zBlocks {
+				s.blocks[x][z][0] = NewBlock(blocks.Air)
+				s.blocks[x][z][1] = NewBlock(blocks.Dirt)
+				s.blocks[x][z][2] = NewBlock(blocks.Stone)
+				s.blocks[x][z][3] = NewBlock(blocks.Grass)
+				s.blocks[x][z][4] = NewBlock(blocks.Granite)
+				s.blocks[x][z][5] = NewBlock(blocks.Gravel)
+				s.blocks[x][z][6] = NewBlock(blocks.Sand)
+				s.blocks[x][z][7] = NewBlock(blocks.Sandstone)
+				s.blocks[x][z][8] = NewBlock(blocks.Ice)
+				s.blocks[x][z][9] = NewBlock(blocks.BlackWool)
+				s.blocks[x][z][10] = NewBlock(blocks.WhiteWool)
+				s.blocks[x][z][11] = NewBlock(blocks.PinkWool)
+				s.blocks[x][z][12] = NewBlock(blocks.GrayWool)
+				s.blocks[x][z][13] = NewBlock(blocks.BlueWool)
+				s.blocks[x][z][14] = NewBlock(blocks.RedWool)
+				s.blocks[x][z][15] = NewBlock(blocks.GreenWool)
+			}
+		}
+
+		palette := s.makePalette()
+		require.Len(t, palette, 16)
+		expectedBlocks := []blocks.BlockID{
+			blocks.Air,
+			blocks.Dirt,
+			blocks.Stone,
+			blocks.Grass,
+			blocks.Granite,
+			blocks.Gravel,
+			blocks.Sand,
+			blocks.Sandstone,
+			blocks.Ice,
+			blocks.BlackWool,
+			blocks.WhiteWool,
+			blocks.PinkWool,
+			blocks.GrayWool,
+			blocks.BlueWool,
+			blocks.RedWool,
+			blocks.GreenWool,
+		}
+
+		for _, expected := range expectedBlocks {
+			var found bool
+			for _, actual := range palette {
+				if actual == expected {
+					found = true
+					break
+				}
+			}
+			assert.True(t, found, fmt.Sprintf("block ID %d not found in palette", expected))
+		}
+	})
+}
+
+
 func TestMakeBlockData4(t *testing.T) {
 	t.Run("2_blocks", func(t *testing.T) {
 		palette := []blocks.BlockID{

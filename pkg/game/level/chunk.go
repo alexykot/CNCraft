@@ -7,8 +7,8 @@ import (
 )
 
 type HeightMap struct {
-	MotionBlocking []uint8 `nbt:"motion_blocking"`
-	WorldSurface   []uint8 `nbt:"world_surface"` // purpose unknown, left empty
+	MotionBlocking []uint64 `nbt:"motion_blocking"`
+	WorldSurface   []uint64 `nbt:"world_surface"` // purpose unknown, left empty
 }
 
 type ChunkID string
@@ -115,13 +115,52 @@ func (c *chunk) HeightMap() HeightMap {
 	}
 
 	heightMap := HeightMap{
-		MotionBlocking: make([]uint8, ChunkX*ChunkZ, ChunkX*ChunkZ),
+		MotionBlocking: make([]uint64, ChunkX*ChunkZ, ChunkX*ChunkZ),
 	}
 	var i int
 	for _, zHeights := range heights {
 		for _, height := range zHeights {
-			heightMap.MotionBlocking[i] = height
+			heightMap.MotionBlocking[i] = uint64(height)
 		}
+	}
+
+	heightMap.MotionBlocking = []uint64{
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
 	}
 
 	return heightMap

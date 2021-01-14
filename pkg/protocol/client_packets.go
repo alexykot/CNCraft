@@ -362,25 +362,35 @@ func (p *CPacketChunkData) Push(writer buffer.B) {
 	}
 	writer.PushVarInt(bitMask) // Not sure why section bitmask is VarInt, it's 8 bits exactly, could be a byte ¯\_(ツ)_/¯
 
-	if err := nbt.Marshal(writer, p.Chunk.HeightMap()); err != nil {
+	heightMapBuff := buffer.New()
+	if err := nbt.Marshal(heightMapBuff, p.Chunk.HeightMap()); err != nil {
 		panic(fmt.Errorf("failed to marshal NBT: %w", err))
 	}
+	writer.PushBytes(heightMapBuff.Bytes(), false)
 
+	biomesBuff := buffer.New()
 	biomes := [1024]int32{}
 	for _, _ = range biomes {
-		writer.PushInt32(1) // TODO biomes are hardcoded to Plains for now.
+		biomesBuff.PushVarInt(1) // TODO biomes are hardcoded to Plains for now.
 	}
+	writer.PushBytes(biomesBuff.Bytes(), false)
 
 	sectionsBuff := buffer.New()
 	for _, chunkSection := range p.Chunk.Sections() {
 		if chunkSection != nil {
-			chunkSection.Push(sectionsBuff)
+			sectionBuff := buffer.New()
+			chunkSection.Push(sectionBuff)
+			sectionsBuff.PushBytes(sectionBuff.Bytes(), false)
 		}
 	}
-
 	writer.PushBytes(sectionsBuff.Bytes(), true)
 
-	writer.PushVarInt(0) // TODO block entities are not implemented, start at https://minecraft.gamepedia.com/Block_entity
+	// blockEntitiesBuff := buffer.New()
+	// if err := nbt.Marshal(blockEntitiesBuff, struct{}{}); err != nil {
+	// 	panic(fmt.Errorf("failed to marshal NBT: %w", err))
+	// }
+	// println(fmt.Sprintf("blockEntities bytes %X", blockEntitiesBuff.Bytes()))
+	// writer.PushBytes(blockEntitiesBuff.Bytes(), false)
 }
 
 type CPacketEffect struct{}

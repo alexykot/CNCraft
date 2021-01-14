@@ -126,6 +126,7 @@ func (s *section) makePalette() []blocks.BlockID {
 	var i int
 	for blockId := range paletteMap {
 		palette[i] = blockId
+		i++
 	}
 
 	return palette

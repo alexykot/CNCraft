@@ -94,14 +94,8 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *users.Roster) f
 
 		// DEBT CTags packet is not defined
 		// DEBT CEntityStatus packet is not defined
-		// DEBT CDeclareCommands packet is not defined
+		// DEBT CDeclareCommands packet is not defined/**/
 		// DEBT CUnlockRecipes packet is not defined
-
-		// Player Position And Look
-		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerPositionAndLook)
-		posAndLook := cpacket.(*protocol.CPacketPlayerPositionAndLook)
-		posAndLook.Location = p.State.CurrentLocation // Relative is always False here.
-		outLopes = append(outLopes, mkCpacketEnvelope(posAndLook))
 
 		// TODO move this to a separate world loader
 		chunksToLoad := currentWorld.Levels[game.Overworld.String()].Chunks()
@@ -111,6 +105,13 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *users.Roster) f
 			chunkData.Chunk = chunk
 			outLopes = append(outLopes, mkCpacketEnvelope(chunkData))
 		}
+
+		// Player Position And Look
+		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerPositionAndLook)
+		posAndLook := cpacket.(*protocol.CPacketPlayerPositionAndLook)
+		posAndLook.Location = p.State.CurrentLocation // Relative is always False here.
+		outLopes = append(outLopes, mkCpacketEnvelope(posAndLook))
+
 
 		if err := ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
 			log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))

@@ -3,7 +3,6 @@ package network
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -267,8 +266,8 @@ func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protoco
 }
 
 func (d *DispatcherTransmitter) transmitBytes(conn Connection, packetBytes []byte) error {
-	d.log.Debug("pushing bytes to conn", zap.String("conn", conn.ID().String()),
-		zap.String("bytes", hex.EncodeToString(packetBytes)))
+	// d.log.Debug("pushing bytes to conn", zap.String("conn", conn.ID().String()),
+	// 	zap.String("bytes", hex.EncodeToString(packetBytes)))
 
 	if err := d.transmitBuffer(conn, buffer.NewFrom(packetBytes)); err != nil {
 		return fmt.Errorf("failed to transmit buffer: %w", err)
