@@ -7,8 +7,8 @@ import (
 )
 
 type HeightMap struct {
-	MotionBlocking []uint64 `nbt:"motion_blocking"`
-	WorldSurface   []uint64 `nbt:"world_surface"` // purpose unknown, left empty
+	MotionBlocking []int64 `nbt:"MOTION_BLOCKING"`
+	WorldSurface   []int64 `nbt:"WORLD_SURFACE"` // purpose unknown, left empty
 }
 
 type ChunkID string
@@ -74,6 +74,16 @@ func (c *chunk) Sections() []Section {
 }
 
 func (c *chunk) HeightMap() HeightMap {
+	heights := c.findHeights()
+	heightMap := HeightMap{
+		MotionBlocking: c.compactHeights(heights),
+		// WorldSurface purpose is unknown, but in the Notchian packet it's contents is same as of MotionBlocking.
+		WorldSurface: c.compactHeights(heights),
+	}
+	return heightMap
+}
+
+func (c *chunk) findHeights() [ChunkX][ChunkZ]uint8 {
 	var sectionIndex int
 
 	// find the topmost non-empty section to start from
@@ -108,60 +118,43 @@ func (c *chunk) HeightMap() HeightMap {
 			}
 		}
 
-		// if all non-air heights are founds - stop scanning
+		// if all non-air heights are found - stop scanning
 		if heightsFound == ChunkX*ChunkZ {
 			break
 		}
 	}
+	return heights
+}
 
-	heightMap := HeightMap{
-		MotionBlocking: make([]uint64, ChunkX*ChunkZ, ChunkX*ChunkZ),
-	}
+func (c *chunk) compactHeights(heights [ChunkX][ChunkZ]uint8) []int64 {
+	const tupleSize = 7
+	const bitsPerHeight = 9
+
 	var i int
-	for _, zHeights := range heights {
-		for _, height := range zHeights {
-			heightMap.MotionBlocking[i] = uint64(height)
+	var resI int
+	var long uint64
+	uRes := make([]uint64, 37, 37)
+	for x, zHeignts := range heights {
+		for z := range zHeignts {
+			long = long << bitsPerHeight
+			long = long | uint64(heights[x][z])
+			i++
+			if i == tupleSize {
+				uRes[resI] = long << 1
+				long = 0
+				resI++
+				i = 0
+			}
 		}
 	}
 
-	heightMap.MotionBlocking = []uint64{
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
+	if i != 0 {
+		uRes[resI] = long << 1
 	}
 
-	return heightMap
+	res := make([]int64, 37, 37)
+	for i, _ := range uRes {
+		res[i] = int64(uRes[i])
+	}
+	return res
 }

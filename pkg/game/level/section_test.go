@@ -117,7 +117,6 @@ func TestMakePalette(t *testing.T) {
 	})
 }
 
-
 func TestMakeBlockData4(t *testing.T) {
 	t.Run("2_blocks", func(t *testing.T) {
 		palette := []blocks.BlockID{

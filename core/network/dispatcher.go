@@ -266,7 +266,7 @@ func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protoco
 }
 
 func (d *DispatcherTransmitter) transmitBytes(conn Connection, packetBytes []byte) error {
-	// d.log.Debug("pushing bytes to conn", zap.String("conn", conn.ID().String()),
+	// d.log.Debug("transmitting bytes", zap.String("conn", conn.ID().String()),
 	// 	zap.String("bytes", hex.EncodeToString(packetBytes)))
 
 	if err := d.transmitBuffer(conn, buffer.NewFrom(packetBytes)); err != nil {

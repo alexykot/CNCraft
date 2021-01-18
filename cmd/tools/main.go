@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"go/format"
@@ -14,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/alexykot/cncraft/pkg/buffer"
+	"github.com/alexykot/cncraft/cmd/tools/packet"
 )
 
 var interrupt chan os.Signal
@@ -25,39 +24,13 @@ func main() {
 
 	cmd := &cobra.Command{Use: "tools", Short: "misc tools"}
 
-	registerPacketTools(cmd)
+	packet.RegisterPacketTools(cmd)
 	registerGenerationTools(cmd)
 	registerMiscTools(cmd)
 
 	if err := cmd.Execute(); err != nil {
 		log.Fatalf("While executing command: %s\n", err)
 	}
-}
-
-func registerPacketTools(cmd *cobra.Command) {
-	packetCmd := &cobra.Command{Use: "packet {cmd}", Short: "packet tools"}
-
-	decodeCmd := &cobra.Command{Use: "decode {cmd}", Short: "byte value decoding tools"}
-	decodeCmd.AddCommand(&cobra.Command{
-		Use:   "varint {hex value}",
-		Args:  cobra.ExactArgs(1),
-		Short: "decode hexed bytes that should represent a varint into a decimal value",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			hexBytes, err := hex.DecodeString(args[0])
-			if err != nil {
-				return fmt.Errorf("failed to decode hex string: %w", err)
-			}
-
-			bufTest := buffer.NewFrom(hexBytes)
-			integer := bufTest.PullVarInt()
-			println(fmt.Sprintf("integer: %d", integer))
-
-			return nil
-		},
-	})
-
-	cmd.AddCommand(packetCmd)
-	packetCmd.AddCommand(decodeCmd)
 }
 
 func registerGenerationTools(cmd *cobra.Command) {
@@ -161,11 +134,10 @@ func getConstName(blockName string, props map[string]string) string {
 	return blockName
 }
 
-
 func registerMiscTools(cmd *cobra.Command) {
 	miscCmd := &cobra.Command{Use: "misc {cmd}", Short: "misc tools"}
 	miscCmd.AddCommand(&cobra.Command{
-		Use: "readfile {file}",
+		Use:   "readfile {file}",
 		Short: "output binary contents of the fix in hex",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -177,7 +149,7 @@ func registerMiscTools(cmd *cobra.Command) {
 			println(fmt.Sprintf("contents of: %s, total byte length: %d", args[0], len(bytes)))
 
 			var i int
-			for i=64; i < len(bytes); i=i+64 {
+			for i = 64; i < len(bytes); i = i + 64 {
 				println(fmt.Sprintf("%X", bytes[i-64:i]))
 			}
 

@@ -48,7 +48,7 @@ func (p *CPacketPong) Push(writer buffer.B) {
 
 // LOGIN STATE PACKETS
 type CPacketDisconnectLogin struct {
-	Reason chat.Message
+	Reason *chat.Message
 }
 
 func (p *CPacketDisconnectLogin) ProtocolID() ProtocolPacketID { return protocolCDisconnectLogin }
@@ -57,6 +57,10 @@ func (p *CPacketDisconnectLogin) Push(writer buffer.B) {
 	message := p.Reason
 
 	writer.PushString(message.AsJson())
+}
+
+func (p *CPacketDisconnectLogin) Pull(reader buffer.B) {
+	p.Reason = chat.New(reader.PullString())
 }
 
 type CPacketEncryptionRequest struct {
@@ -290,7 +294,7 @@ func (p *CPacketNamedSoundEffect) Type() PacketType             { return CNamedS
 func (p *CPacketNamedSoundEffect) Push(writer buffer.B)         { panic("packet not implemented") }
 
 type CPacketDisconnectPlay struct {
-	Reason chat.Message
+	Reason *chat.Message
 }
 
 func (p *CPacketDisconnectPlay) ProtocolID() ProtocolPacketID { return protocolCDisconnectPlay }
@@ -299,6 +303,10 @@ func (p *CPacketDisconnectPlay) Push(writer buffer.B) {
 	message := p.Reason
 
 	writer.PushString(message.AsJson())
+}
+
+func (p *CPacketDisconnectPlay) Pull(reader buffer.B) {
+	p.Reason = chat.New(reader.PullString())
 }
 
 type CPacketEntityStatus struct{}
@@ -354,13 +362,14 @@ func (p *CPacketChunkData) Push(writer buffer.B) {
 	// Eventually make this conditional and use this packet to send large scale updates
 	writer.PushBool(true) // IsFullChunk, see https://wiki.vg/Chunk_Format#Full_chunk
 
-	var bitMask int32
+	var bitMask uint8
 	for i, chunkSection := range p.Chunk.Sections() {
 		if chunkSection != nil {
 			bitMask = bitMask | (1 << i)
 		}
 	}
-	writer.PushVarInt(bitMask) // Not sure why section bitmask is VarInt, it's 8 bits exactly, could be a byte ¯\_(ツ)_/¯
+	// The documentation claims it's a VarInt, but the test chunk data from Notchian is inconclusive. Try a byte and see.
+	writer.PushByte(bitMask)
 
 	heightMapBuff := buffer.New()
 	if err := nbt.Marshal(heightMapBuff, p.Chunk.HeightMap()); err != nil {
@@ -369,8 +378,9 @@ func (p *CPacketChunkData) Push(writer buffer.B) {
 	writer.PushBytes(heightMapBuff.Bytes(), false)
 
 	biomesBuff := buffer.New()
+	biomesBuff.PushVarInt(1024)
 	biomes := [1024]int32{}
-	for _, _ = range biomes {
+	for range biomes {
 		biomesBuff.PushVarInt(1) // TODO biomes are hardcoded to Plains for now.
 	}
 	writer.PushBytes(biomesBuff.Bytes(), false)

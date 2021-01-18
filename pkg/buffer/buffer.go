@@ -40,28 +40,22 @@ type B interface {
 	PullBool() bool
 
 	PullByte() byte
+	PullBytes() []byte
 
 	PullInt16() int16
-
-	PullUint16() uint16
-
 	PullInt32() int32
-
 	PullInt64() int64
 
+	PullUint16() uint16
 	PullUint64() uint64
 
 	PullFloat32() float32
-
 	PullFloat64() float64
 
 	PullVarInt() int32
-
 	PullVarLong() int64
 
 	PullString() string
-
-	PullBytes() []byte
 
 	PullUUID() uuid.UUID
 
@@ -71,26 +65,22 @@ type B interface {
 	PushBool(data bool)
 
 	PushByte(data byte)
+	PushBytes(data []byte, prefixWithLen bool)
 
 	PushInt16(data int16)
-
 	PushInt32(data int32)
-
 	PushInt64(data int64)
 
+	PushUint16(data uint16)
 	PushUint64(data uint64)
 
 	PushFloat32(data float32)
-
 	PushFloat64(data float64)
 
 	PushVarInt(data int32)
-
 	PushVarLong(data int64)
 
 	PushString(data string)
-
-	PushBytes(data []byte, prefixWithLen bool)
 
 	PushUUID(data uuid.UUID)
 
@@ -110,7 +100,7 @@ func (b *buffer) String() string {
 
 // new
 func New() B {
-	return NewFrom(make([]byte, 0, 1024))
+	return NewFrom(make([]byte, 0, 1024*1024))
 }
 
 func NewFrom(bArray []byte) B {
@@ -256,6 +246,12 @@ func (b *buffer) PushInt64(data int64) {
 		byte(data>>32),
 		byte(data>>24),
 		byte(data>>16),
+		byte(data>>8),
+		byte(data))
+}
+
+func (b *buffer) PushUint16(data uint16) {
+	b.pushNext(
 		byte(data>>8),
 		byte(data))
 }

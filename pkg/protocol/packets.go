@@ -1,7 +1,7 @@
 //go:generate stringer -type=PacketType packets.go
 
 // Package protocol defines the packets used in the Minecraft wire protocol.
-// Currently supported protocol version is v754, for Minecraft 1.16.4.
+// Currently supported protocol version is v754, for Minecraft 1.16.5.
 package protocol
 
 import (

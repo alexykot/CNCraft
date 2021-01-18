@@ -12,10 +12,10 @@ import (
 
 // HANDSHAKE STATE PACKETS
 type SPacketHandshake struct {
-	version int32
+	Version int32
 
-	host string
-	port uint16
+	Host string
+	Port uint16
 
 	NextState State
 }
@@ -25,9 +25,9 @@ func (p *SPacketHandshake) Type() PacketType             { return SHandshake }
 func (p *SPacketHandshake) Pull(reader buffer.B) error {
 	var err error
 
-	p.version = reader.PullVarInt()
-	p.host = reader.PullString()
-	p.port = reader.PullUint16()
+	p.Version = reader.PullVarInt()
+	p.Host = reader.PullString()
+	p.Port = reader.PullUint16()
 
 	nextState := reader.PullVarInt()
 
@@ -36,6 +36,16 @@ func (p *SPacketHandshake) Pull(reader buffer.B) error {
 	}
 
 	return nil
+}
+
+func (p *SPacketHandshake) Push(writer buffer.B) {
+	writer.PushVarInt(int32(protocolSHandshake))
+
+	writer.PushVarInt(p.Version)
+	writer.PushString(p.Host)
+	writer.PushUint16(p.Port)
+
+	writer.PushVarInt(int32(p.NextState))
 }
 
 // STATUS STATE PACKETS
@@ -69,6 +79,11 @@ func (p *SPacketLoginStart) Type() PacketType             { return SLoginStart }
 func (p *SPacketLoginStart) Pull(reader buffer.B) error {
 	p.Username = reader.PullString()
 	return nil // DEBT actually check for errors
+}
+
+func (p *SPacketLoginStart) Push(writer buffer.B) {
+	writer.PushVarInt(int32(protocolSLoginStart))
+	writer.PushString(p.Username)
 }
 
 type SPacketEncryptionResponse struct {

@@ -112,7 +112,6 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *users.Roster) f
 		posAndLook.Location = p.State.CurrentLocation // Relative is always False here.
 		outLopes = append(outLopes, mkCpacketEnvelope(posAndLook))
 
-
 		if err := ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
 			log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))
 			return

@@ -141,6 +141,7 @@ func (n *Network) handleNewConnection(ctx context.Context, conn Connection) {
 			packetBytes := bufIn.Bytes()[bufIn.IndexI() : bufIn.IndexI()+packetLen]
 
 			n.log.Debug("received packet from client", zap.String("conn", conn.ID().String()))
+			n.log.Debug("received bytes", zap.String("bytes", fmt.Sprintf("%X", packetBytes)))
 			n.dispatcher.HandleSPacket(conn, packetBytes)
 		}
 

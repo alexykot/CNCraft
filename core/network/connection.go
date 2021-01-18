@@ -78,7 +78,7 @@ func (c *connection) EnableCompression() {
 }
 
 func (c *connection) Receive(bufIn buffer.B) (len int, err error) {
-	data := make([]byte, 1024)
+	data := make([]byte, 1024*1024)
 
 	readLen, err := c.pull(data)
 	if err != nil {
