@@ -40,6 +40,19 @@ func RegisterPacketTools(cmd *cobra.Command) {
 	})
 
 	decodeCmd.AddCommand(&cobra.Command{
+		Use: "hexformat {hex value}", Args: cobra.ExactArgs(1),
+		Short: "format single hex string into 64 bytes strings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			hexBytes, err := hex.DecodeString(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to decode hex string: %w", err)
+			}
+			prettyPrintBytesHex(hexBytes)
+			return nil
+		},
+	})
+
+	decodeCmd.AddCommand(&cobra.Command{
 		Use: "hexbin {hex value}", Args: cobra.ExactArgs(1),
 		Short: "decode hexed bytes into it's binary representation",
 		RunE: func(cmd *cobra.Command, args []string) error {

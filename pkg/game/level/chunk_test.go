@@ -15,7 +15,7 @@ func TestFindHeights(t *testing.T) {
 		heights := c.findHeights()
 		for x, zHeignts := range heights {
 			for z := range zHeignts {
-				assert.Equal(t, uint8(4), heights[x][z])
+				assert.Equal(t, uint8(2), heights[x][z])
 			}
 		}
 	})
@@ -27,18 +27,24 @@ func TestCompactHeights(t *testing.T) {
 		compacted := c.compactHeights(c.findHeights())
 		assert.Len(t, compacted, 37)
 		for i := range compacted {
-
 			var expect int64
+			// if i < len(compacted)-1 {
+			// 	// 000000100 000000100 000000100 000000100 000000100 000000100 000000100 0
+			// 	// 00000010 00000001 00000000 10000000 01000000 00100000 00010000 00001000
+			// 	// 0x0201008040201008
+			// 	expect = int64(0x0201008040201008)
+			// } else {
+			// 	// 000000000 000000000 000000000 000000100 000000100 000000100 000000100 0
+			// 	// 00000000 00000000 00000000 00000000 01000000 00100000 00010000 00001000
+			// 	// 0x0000000040201008
+			// 	expect = int64(0x0000000040201008)
+			// }
+
+			// with Notchian -2 adjustment
 			if i < len(compacted)-1 {
-				// 000000100 000000100 000000100 000000100 000000100 000000100 000000100 0
-				// 00000010 00000001 00000000 10000000 01000000 00100000 00010000 00001000
-				// 0x0201008040201008
-				expect = int64(0x0201008040201008)
+				expect = int64(0x0100804020100804)
 			} else {
-				// 000000000 000000000 000000000 000000100 000000100 000000100 000000100 0
-				// 00000000 00000000 00000000 00000000 01000000 00100000 00010000 00001000
-				// 0x0000000040201008
-				expect = int64(0x0000000040201008)
+				expect = int64(0x0000000020100804)
 			}
 			assert.Equal(t, expect, compacted[i], fmt.Sprintf("error at compact index %d", i))
 		}

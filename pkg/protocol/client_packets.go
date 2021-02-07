@@ -359,7 +359,7 @@ func (p *CPacketChunkData) Push(writer buffer.B) {
 	writer.PushInt32(int32(p.Chunk.X() / 16))
 	writer.PushInt32(int32(p.Chunk.Z() / 16))
 
-	// Eventually make this conditional and use this packet to send large scale updates
+	// Eventually make this conditional and only use this packet to send large scale updates
 	writer.PushBool(true) // IsFullChunk, see https://wiki.vg/Chunk_Format#Full_chunk
 
 	var bitMask uint8
@@ -395,12 +395,13 @@ func (p *CPacketChunkData) Push(writer buffer.B) {
 	}
 	writer.PushBytes(sectionsBuff.Bytes(), true)
 
-	// blockEntitiesBuff := buffer.New()
+	blockEntitiesBuff := buffer.New()
+	blockEntitiesBuff.PushVarInt(0)  // TODO block entities not implemented yet
 	// if err := nbt.Marshal(blockEntitiesBuff, struct{}{}); err != nil {
 	// 	panic(fmt.Errorf("failed to marshal NBT: %w", err))
 	// }
 	// println(fmt.Sprintf("blockEntities bytes %X", blockEntitiesBuff.Bytes()))
-	// writer.PushBytes(blockEntitiesBuff.Bytes(), false)
+	writer.PushBytes(blockEntitiesBuff.Bytes(), false)
 }
 
 type CPacketEffect struct{}

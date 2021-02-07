@@ -3,6 +3,7 @@ package network
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -158,7 +159,7 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 		return
 	}
 	log.Debug("handling SPacket", zap.String("type", sPacket.Type().String()))
-	//println(fmt.Sprintf("packet data: %v", sPacket))
+	// println(fmt.Sprintf("packet data: %v", sPacket))
 
 	if err = d.dispatchSPacket(conn, sPacket); err != nil {
 		if errors.Is(err, handlers.InvalidLoginErr) {
@@ -266,8 +267,8 @@ func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protoco
 }
 
 func (d *DispatcherTransmitter) transmitBytes(conn Connection, packetBytes []byte) error {
-	// d.log.Debug("transmitting bytes", zap.String("conn", conn.ID().String()),
-	// 	zap.String("bytes", hex.EncodeToString(packetBytes)))
+	d.log.Debug("transmitting bytes", zap.String("conn", conn.ID().String()),
+		zap.String("bytes", hex.EncodeToString(packetBytes)))
 
 	if err := d.transmitBuffer(conn, buffer.NewFrom(packetBytes)); err != nil {
 		return fmt.Errorf("failed to transmit buffer: %w", err)

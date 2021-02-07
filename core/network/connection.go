@@ -78,7 +78,7 @@ func (c *connection) EnableCompression() {
 }
 
 func (c *connection) Receive(bufIn buffer.B) (len int, err error) {
-	data := make([]byte, 1024*1024)
+	data := make([]byte, 2097151) // max possible packet size according to https://wiki.vg/Protocol#Packet_format
 
 	readLen, err := c.pull(data)
 	if err != nil {
@@ -98,20 +98,34 @@ func (c *connection) Receive(bufIn buffer.B) (len int, err error) {
 
 func (c *connection) Transmit(bufOut buffer.B) (len int, err error) {
 	temp := buffer.New()
-	temp.PushVarInt(int32(bufOut.Len()))
+	temp.PushVarInt(getPacketLength(bufOut))
+	temp.PushBytes(bufOut.Bytes(), false)
+	return c.push(temp.Bytes())
 
-	if c.zip.enabled {
-		deflated := buffer.New()
-		deflated.PushBytes(c.zip.Deflate(bufOut.Bytes()), false)
-	} else {
-		temp.PushBytes(bufOut.Bytes(), false)
-	}
+	// TODO need to make it work without encryption/compression first
+	// if c.zip.enabled {
+	// 	deflated := buffer.New()
+	// 	deflated.PushBytes(c.zip.Deflate(bufOut.Bytes()), false)
+	// } else {
+	// 	temp.PushBytes(bufOut.Bytes(), false)
+	// }
+	//
+	// if c.aes.enabled {
+	// 	return c.push(c.aes.Encrypt(temp.Bytes()))
+	// } else {
+	// 	return c.push(temp.Bytes())
+	// }
+}
 
-	if c.aes.enabled {
-		return c.push(c.aes.Encrypt(temp.Bytes()))
-	} else {
-		return c.push(temp.Bytes())
-	}
+func getPacketLength(bufOut buffer.B) int32 {
+	length := bufOut.Len()
+	// packetType := bufOut.PullVarInt()
+	// if packetType == 0x20 {
+	// 	length = length + 1
+	// 	println(fmt.Sprintf("increased length to %d", length))
+	// }
+
+	return int32(length)
 }
 
 func (c *connection) pull(data []byte) (int, error) {

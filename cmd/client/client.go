@@ -102,7 +102,8 @@ func handleReceive() {
 		}
 
 		packetLen := bufIn.PullVarInt()
-		// println(fmt.Sprintf("received size: %d, packet length: %d", size, packetLen))
+		println(fmt.Sprintf("received size: %d, declared packet length: %d", size, packetLen))
+		println(fmt.Sprintf("pulling buffer from:to : %d:%d", bufIn.IndexI(), bufIn.IndexI()+packetLen))
 		packetBytes := bufIn.Bytes()[bufIn.IndexI() : bufIn.IndexI()+packetLen]
 
 		handleCPacket(packetBytes)
@@ -119,8 +120,13 @@ func handleCPacket(packetBytes []byte) {
 	println(fmt.Sprintf("received packet type %d/%X", connState, protocolPacketID))
 
 	pacType := protocol.MakeCType(connState, protocolPacketID)
+	switch pacType {
+	case protocol.CLoginSuccess, protocol.CDisconnectLogin, protocol.CPluginMessage, protocol.CChunkData:
+		println(fmt.Sprintf("packetBytes len: %d", len(packetBytes)))
+		prettyPrintBytes(packetBytes)
+	}
+
 	cPacket, err := protocol.GetPacketFactory().MakeCPacket(pacType)
-	prettyPrintBytes(packetBytes)
 	if err != nil {
 		println(fmt.Errorf("failed to make CPacket: %v", err))
 		return
@@ -139,18 +145,42 @@ func handleCPacket(packetBytes []byte) {
 		println(fmt.Sprintf("received disconnect, reason: %s", disconnect.Reason))
 	case protocol.CLoginSuccess:
 		connState = protocol.Play
+	case protocol.CChunkData:
+		spacket, _ := protocol.GetPacketFactory().MakeSPacket(protocol.SHandshake)
+		handshake, _ := spacket.(*protocol.SPacketHandshake)
+		handshake.Version = protocol.Version
+		handshake.Host = serverHost
+		handshake.Port = serverPort
+		handshake.NextState = protocol.Login
+
+		bufHandshake := buffer.New()
+		handshake.Push(bufHandshake)
+		sendBuffer(bufHandshake)
+		println("SHandshake sent")
+		println(fmt.Sprintf("SHandshake bytes: %X", bufHandshake.Bytes()))
 	default:
 		println()
 	}
 }
 
 func prettyPrintBytes(bytes []byte) {
-	var i int
-	for i = 64; i < len(bytes); i = i + 64 {
-		println(fmt.Sprintf("%X", bytes[i-64:i]))
+	for i, byte := range bytes {
+		if i > 0 && i % 64 == 0 {
+			println()
+		}
+		print(fmt.Sprintf("%02X", byte))
 	}
+	println()
 
-	if i-64 < len(bytes) {
-		println(fmt.Sprintf("%X", bytes[i-64:len(bytes)-1]))
-	}
+	// var i int
+	// for i = 64; i < len(bytes); i = i + 64 {
+	// 	println(fmt.Sprintf("%X", bytes[i-64:i]))
+	// }
+	//
+	// if i-64 < len(bytes) {
+	// 	println(fmt.Sprintf("%X", bytes[i-64:len(bytes)-1]))
+	// }
 }
+
+
+

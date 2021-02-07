@@ -46,7 +46,7 @@ func NewDefaultSection(index uint8) Section {
 			flatSection.blocks[x][z][0] = NewBlock(blocks.Bedrock)
 			flatSection.blocks[x][z][1] = NewBlock(blocks.Dirt)
 			flatSection.blocks[x][z][2] = NewBlock(blocks.Dirt)
-			flatSection.blocks[x][z][3] = NewBlock(blocks.Grass)
+			flatSection.blocks[x][z][3] = NewBlock(blocks.GrassBlock_SnowyFalse)
 			flatSection.blocks[x][z][4] = NewBlock(blocks.Air)
 			flatSection.blocks[x][z][5] = NewBlock(blocks.Air)
 			flatSection.blocks[x][z][6] = NewBlock(blocks.Air)

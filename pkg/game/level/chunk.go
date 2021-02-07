@@ -110,7 +110,9 @@ func (c *chunk) findHeights() [ChunkX][ChunkZ]uint8 {
 					sectionBlock := c.sections[sectionIndex].GetBlock(x, y-1, z)
 					// DEBT check for solid block rather than non-air, start at https://minecraft.gamepedia.com/Solid_block
 					if sectionBlock.ID() != blocks.Air {
-						heights[x][z] = uint8(y + sectionIndex*SectionY)
+						// DEBT for unknown reason Notchian server supplies height of "2" in the flatworld the
+						//  solid block height is "4". Adjusting until figure out why.
+						heights[x][z] = uint8(y + sectionIndex*SectionY - 2)
 						heightsFound++
 						break
 					}

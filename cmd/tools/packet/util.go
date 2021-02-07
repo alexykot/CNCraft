@@ -4,10 +4,13 @@ import "fmt"
 
 func prettyPrintBytesHex(bytes []byte) {
 	const breakAt = 64
-	for i, byteVal := range bytes {
-		fmt.Printf("%X", byteVal)
-		if i == breakAt {
+	var count int
+	for _, byteVal := range bytes {
+		fmt.Printf("%02X", byteVal)
+		count++
+		if count == breakAt {
 			println()
+			count = 0
 		}
 	}
 	println()
@@ -15,10 +18,13 @@ func prettyPrintBytesHex(bytes []byte) {
 
 func prettyPrintBytesBin(bytes []byte) {
 	const breakAt = 8
-	for i, byteVal := range bytes {
+	var count int
+	for _, byteVal := range bytes {
 		fmt.Printf("%08b", byteVal)
-		if i == breakAt {
+		count++
+		if count == breakAt {
 			println()
+			count = 0
 		}
 	}
 	println()
