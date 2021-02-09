@@ -29,7 +29,7 @@ type section struct {
 
 func NewSection(index uint8) Section {
 	return &section{
-		blocks: [SectionX][SectionZ][SectionX]Block{},
+		blocks: [SectionX][SectionZ][SectionY]Block{},
 		index:  index,
 	}
 }
@@ -37,28 +37,28 @@ func NewSection(index uint8) Section {
 // NewDefaultSection creates a flatworld's lowest section, hardcoded.
 func NewDefaultSection(index uint8) Section {
 	flatSection := &section{
-		blocks: [SectionX][SectionZ][SectionX]Block{},
+		blocks: [SectionY][SectionZ][SectionX]Block{},
 		index:  index,
 	}
 
-	for x, zBlocks := range flatSection.blocks {
-		for z := range zBlocks {
-			flatSection.blocks[x][z][0] = NewBlock(blocks.Bedrock)
-			flatSection.blocks[x][z][1] = NewBlock(blocks.Dirt)
-			flatSection.blocks[x][z][2] = NewBlock(blocks.Dirt)
-			flatSection.blocks[x][z][3] = NewBlock(blocks.GrassBlock_SnowyFalse)
-			flatSection.blocks[x][z][4] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][5] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][6] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][7] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][8] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][9] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][10] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][11] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][12] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][13] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][14] = NewBlock(blocks.Air)
-			flatSection.blocks[x][z][15] = NewBlock(blocks.Air)
+	for z := 0; z < SectionZ; z++ {
+		for x := 0; x < SectionX; x++ {
+			flatSection.blocks[0][z][x] = NewBlock(blocks.Bedrock)
+			flatSection.blocks[1][z][x] = NewBlock(blocks.Dirt)
+			flatSection.blocks[2][z][x] = NewBlock(blocks.Dirt)
+			flatSection.blocks[3][z][x] = NewBlock(blocks.GrassBlock_SnowyFalse)
+			flatSection.blocks[4][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[5][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[6][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[7][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[8][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[9][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[10][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[11][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[12][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[13][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[14][z][x] = NewBlock(blocks.Air)
+			flatSection.blocks[15][z][x] = NewBlock(blocks.Air)
 		}
 	}
 
@@ -85,7 +85,7 @@ func (s *section) SetBlock(x, y, z int, b Block) error {
 
 func (s *section) Push(writer buff.B) {
 	// push count of non-air blocks
-	writer.PushInt16(SectionX * SectionZ * SectionY) // DEBT this does not consider non-air blocks yet
+	writer.PushInt16(SectionY * SectionZ * SectionX) // DEBT this does not consider non-air blocks yet
 
 	palette := s.makePalette()
 	bpb := bitsPerBlock(len(palette))
@@ -114,10 +114,10 @@ func (s *section) Push(writer buff.B) {
 func (s *section) makePalette() []blocks.BlockID {
 	paletteMap := make(map[blocks.BlockID]struct{})
 
-	for _, zBlocks := range s.blocks {
-		for _, yBlocks := range zBlocks {
-			for _, sectionBlock := range yBlocks {
-				paletteMap[sectionBlock.ID()] = struct{}{}
+	for y := 0; y < SectionY; y++ {
+		for z := 0; z < SectionZ; z++ {
+			for x := 0; x < SectionX; x++ {
+				paletteMap[s.blocks[y][z][x].ID()] = struct{}{}
 			}
 		}
 	}
@@ -184,24 +184,24 @@ func (s *section) makeBlockData(bpb uint8, palette []blocks.BlockID) ([]uint64, 
 	blocksTuple := make([]Block, tupleSize, tupleSize)
 	paletteIndices := make([]uint32, tupleSize, tupleSize)
 	var i uint8
-	for _, zBlocks := range s.blocks {
-		for _, yBlocks := range zBlocks {
-			for _, sectionBlock := range yBlocks {
-				blocksTuple[i] = sectionBlock
+	for y := 0; y < SectionY; y++ {
+		for z := 0; z < SectionZ; z++ {
+			for x := 0; x < SectionX; x++ {
+				blocksTuple[i] = s.blocks[y][z][x]
 
 				if useGlobalPalette {
-					paletteIndices[i] = uint32(sectionBlock.ID())
+					paletteIndices[i] = uint32(s.blocks[y][z][x].ID())
 				} else {
 					var found bool
 					for paletteIndex, blockID := range palette {
-						if blockID == sectionBlock.ID() {
+						if blockID == s.blocks[y][z][x].ID() {
 							paletteIndices[i] = uint32(paletteIndex)
 							found = true
 							break
 						}
 					}
 					if !found {
-						return nil, fmt.Errorf("block ID %d not found in palette", sectionBlock.ID())
+						return nil, fmt.Errorf("block ID %d not found in palette", s.blocks[y][z][x].ID())
 					}
 				}
 

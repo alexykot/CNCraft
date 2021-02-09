@@ -31,13 +31,18 @@ func (l *level) Chunks() map[ChunkID]Chunk { return l.chunks }
 func (l *level) GetChunk(id ChunkID) Chunk { return l.chunks[id] }
 
 func GetDefaultLevel() Level {
-	chunkZero := NewDefaultChunk(0, 0)
+	chunks := map[ChunkID]Chunk{}
+	for x := -48; x <= 48; x = x + 16 {
+		for z := -48; z <= 48; z = z + 16 {
+			chunk := NewDefaultChunk(int64(x), int64(z))
+			chunks[chunk.ID()] = chunk
+		}
+	}
+
 	if defaultLevel == nil {
 		defaultLevel = &level{
-			name: game.Overworld.String(),
-			chunks: map[ChunkID]Chunk{
-				chunkZero.ID(): chunkZero,
-			},
+			name:   game.Overworld.String(),
+			chunks: chunks,
 		}
 	}
 	return defaultLevel

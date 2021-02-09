@@ -165,7 +165,7 @@ func handleCPacket(packetBytes []byte) {
 
 func prettyPrintBytes(bytes []byte) {
 	for i, byte := range bytes {
-		if i > 0 && i % 64 == 0 {
+		if i > 0 && i%64 == 0 {
 			println()
 		}
 		print(fmt.Sprintf("%02X", byte))
@@ -181,6 +181,3 @@ func prettyPrintBytes(bytes []byte) {
 	// 	println(fmt.Sprintf("%X", bytes[i-64:len(bytes)-1]))
 	// }
 }
-
-
-

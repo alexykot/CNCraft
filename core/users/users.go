@@ -10,6 +10,7 @@ import (
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/envelope"
+	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/entities"
 	"github.com/alexykot/cncraft/pkg/game/player"
 )
@@ -69,7 +70,16 @@ func (r *Roster) AddPlayer(userID uuid.UUID, username string) *User {
 			FlyingSpeed:  0.05,
 			FoVModifier:  0.1,
 		},
-		State: player.State{CurrentHotbarSlot: player.Slot0},
+		State: player.State{
+			CurrentHotbarSlot: player.Slot0,
+			CurrentLocation: data.Location{
+				PositionF: data.PositionF{
+					X: 15,
+					Y: 32,
+					Z: 15,
+				},
+			},
+		},
 	}
 
 	r.users[userID] = p
@@ -77,17 +87,17 @@ func (r *Roster) AddPlayer(userID uuid.UUID, username string) *User {
 }
 
 func (r *Roster) playerJoinedHandler(lope *envelope.E) {
-	//joined := lope.GetPlayerJoined()
-	//if joined == nil {
+	// joined := lope.GetPlayerJoined()
+	// if joined == nil {
 	//	r.log.Error("failed to parse envelope - no JoinedPlayer inside", zap.Any("envelope", lope))
 	//	return
-	//}
+	// }
 	//
-	//userId, err := uuid.Parse(joined.Id)
-	//if err != nil {
+	// userId, err := uuid.Parse(joined.Id)
+	// if err != nil {
 	//	r.log.Error("failed to parse user ID as UUID", zap.Any("id", joined.Id))
 	//	return
-	//}
+	// }
 
 	// TODO implement this
 }

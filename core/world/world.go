@@ -5,10 +5,9 @@ import (
 	"encoding/binary"
 	"math/rand"
 
-	"github.com/alexykot/cncraft/pkg/protocol/tags"
-
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/level"
+	"github.com/alexykot/cncraft/pkg/protocol/tags"
 )
 
 // DEBT the system is wholly hardcoded to single world per server. May want to redesign for multitenancy later.
@@ -27,8 +26,8 @@ type World struct {
 	Difficulty         game.Difficulty
 	DifficultyIsLocked bool
 
-	// TODO not clear where this should be saved and come from. Maybe it should be hardcoded as server defaults and
-	//  not saved with the world at all.
+	// TODO not clear where this should be saved and come from.
+	//  Maybe it should be hardcoded as server defaults and not saved with the world at all.
 	DimensionCodec tags.DimensionCodec
 	Dimension      tags.Dimension
 

@@ -356,10 +356,10 @@ type CPacketChunkData struct {
 func (p *CPacketChunkData) ProtocolID() ProtocolPacketID { return protocolCChunkData }
 func (p *CPacketChunkData) Type() PacketType             { return CChunkData }
 func (p *CPacketChunkData) Push(writer buffer.B) {
-	writer.PushInt32(int32(p.Chunk.X() / 16))
-	writer.PushInt32(int32(p.Chunk.Z() / 16))
+	writer.PushInt32(int32(p.Chunk.X() / 16)) // convert block coord into chunk coord
+	writer.PushInt32(int32(p.Chunk.Z() / 16)) // convert block coord into chunk coord
 
-	// Eventually make this conditional and only use this packet to send large scale updates
+	// TODO make this conditional and only use this packet to send large scale updates.
 	writer.PushBool(true) // IsFullChunk, see https://wiki.vg/Chunk_Format#Full_chunk
 
 	var bitMask uint8
@@ -396,7 +396,7 @@ func (p *CPacketChunkData) Push(writer buffer.B) {
 	writer.PushBytes(sectionsBuff.Bytes(), true)
 
 	blockEntitiesBuff := buffer.New()
-	blockEntitiesBuff.PushVarInt(0)  // TODO block entities not implemented yet
+	blockEntitiesBuff.PushVarInt(0) // TODO block entities not implemented yet
 	// if err := nbt.Marshal(blockEntitiesBuff, struct{}{}); err != nil {
 	// 	panic(fmt.Errorf("failed to marshal NBT: %w", err))
 	// }
