@@ -20,4 +20,5 @@ run:
 gen:
 	@./proto/gen.sh
 	@go generate ./...
+	@./core/db/gen.sh
 
