@@ -33,7 +33,7 @@ if [[ $user == "" ]]; then
 fi
 
 # generate fresh schema migrations bindata file
-go-bindata -nometadata -o ./schema.go -prefix ./schema -pkg schema -ignore=".*\\.go|BUILD.bazel|.DS_Store" ./schema
+go-bindata -nometadata -o ./schema.go -prefix ./schema -pkg db -ignore=".*\\.go|BUILD.bazel|.DS_Store" ./schema
 
 # run migrations before generating the ORM, make sure we generate for the latest schema
 go run ./migrator/migrator.go -db-url "$(echo $DB_URL)"

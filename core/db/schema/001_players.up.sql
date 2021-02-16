@@ -4,10 +4,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE cncraft.players
 (
-    iso_code               CHAR(3)                       NOT NULL PRIMARY KEY,
-    name                   VARCHAR(128)                  NOT NULL,
-    type                   VARCHAR(32)                   NOT NULL,
-    decimal_places         INTEGER                       NOT NULL,
-    decimal_precision      INTEGER                       NOT NULL,
-    created_timestamp      TIMESTAMP WITHOUT TIME ZONE   NOT NULL
+    id         UUID                        NOT NULL PRIMARY KEY,
+    username   VARCHAR(128)                NOT NULL,
+    position_x DOUBLE PRECISION            NOT NULL,
+    position_y DOUBLE PRECISION            NOT NULL,
+    position_z DOUBLE PRECISION            NOT NULL,
+    yaw        FLOAT                       NOT NULL,
+    pitch      FLOAT                       NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
 );

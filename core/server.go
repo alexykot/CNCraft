@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/rand"
 	"os"
@@ -9,13 +10,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/control"
+	"github.com/alexykot/cncraft/core/db"
 	"github.com/alexykot/cncraft/core/handlers"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/network"
-	"github.com/alexykot/cncraft/core/users"
+	"github.com/alexykot/cncraft/core/players"
 	"github.com/alexykot/cncraft/pkg/log"
 	"github.com/alexykot/cncraft/pkg/protocol/auth"
 )
@@ -28,7 +31,7 @@ type Server interface {
 
 	//	Chat() // chat implementation needed
 	// TODO this should be part of chat implementation.
-	//Broadcast(message string) error
+	// Broadcast(message string) error
 }
 
 type server struct {
@@ -36,15 +39,16 @@ type server struct {
 	config  control.ServerConf
 
 	signal chan os.Signal
+	db     *sql.DB
 
 	log *zap.Logger
 	ps  nats.PubSub
 
 	network *network.Network
 
-	players *users.Roster
+	players *players.Roster
 
-	//chat    // chat implementation needed
+	// chat    // chat implementation needed
 }
 
 // NewServer wires up and provides new server instance.
@@ -56,9 +60,13 @@ func NewServer(conf control.ServerConf) (Server, error) {
 
 	controlChan := make(chan control.Command)
 	pubSub := nats.NewPubSub(logger.Named("pubsub"), nats.NewNats(), controlChan)
-	tally := users.NewRoster(logger.Named("players"), pubSub)
+	roster := players.NewRoster(logger.Named("players"), pubSub)
 	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), pubSub,
-		auth.GetAuther(), tally, network.NewKeepAliver(controlChan, pubSub))
+		auth.GetAuther(), roster, network.NewKeepAliver(controlChan, pubSub))
+	database, err := db.New(conf.DBURL)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate DB: %w", err)
+	}
 
 	return &server{
 		config:  conf,
@@ -67,7 +75,8 @@ func NewServer(conf control.ServerConf) (Server, error) {
 		control: controlChan,
 		signal:  make(chan os.Signal),
 		network: network.NewNetwork(conf.Network, logger.Named("network"), controlChan, pubSub, dispatcher),
-		players: tally,
+		players: roster,
+		db:      database,
 	}, nil
 }
 
@@ -120,6 +129,17 @@ func (s *server) startServer() error {
 	rand.Seed(time.Now().UnixNano())
 
 	control.RegisterCurrentConfig(s.config)
+
+	{
+		migrator, err := db.NewMigrator(s.db)
+		if err != nil {
+			return fmt.Errorf("failed to create migrator: %w", err)
+		}
+		defer migrator.Close() // ignore the error, it's end of script anyway
+		if err = migrator.Up(); err != nil && err != migrate.ErrNoChange {
+			return fmt.Errorf("failed to migrate DB: %w", err)
+		}
+	}
 
 	if err := s.ps.Start(); err != nil {
 		return fmt.Errorf("failed to start nats: %w", err)

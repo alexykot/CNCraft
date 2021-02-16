@@ -1,4 +1,4 @@
-package users
+package players
 
 import (
 	"fmt"
@@ -21,15 +21,17 @@ type Roster struct {
 	ps  nats.PubSub
 	mu  sync.Mutex
 
-	users map[uuid.UUID]User // ID of the user always matches ID of the corresponding connection.
+	players map[uuid.UUID]Player // ID of the user always matches ID of the corresponding connection.
 }
 
-type User struct {
+type Player struct {
 	PC        entities.PlayerCharacter
 	Username  string
 	Settings  player.Settings
 	Abilities player.Abilities
 	State     player.State
+
+	mu sync.Mutex
 }
 
 func NewRoster(log *zap.Logger, ps nats.PubSub) *Roster {
@@ -37,7 +39,7 @@ func NewRoster(log *zap.Logger, ps nats.PubSub) *Roster {
 		log: log,
 		ps:  ps,
 
-		users: make(map[uuid.UUID]User),
+		players: make(map[uuid.UUID]Player),
 	}
 }
 
@@ -51,18 +53,18 @@ func (r *Roster) RegisterHandlers() error {
 	return nil
 }
 
-func (r *Roster) AddPlayer(userID uuid.UUID, username string) *User {
+func (r *Roster) AddPlayer(userID uuid.UUID, username string) *Player {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if existing, ok := r.users[userID]; ok {
+	if existing, ok := r.players[userID]; ok {
 		r.log.Error("player already exists", zap.String("id", userID.String()),
 			zap.String("existing", existing.Username), zap.String("new", username))
 		return nil
 	}
 
 	// TODO whole user state hardcoded until persistence is properly implemented
-	p := User{
+	p := Player{
 		PC:       entities.NewPC(username, player.MaxHealth),
 		Username: username,
 		Settings: player.Settings{
@@ -82,7 +84,7 @@ func (r *Roster) AddPlayer(userID uuid.UUID, username string) *User {
 		},
 	}
 
-	r.users[userID] = p
+	r.players[userID] = p
 	return &p
 }
 
@@ -102,53 +104,52 @@ func (r *Roster) playerJoinedHandler(lope *envelope.E) {
 	// TODO implement this
 }
 
-func (r *Roster) GetPlayer(userID uuid.UUID) (User, bool) {
-	p, ok := r.users[userID]
+func (r *Roster) GetPlayer(userID uuid.UUID) (Player, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	p, ok := r.players[userID]
 	return p, ok
 }
 
-func (r *Roster) GetPlayerState(userID uuid.UUID) player.State {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (p *Player) GetState() player.State {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	if _, ok := r.users[userID]; !ok {
-		return player.State{}
-	}
-
-	return r.users[userID].State
+	return p.State
 }
 
-func (r *Roster) SetPlayerState(userID uuid.UUID, state player.State) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (p *Player) SetState(state player.State) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	p, ok := r.users[userID]
-	if !ok {
-		return
-	}
 	p.State = state
-	r.users[userID] = p
 }
 
-func (r *Roster) GetPlayerSettings(userID uuid.UUID) player.Settings {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (p *Player) GetSettings() player.Settings {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	if _, ok := r.users[userID]; !ok {
-		return player.Settings{}
-	}
-
-	return r.users[userID].Settings
+	return p.Settings
 }
 
-func (r *Roster) SetPlayerSettings(userID uuid.UUID, settings player.Settings) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (p *Player) SetSettings(settings player.Settings) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	p, ok := r.users[userID]
-	if !ok {
-		return
-	}
 	p.Settings = settings
-	r.users[userID] = p
+}
+
+func (p *Player) GetPosition() data.PositionF {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return p.State.CurrentLocation.PositionF
+}
+
+func (p *Player) SetPosition(position data.PositionF) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.State.CurrentLocation.PositionF = position
 }

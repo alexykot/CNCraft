@@ -20,6 +20,7 @@ func GetCurrentConfig() ServerConf {
 
 func GetDefaultConfig() ServerConf {
 	return ServerConf{
+		DBURL: "postgresql://postgres:root@127.0.0.1:5432/cncraft?sslmode=disable",
 		Network: NetworkConf{
 			Host:        "0.0.0.0",
 			Port:        25565,
@@ -34,6 +35,7 @@ func GetDefaultConfig() ServerConf {
 }
 
 type ServerConf struct {
+	DBURL               string `yaml:"db-url"` // URL of the postgres server
 	Network             NetworkConf
 	LogLevel            string `yaml:"log-level"`  // one of DEBUG, INFO, WARN, ERROR. Set to `INFO` by default.
 	IsCracked           bool   `yaml:"is-cracked"` // if True - skip player authentication, connection encryption and compression. Set to False by default.

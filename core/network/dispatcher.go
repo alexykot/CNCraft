@@ -14,7 +14,7 @@ import (
 	"github.com/alexykot/cncraft/core/handlers"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
-	"github.com/alexykot/cncraft/core/users"
+	"github.com/alexykot/cncraft/core/players"
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/envelope/pb"
@@ -28,18 +28,18 @@ type DispatcherTransmitter struct {
 	log    *zap.Logger
 	ps     nats.PubSub
 	auth   auth.A
-	tally  *users.Roster
+	roster *players.Roster
 	aliver *KeepAliver
 
 	connMu map[uuid.UUID]*sync.Mutex
 }
 
-func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *users.Roster, aliver *KeepAliver) *DispatcherTransmitter {
+func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *players.Roster, aliver *KeepAliver) *DispatcherTransmitter {
 	return &DispatcherTransmitter{
 		log:    log,
 		ps:     ps,
 		auth:   auth,
-		tally:  tally,
+		roster: tally,
 		aliver: aliver,
 
 		connMu: make(map[uuid.UUID]*sync.Mutex),
@@ -226,11 +226,17 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 			d.auth, d.ps, debugStateSetter, conn.EnableEncryption, conn.EnableCompression, d.aliver.AddAliveConn,
 			conn.ID(), sPacket)
 	case protocol.SPluginMessage:
-		cPackets, err = handlers.HandleSPluginMessage(d.log, d.tally, conn.ID(), sPacket)
+		cPackets, err = handlers.HandleSPluginMessage(d.log, d.roster, conn.ID(), sPacket)
 	case protocol.SClientSettings:
-		cPackets, err = handlers.HandleSClientSettings(d.tally, conn.ID(), sPacket)
+		cPackets, err = handlers.HandleSClientSettings(d.roster, conn.ID(), sPacket)
 	case protocol.SKeepAlive:
 		cPackets, err = handlers.HandleSKeepAlive(d.aliver.receiveKeepAlive, conn.ID(), sPacket)
+	// case protocol.SPlayerPosition:
+	// 	if player, ok := d.roster.GetPlayer(conn.ID()); !ok {
+	// 		err = fmt.Errorf("received packet is not clientSettings: %v", sPacket)
+	// 	} else {
+	// 		cPackets, err = handlers.HandleSPlayerPosition(player.SetPosition, conn.ID(), sPacket)
+	// 	}
 	default:
 		return nil
 		// DEBT turn this error back on once all expected packets are handled

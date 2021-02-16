@@ -23,31 +23,31 @@ import (
 
 // Player is an object representing the database table.
 type Player struct {
-	IsoCode          string    `boil:"iso_code" json:"iso_code" toml:"iso_code" yaml:"iso_code"`
-	Name             string    `boil:"name" json:"name" toml:"name" yaml:"name"`
-	Type             string    `boil:"type" json:"type" toml:"type" yaml:"type"`
-	DecimalPlaces    int       `boil:"decimal_places" json:"decimal_places" toml:"decimal_places" yaml:"decimal_places"`
-	DecimalPrecision int       `boil:"decimal_precision" json:"decimal_precision" toml:"decimal_precision" yaml:"decimal_precision"`
-	CreatedTimestamp time.Time `boil:"created_timestamp" json:"created_timestamp" toml:"created_timestamp" yaml:"created_timestamp"`
+	ID        string    `boil:"id" json:"id" toml:"id" yaml:"id"`
+	Username  string    `boil:"username" json:"username" toml:"username" yaml:"username"`
+	PositionX float64   `boil:"position_x" json:"position_x" toml:"position_x" yaml:"position_x"`
+	PositionY float64   `boil:"position_y" json:"position_y" toml:"position_y" yaml:"position_y"`
+	PositionZ float64   `boil:"position_z" json:"position_z" toml:"position_z" yaml:"position_z"`
+	CreatedAt time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *playerR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L playerL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var PlayerColumns = struct {
-	IsoCode          string
-	Name             string
-	Type             string
-	DecimalPlaces    string
-	DecimalPrecision string
-	CreatedTimestamp string
+	ID        string
+	Username  string
+	PositionX string
+	PositionY string
+	PositionZ string
+	CreatedAt string
 }{
-	IsoCode:          "iso_code",
-	Name:             "name",
-	Type:             "type",
-	DecimalPlaces:    "decimal_places",
-	DecimalPrecision: "decimal_precision",
-	CreatedTimestamp: "created_timestamp",
+	ID:        "id",
+	Username:  "username",
+	PositionX: "position_x",
+	PositionY: "position_y",
+	PositionZ: "position_z",
+	CreatedAt: "created_at",
 }
 
 // Generated where
@@ -75,22 +75,28 @@ func (w whereHelperstring) NIN(slice []string) qm.QueryMod {
 	return qm.WhereIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
-type whereHelperint struct{ field string }
+type whereHelperfloat64 struct{ field string }
 
-func (w whereHelperint) EQ(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperint) NEQ(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperint) LT(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperint) LTE(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperint) GT(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperint) GTE(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-func (w whereHelperint) IN(slice []int) qm.QueryMod {
+func (w whereHelperfloat64) EQ(x float64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperfloat64) NEQ(x float64) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.NEQ, x)
+}
+func (w whereHelperfloat64) LT(x float64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperfloat64) LTE(x float64) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelperfloat64) GT(x float64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperfloat64) GTE(x float64) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+func (w whereHelperfloat64) IN(slice []float64) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
 		values = append(values, value)
 	}
 	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
 }
-func (w whereHelperint) NIN(slice []int) qm.QueryMod {
+func (w whereHelperfloat64) NIN(slice []float64) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
 		values = append(values, value)
@@ -120,19 +126,19 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 }
 
 var PlayerWhere = struct {
-	IsoCode          whereHelperstring
-	Name             whereHelperstring
-	Type             whereHelperstring
-	DecimalPlaces    whereHelperint
-	DecimalPrecision whereHelperint
-	CreatedTimestamp whereHelpertime_Time
+	ID        whereHelperstring
+	Username  whereHelperstring
+	PositionX whereHelperfloat64
+	PositionY whereHelperfloat64
+	PositionZ whereHelperfloat64
+	CreatedAt whereHelpertime_Time
 }{
-	IsoCode:          whereHelperstring{field: "\"cncraft\".\"players\".\"iso_code\""},
-	Name:             whereHelperstring{field: "\"cncraft\".\"players\".\"name\""},
-	Type:             whereHelperstring{field: "\"cncraft\".\"players\".\"type\""},
-	DecimalPlaces:    whereHelperint{field: "\"cncraft\".\"players\".\"decimal_places\""},
-	DecimalPrecision: whereHelperint{field: "\"cncraft\".\"players\".\"decimal_precision\""},
-	CreatedTimestamp: whereHelpertime_Time{field: "\"cncraft\".\"players\".\"created_timestamp\""},
+	ID:        whereHelperstring{field: "\"cncraft\".\"players\".\"id\""},
+	Username:  whereHelperstring{field: "\"cncraft\".\"players\".\"username\""},
+	PositionX: whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_x\""},
+	PositionY: whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_y\""},
+	PositionZ: whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_z\""},
+	CreatedAt: whereHelpertime_Time{field: "\"cncraft\".\"players\".\"created_at\""},
 }
 
 // PlayerRels is where relationship names are stored.
@@ -152,10 +158,10 @@ func (*playerR) NewStruct() *playerR {
 type playerL struct{}
 
 var (
-	playerAllColumns            = []string{"iso_code", "name", "type", "decimal_places", "decimal_precision", "created_timestamp"}
-	playerColumnsWithoutDefault = []string{"iso_code", "name", "type", "decimal_places", "decimal_precision", "created_timestamp"}
+	playerAllColumns            = []string{"id", "username", "position_x", "position_y", "position_z", "created_at"}
+	playerColumnsWithoutDefault = []string{"id", "username", "position_x", "position_y", "position_z", "created_at"}
 	playerColumnsWithDefault    = []string{}
-	playerPrimaryKeyColumns     = []string{"iso_code"}
+	playerPrimaryKeyColumns     = []string{"id"}
 )
 
 type (
@@ -257,7 +263,7 @@ func Players(mods ...qm.QueryMod) playerQuery {
 
 // FindPlayer retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindPlayer(ctx context.Context, exec boil.ContextExecutor, isoCode string, selectCols ...string) (*Player, error) {
+func FindPlayer(ctx context.Context, exec boil.ContextExecutor, iD string, selectCols ...string) (*Player, error) {
 	playerObj := &Player{}
 
 	sel := "*"
@@ -265,10 +271,10 @@ func FindPlayer(ctx context.Context, exec boil.ContextExecutor, isoCode string, 
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"cncraft\".\"players\" where \"iso_code\"=$1", sel,
+		"select %s from \"cncraft\".\"players\" where \"id\"=$1", sel,
 	)
 
-	q := queries.Raw(query, isoCode)
+	q := queries.Raw(query, iD)
 
 	err := q.Bind(ctx, exec, playerObj)
 	if err != nil {
@@ -289,6 +295,13 @@ func (o *Player) Insert(ctx context.Context, exec boil.ContextExecutor, columns 
 	}
 
 	var err error
+	if !boil.TimestampsAreSkipped(ctx) {
+		currTime := time.Now().In(boil.GetLocation())
+
+		if o.CreatedAt.IsZero() {
+			o.CreatedAt = currTime
+		}
+	}
 
 	nzDefaults := queries.NonZeroDefaultSet(playerColumnsWithDefault, o)
 
@@ -487,6 +500,13 @@ func (o *Player) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOn
 	if o == nil {
 		return errors.New("orm: no players provided for upsert")
 	}
+	if !boil.TimestampsAreSkipped(ctx) {
+		currTime := time.Now().In(boil.GetLocation())
+
+		if o.CreatedAt.IsZero() {
+			o.CreatedAt = currTime
+		}
+	}
 
 	nzDefaults := queries.NonZeroDefaultSet(playerColumnsWithDefault, o)
 
@@ -600,7 +620,7 @@ func (o *Player) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, 
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), playerPrimaryKeyMapping)
-	sql := "DELETE FROM \"cncraft\".\"players\" WHERE \"iso_code\"=$1"
+	sql := "DELETE FROM \"cncraft\".\"players\" WHERE \"id\"=$1"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -677,7 +697,7 @@ func (o PlayerSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *Player) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindPlayer(ctx, exec, o.IsoCode)
+	ret, err := FindPlayer(ctx, exec, o.ID)
 	if err != nil {
 		return err
 	}
@@ -716,16 +736,16 @@ func (o *PlayerSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor) 
 }
 
 // PlayerExists checks if the Player row exists.
-func PlayerExists(ctx context.Context, exec boil.ContextExecutor, isoCode string) (bool, error) {
+func PlayerExists(ctx context.Context, exec boil.ContextExecutor, iD string) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"cncraft\".\"players\" where \"iso_code\"=$1 limit 1)"
+	sql := "select exists(select 1 from \"cncraft\".\"players\" where \"id\"=$1 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
 		fmt.Fprintln(writer, sql)
-		fmt.Fprintln(writer, isoCode)
+		fmt.Fprintln(writer, iD)
 	}
-	row := exec.QueryRowContext(ctx, sql, isoCode)
+	row := exec.QueryRowContext(ctx, sql, iD)
 
 	err := row.Scan(&exists)
 	if err != nil {
