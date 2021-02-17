@@ -22,6 +22,7 @@ message Envelope {
         CloseConn close_conn = 4;
         PlayerLoading player_loading = 5;
         PlayerJoined player_joined = 6;
+        PlayerPosUpdate player_pos = 7;
     }
 }
 
@@ -49,4 +50,15 @@ message PlayerLoading {
 
 message PlayerJoined {
     string id = 1;
+}
+
+message Position {
+    double x = 1;
+    double y = 2;
+    double z = 3;
+}
+
+message PlayerPosUpdate {
+    string id = 1;
+    Position pos = 2;
 }

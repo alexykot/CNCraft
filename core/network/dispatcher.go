@@ -226,17 +226,21 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 			d.auth, d.ps, debugStateSetter, conn.EnableEncryption, conn.EnableCompression, d.aliver.AddAliveConn,
 			conn.ID(), sPacket)
 	case protocol.SPluginMessage:
-		cPackets, err = handlers.HandleSPluginMessage(d.log, d.roster, conn.ID(), sPacket)
+		if player, ok := d.roster.GetPlayer(conn.ID()); !ok {
+			err = fmt.Errorf("player %s not found ", conn.ID())
+		} else {
+			err = handlers.HandleSPluginMessage(d.log, player, sPacket)
+		}
 	case protocol.SClientSettings:
-		cPackets, err = handlers.HandleSClientSettings(d.roster, conn.ID(), sPacket)
+		if player, ok := d.roster.GetPlayer(conn.ID()); !ok {
+			err = fmt.Errorf("player %s not found ", conn.ID())
+		} else {
+			err = handlers.HandleSClientSettings(player, sPacket)
+		}
 	case protocol.SKeepAlive:
-		cPackets, err = handlers.HandleSKeepAlive(d.aliver.receiveKeepAlive, conn.ID(), sPacket)
-	// case protocol.SPlayerPosition:
-	// 	if player, ok := d.roster.GetPlayer(conn.ID()); !ok {
-	// 		err = fmt.Errorf("received packet is not clientSettings: %v", sPacket)
-	// 	} else {
-	// 		cPackets, err = handlers.HandleSPlayerPosition(player.SetPosition, conn.ID(), sPacket)
-	// 	}
+		err = handlers.HandleSKeepAlive(d.aliver.receiveKeepAlive, conn.ID(), sPacket)
+	case protocol.SPlayerPosition:
+		err = handlers.HandleSPlayerPosition(d.roster.SetPlayerPos, conn.ID(), sPacket)
 	default:
 		return nil
 		// DEBT turn this error back on once all expected packets are handled

@@ -26,3 +26,7 @@ func MkPlayerLoading() string { return "player.loading" }
 // MkPlayerJoined creates a subject name string for announcing new players successfully joined server.
 //  This is sent after the player has successfully spawned in the world.
 func MkPlayerJoined() string { return "player.joined" }
+
+// MkPlayerPosUpdate creates a subject name string for announcing player position updates.
+//  This is sent every time player position changes.
+func MkPlayerPosUpdate() string { return "player.update.position" }

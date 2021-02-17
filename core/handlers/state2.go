@@ -17,7 +17,7 @@ import (
 )
 
 // HandleSLoginStart handles the LoginStart packet.
-func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(state protocol.State), aliver func(uuid2 uuid.UUID),
+func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(protocol.State), aliver func(uuid.UUID),
 	connID uuid.UUID, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
 	loginStart, ok := sPacket.(*protocol.SPacketLoginStart)
 	if !ok {
@@ -60,7 +60,7 @@ func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(state pro
 }
 
 func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
-	stateSetter func(state protocol.State), encSetter func([]byte) error, compSetter func(), aliver func(uuid2 uuid.UUID),
+	stateSetter func(state protocol.State), encSetter func([]byte) error, compSetter func(), aliver func(uuid.UUID),
 	connID uuid.UUID, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
 
 	encResponse, ok := sPacket.(*protocol.SPacketEncryptionResponse)

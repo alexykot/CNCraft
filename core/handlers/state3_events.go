@@ -20,19 +20,19 @@ import (
 
 // RegisterEventHandlersState3 registers handlers for envelopes broadcast in the Play connection state.
 //  Play state handlers are entirely asynchronous, so NATS subscriptions need to be created at boot time.
-func RegisterEventHandlersState3(ps nats.PubSub, log *zap.Logger, tally *players.Roster) error {
-	if err := ps.Subscribe(subj.MkPlayerLoading(), handlePlayerLoading(ps, log, tally)); err != nil {
+func RegisterEventHandlersState3(ps nats.PubSub, log *zap.Logger, roster *players.Roster) error {
+	if err := ps.Subscribe(subj.MkPlayerLoading(), handlePlayerLoading(ps, log, roster)); err != nil {
 		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
 	}
 
 	return nil
 }
 
-func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, tally *players.Roster) func(lope *envelope.E) {
+func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster) func(lope *envelope.E) {
 	return func(inLope *envelope.E) {
 		ps := ps
 		log := log
-		tally := tally
+		tally := roster
 
 		loading := inLope.GetPlayerLoading()
 		if loading == nil {

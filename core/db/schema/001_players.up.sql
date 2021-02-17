@@ -13,3 +13,5 @@ CREATE TABLE cncraft.players
     pitch      FLOAT                       NOT NULL,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
 );
+
+CREATE UNIQUE INDEX ix_players_username ON cncraft.players (username);
