@@ -17,18 +17,33 @@ func New(url string) (*sql.DB, error) {
 	return db, nil
 }
 
-func NewMigrator(db *sql.DB) (*migrate.Migrate, error) {
+func Migrate(db *sql.DB) error {
 	s := bindata.Resource(AssetNames(), func(name string) (bytes []byte, e error) {
 		return Asset(name)
 	})
 
-	if source, err := bindata.WithInstance(s); err != nil {
-		return nil, err
-	} else if driver, err := postgres.WithInstance(db, &postgres.Config{
-		MigrationsTable: "cncraft_schema_migrations",
-	}); err != nil {
-		return nil, err
-	} else {
-		return migrate.NewWithInstance("go-bindata", source, "auth", driver)
+	source, err := bindata.WithInstance(s)
+	if err != nil {
+		return fmt.Errorf("failed to create bindata source: %w", err)
 	}
+
+	driver, err := postgres.WithInstance(db, &postgres.Config{MigrationsTable: "cncraft_schema_migrations"})
+	if err != nil {
+		return fmt.Errorf("failed to create postgres driver: %w", err)
+	}
+
+	migrator, err := migrate.NewWithInstance("go-bindata", source, "auth", driver)
+	if err != nil {
+		return fmt.Errorf("failed to create migrator: %w", err)
+	}
+
+	if err = migrator.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("failed to migrate DB: %w", err)
+	}
+
+	if err = source.Close(); err != nil {
+		return fmt.Errorf("failed to close migrator source: %w", err)
+	}
+
+	return nil
 }

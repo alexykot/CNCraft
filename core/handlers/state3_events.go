@@ -32,7 +32,6 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 	return func(inLope *envelope.E) {
 		ps := ps
 		log := log
-		tally := roster
 
 		loading := inLope.GetPlayerLoading()
 		if loading == nil {
@@ -42,12 +41,16 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 
 		userId, err := uuid.Parse(loading.Id)
 		if err != nil {
-			log.Error("failed to parse user ID as UUID", zap.String("id", loading.Id))
+			log.Error("failed to parse user ID as UUID", zap.String("id", loading.Id), zap.Error(err))
 			return
 		}
 		log.Debug("handling player loading", zap.String("user", userId.String()))
 
-		p := tally.AddPlayer(userId, loading.Username)
+		p, err := roster.AddPlayer(userId, loading.Username)
+		if err != nil {
+			log.Error("failed add player", zap.Error(err))
+			return
+		}
 		currentWorld := world.GetDefaultWorld()
 		var outLopes []*envelope.E
 

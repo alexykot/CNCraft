@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang-migrate/migrate/v4"
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/control"
@@ -53,28 +52,35 @@ type server struct {
 
 // NewServer wires up and provides new server instance.
 func NewServer(conf control.ServerConf) (Server, error) {
-	logger, err := log.GetLogger(conf.LogLevel)
+	rootLogger, err := log.GetRootLogger(conf.LogLevels.Baseline)
 	if err != nil {
-		return nil, fmt.Errorf("could not instantiate logger: %w", err)
+		return nil, fmt.Errorf("could not instantiate root logger: %w", err)
 	}
 
 	controlChan := make(chan control.Command)
-	pubSub := nats.NewPubSub(logger.Named("pubsub"), nats.NewNats(), controlChan)
-	roster := players.NewRoster(logger.Named("players"), pubSub)
-	dispatcher := network.NewDispatcher(logger.Named("dispatcher"), pubSub,
-		auth.GetAuther(), roster, network.NewKeepAliver(controlChan, pubSub))
+
+	pubSub := nats.NewPubSub(log.LevelUp(rootLogger.Named("pubsub"), conf.LogLevels.PubSub), nats.NewNats(), controlChan)
+
 	database, err := db.New(conf.DBURL)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate DB: %w", err)
 	}
 
+	roster := players.NewRoster(log.LevelUp(rootLogger.Named("players"), conf.LogLevels.Players), pubSub, database)
+
+	dispatcher := network.NewDispatcher(log.LevelUp(rootLogger.Named("dispatcher"), conf.LogLevels.Dispatcher),
+		pubSub, auth.GetAuther(), roster, network.NewKeepAliver(controlChan, pubSub))
+
+	net := network.NewNetwork(conf.Network, log.LevelUp(rootLogger.Named("network"), conf.LogLevels.Network),
+		controlChan, pubSub, dispatcher)
+
 	return &server{
 		config:  conf,
-		log:     logger.Named("core"),
+		log:     rootLogger,
 		ps:      pubSub,
 		control: controlChan,
 		signal:  make(chan os.Signal),
-		network: network.NewNetwork(conf.Network, logger.Named("network"), controlChan, pubSub, dispatcher),
+		network: net,
 		players: roster,
 		db:      database,
 	}, nil
@@ -130,15 +136,8 @@ func (s *server) startServer() error {
 
 	control.RegisterCurrentConfig(s.config)
 
-	{
-		migrator, err := db.NewMigrator(s.db)
-		if err != nil {
-			return fmt.Errorf("failed to create migrator: %w", err)
-		}
-		defer migrator.Close() // ignore the error, it's end of script anyway
-		if err = migrator.Up(); err != nil && err != migrate.ErrNoChange {
-			return fmt.Errorf("failed to migrate DB: %w", err)
-		}
+	if err := db.Migrate(s.db); err != nil {
+		return fmt.Errorf("failed to migrate the database schema: %w", err)
 	}
 
 	if err := s.ps.Start(); err != nil {
@@ -153,7 +152,8 @@ func (s *server) startServer() error {
 		return fmt.Errorf("failed to register global player handlers: %w", err)
 	}
 
-	if err := handlers.RegisterEventHandlersState3(s.ps, s.log.Named("play"), s.players); err != nil {
+	if err := handlers.RegisterEventHandlersState3(s.ps,
+		log.LevelUp(s.log.Named("players"), s.config.LogLevels.Players), s.players); err != nil {
 		return fmt.Errorf("failed to register Play state handlers: %w", err)
 	}
 

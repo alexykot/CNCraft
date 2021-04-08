@@ -159,7 +159,6 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 		return
 	}
 	log.Debug("handling SPacket", zap.String("type", sPacket.Type().String()))
-	// println(fmt.Sprintf("packet data: %v", sPacket))
 
 	if err = d.dispatchSPacket(conn, sPacket); err != nil {
 		if errors.Is(err, handlers.InvalidLoginErr) {
@@ -298,7 +297,6 @@ func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut buffer.B)
 	}
 
 	d.log.Debug("transmitted bytes", zap.String("conn", conn.ID().String()), zap.Int("count", count))
-	//println(fmt.Sprintf("bytes: %X", bufOut.Bytes()))
 	return nil
 }
 
