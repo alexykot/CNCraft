@@ -51,6 +51,8 @@ func (d *DispatcherTransmitter) Start(ctx context.Context) error {
 	if err := d.register(); err != nil {
 		return fmt.Errorf("failed to register dispatcher: %w", err)
 	}
+
+	d.log.Info("dispatcher started")
 	return nil
 }
 
@@ -88,7 +90,7 @@ func (d *DispatcherTransmitter) register() error {
 	if err := d.ps.Subscribe(subj.MkConnClose(), closeHandler); err != nil {
 		return fmt.Errorf("failed to subscribe to connClose: %w", err)
 	}
-	d.log.Info("registered connClose handler")
+	d.log.Debug("registered connClose handler")
 	return nil
 }
 
@@ -243,7 +245,7 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	default:
 		return nil
 		// DEBT turn this error back on once all expected packets are handled
-		//return fmt.Errorf("unhandled packet type: %X", int32(pacType))
+		// return fmt.Errorf("unhandled packet type: %X", int32(pacType))
 	}
 
 	if err != nil {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	"github.com/alexykot/cncraft/core/db/orm"
 	"github.com/alexykot/cncraft/pkg/game/data"
@@ -23,43 +22,35 @@ func newRepo(db *sql.DB) *repo {
 	return &repo{db}
 }
 
-func (r *repo) InitPlayer(userID uuid.UUID, username string) (*Player, error) {
+func (r *repo) InitPlayer(userID uuid.UUID, username string) (p *Player, isNew bool, err error) {
 	tx, err := r.db.BeginTx(context.TODO(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+		return nil, false, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
 	dbPlayer, err := orm.Players(orm.PlayerWhere.Username.EQ(username)).One(context.TODO(), tx)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, fmt.Errorf("failed to load player data: %w", err)
+		return nil, false, fmt.Errorf("failed to load player data: %w", err)
 	}
 
-	var p *Player
 	if err == sql.ErrNoRows {
-		if p, err = r.createPlayer(tx, userID, username); err != nil {
-			return nil, fmt.Errorf("failed to create player: %w", err)
-		}
+		p = r.createNewPlayer(userID, username)
+		isNew = true
 	} else {
 		if p, err = r.loadPlayer(tx, dbPlayer, userID, username); err != nil {
-			return nil, fmt.Errorf("failed to load player: %w", err)
+			return nil, false, fmt.Errorf("failed to load player: %w", err)
 		}
 	}
 
-	return p, nil
+	if err := tx.Commit(); err != nil {
+		return nil, false, fmt.Errorf("failed to commit tx: %w", err)
+	}
+
+	return p, isNew, nil
 }
 
-func (r *repo) createPlayer(tx *sql.Tx, userID uuid.UUID, username string) (*Player, error) {
-	dbPlayer := &orm.Player{
-		ID:        userID.String(),
-		Username:  username,
-		PositionX: 0,
-		PositionY: 0,
-		PositionZ: 0,
-	}
-	if err := dbPlayer.Insert(context.TODO(), tx, boil.Infer()); err != nil {
-		return nil, fmt.Errorf("failed to insert player: %w", err)
-	}
-
+// TODO this needs to be replaced with proper spawn point and starting conditions.
+func (r *repo) createNewPlayer(userID uuid.UUID, username string) *Player {
 	return &Player{
 		ID:       userID,
 		PC:       entities.NewPC(username, player.MaxHealth),
@@ -73,19 +64,26 @@ func (r *repo) createPlayer(tx *sql.Tx, userID uuid.UUID, username string) (*Pla
 			CurrentHotbarSlot: player.Slot0,
 			CurrentLocation: data.Location{
 				PositionF: data.PositionF{
-					X: dbPlayer.PositionX,
-					Y: dbPlayer.PositionY,
-					Z: dbPlayer.PositionZ,
+					X: 0,
+					Y: 10,
+					Z: 0,
 				},
 			},
 		},
-	}, nil
+	}
 }
 
 func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, replacementID uuid.UUID, username string) (*Player, error) {
-	dbPlayer.ID = replacementID.String()
-	if _, err := dbPlayer.Update(context.TODO(), tx, boil.Whitelist(orm.PlayerColumns.ID)); err != nil {
+	// DEBT this hack is needed to replace the old ID of the user that was on server before with the new ID for
+	//  the newly created connection for this user.
+	slice := orm.PlayerSlice{dbPlayer}
+	updates := orm.M{orm.PlayerColumns.ID: replacementID.String()}
+	if count, err := slice.UpdateAll(context.TODO(), tx, updates); err != nil {
 		return nil, fmt.Errorf("failed to update player ID: %w", err)
+	} else if count == 0 {
+		return nil, fmt.Errorf("failed to update player ID: no rows updated")
+	} else if count > 1 {
+		return nil, fmt.Errorf("failed to update player ID: more than one row updated")
 	}
 
 	return &Player{

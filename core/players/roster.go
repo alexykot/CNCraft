@@ -31,6 +31,8 @@ func NewRoster(log *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
 		ps:   ps,
 		repo: newRepo(db),
 
+		// DEBT this is a single point of synchronisation for all currently connected players. This will break
+		//  down in multi-node cluster setup, and cluster-global synchronisation will be needed instead.
 		players: make(map[uuid.UUID]*Player),
 	}
 }
@@ -41,6 +43,7 @@ func (r *Roster) AddPlayer(userID uuid.UUID, username string) (*Player, error) {
 
 	// DEBT the IDs are getting recreated for every new connection, so the ID will not work for identifying
 	//  the duplicates and we have to check through the whole map for usernames. Suboptimal.
+	//  Afterthought: ID is actually useless and the username is in fact a globally unique ID of the player.
 	var found bool
 	for _, existing := range r.players {
 		if existing.Username == username {
@@ -54,8 +57,16 @@ func (r *Roster) AddPlayer(userID uuid.UUID, username string) (*Player, error) {
 	}
 
 	var err error
-	if r.players[userID], err = r.repo.InitPlayer(userID, username); err != nil {
+	var isNew bool
+	if r.players[userID], isNew, err = r.repo.InitPlayer(userID, username); err != nil {
 		return nil, fmt.Errorf("failed to init player: %w", err)
+	}
+
+	if isNew {
+		r.log.Debug("new player joined for the first time", zap.Any("player", r.players[userID]))
+		r.publishNewPlayerJoined(r.players[userID])
+	} else {
+		r.log.Debug("rejoining player loaded", zap.Any("player", r.players[userID]))
 	}
 
 	return r.players[userID], nil
@@ -115,6 +126,21 @@ func (r *Roster) publishPlayerPosUpdate(p *Player) {
 		},
 	})
 	if err := r.ps.Publish(subj.MkPlayerPosUpdate(), lope); err != nil {
+		r.log.Error("failed to publish position update", zap.Error(err))
+	}
+}
+
+func (r *Roster) publishNewPlayerJoined(p *Player) {
+	lope := envelope.NewPlayerJoined(&pb.NewPlayerJoined{
+		Id:       p.ID.String(),
+		Username: p.Username,
+		Pos: &pb.Position{
+			X: p.State.CurrentLocation.X,
+			Y: p.State.CurrentLocation.Y,
+			Z: p.State.CurrentLocation.Z,
+		},
+	})
+	if err := r.ps.Publish(subj.MkNewPlayerJoined(), lope); err != nil {
 		r.log.Error("failed to publish position update", zap.Error(err))
 	}
 }

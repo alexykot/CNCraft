@@ -25,6 +25,8 @@ func RegisterEventHandlersState3(ps nats.PubSub, log *zap.Logger, roster *player
 		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
 	}
 
+	log.Info("Play state event handlers registered")
+
 	return nil
 }
 

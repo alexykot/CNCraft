@@ -30,3 +30,7 @@ func MkPlayerJoined() string { return "player.joined" }
 // MkPlayerPosUpdate creates a subject name string for announcing player position updates.
 //  This is sent every time player position changes.
 func MkPlayerPosUpdate() string { return "player.update.position" }
+
+// MkPlayerPosUpdate creates a subject name string for announcing new players joining server for the first time.
+//  This is sent every time player position changes.
+func MkNewPlayerJoined() string { return "player.joined.first_time" }

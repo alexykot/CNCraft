@@ -66,7 +66,7 @@ func GetDefaultConfig() ServerConf {
 			PubSub:     "ERROR",
 
 			Players: "DEBUG",
-			DB:      "DEBUG",
+			DB:      "ERROR",
 		},
 		IsCracked:           true,
 		EnableRespawnScreen: true,

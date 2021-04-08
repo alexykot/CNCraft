@@ -65,7 +65,7 @@ func HandleSKeepAlive(aliveRecorder func(uuid.UUID, int64), connID uuid.UUID, sP
 func HandleSPlayerPosition(posSetter func(uuid.UUID, data.PositionF), connID uuid.UUID, sPacket protocol.SPacket) error {
 	playerPos, ok := sPacket.(*protocol.SPacketPlayerPosition)
 	if !ok {
-		return fmt.Errorf("received packet is not a keepAlive: %v", sPacket)
+		return fmt.Errorf("received packet is not a playerPosition: %v", sPacket)
 	}
 
 	posSetter(connID, playerPos.Position)

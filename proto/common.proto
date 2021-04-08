@@ -23,6 +23,7 @@ message Envelope {
         PlayerLoading player_loading = 5;
         PlayerJoined player_joined = 6;
         PlayerPosUpdate player_pos = 7;
+        NewPlayerJoined new_player = 8;
     }
 }
 
@@ -41,6 +42,7 @@ message CloseConn {
     ConnState state = 2;
 }
 
+// A player is about to join, but not spawned yet.
 message PlayerLoading {
     string id = 1;
     string profile_id = 2;
@@ -48,6 +50,15 @@ message PlayerLoading {
     // TODO also publish skin data
 }
 
+// A new player joined for the first time.
+message NewPlayerJoined {
+    string id = 1;
+    string profile_id = 2;
+    string username = 3;
+    Position pos = 4;
+}
+
+// A player has fully joined and spawned.
 message PlayerJoined {
     string id = 1;
 }
@@ -58,6 +69,7 @@ message Position {
     double z = 3;
 }
 
+// Updates position of the player
 message PlayerPosUpdate {
     string id = 1;
     Position pos = 2;

@@ -56,3 +56,11 @@ func PlayerPosUpdate(posUpdate *pb.PlayerPosUpdate) *E {
 		},
 	}
 }
+
+func NewPlayerJoined(newPlayer *pb.NewPlayerJoined) *E {
+	return &E{
+		Envelope: pb.Envelope{
+			Message: &pb.Envelope_NewPlayer{NewPlayer: newPlayer},
+		},
+	}
+}
