@@ -69,7 +69,8 @@ func NewServer(conf control.ServerConf) (Server, error) {
 	roster := players.NewRoster(log.LevelUp(rootLog.Named("players"), conf.LogLevels.Players), pubSub, database)
 
 	dispatcher := network.NewDispatcher(log.LevelUp(rootLog.Named("dispatcher"), conf.LogLevels.Dispatcher),
-		pubSub, auth.GetAuther(), roster, network.NewKeepAliver(controlChan, pubSub))
+		pubSub, auth.GetAuther(), roster,
+		network.NewKeepAliver(controlChan, pubSub, log.LevelUp(rootLog.Named("aliver"), conf.LogLevels.Dispatcher)))
 
 	net := network.NewNetwork(conf.Network, log.LevelUp(rootLog.Named("network"), conf.LogLevels.Network),
 		controlChan, pubSub, dispatcher)

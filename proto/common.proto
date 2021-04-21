@@ -24,6 +24,7 @@ message Envelope {
         PlayerJoined player_joined = 6;
         PlayerPosUpdate player_pos = 7;
         NewPlayerJoined new_player = 8;
+        PlayerLeft player_left = 9;
     }
 }
 
@@ -60,6 +61,11 @@ message NewPlayerJoined {
 
 // A player has fully joined and spawned.
 message PlayerJoined {
+    string id = 1;
+}
+
+// A player has left and disconnected.
+message PlayerLeft {
     string id = 1;
 }
 

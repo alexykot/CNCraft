@@ -93,7 +93,11 @@ func (r *Roster) SetPlayerPos(userID uuid.UUID, position data.PositionF) {
 // RegisterHandlers creates subscriptions to all relevant global subjects.
 func (r *Roster) RegisterHandlers() error {
 	if err := r.ps.Subscribe(subj.MkPlayerJoined(), r.playerJoinedHandler); err != nil {
-		return fmt.Errorf("failed to subscribe for joined users: %w", err)
+		return fmt.Errorf("failed to subscribe for joining users: %w", err)
+	}
+
+	if err := r.ps.Subscribe(subj.MkPlayerLeft(), r.playerLeftHandler); err != nil {
+		return fmt.Errorf("failed to subscribe for leaving users: %w", err)
 	}
 
 	r.log.Info("global player handlers registered")
@@ -114,6 +118,22 @@ func (r *Roster) playerJoinedHandler(lope *envelope.E) {
 	// }
 
 	// TODO implement this
+}
+
+func (r *Roster) playerLeftHandler(lope *envelope.E) {
+	left := lope.GetPlayerLeft()
+	if left == nil {
+		r.log.Error("failed to parse envelope - no PlayerLeft inside", zap.Any("envelope", lope))
+		return
+	}
+
+	userID, err := uuid.Parse(left.Id)
+	if err != nil {
+		r.log.Error("failed to parse user ID as UUID", zap.Any("id", left.Id))
+	}
+
+	r.log.Debug("player leaving", zap.Any("player", r.players[userID]))
+	delete(r.players, userID)
 }
 
 func (r *Roster) publishPlayerPosUpdate(p *Player) {

@@ -32,10 +32,11 @@ type KeepAliver struct {
 	theyLive map[uuid.UUID]int64 // latest timestamp of the keepalive response received from the given connection
 }
 
-func NewKeepAliver(control chan control.Command, ps nats.PubSub) *KeepAliver {
+func NewKeepAliver(control chan control.Command, ps nats.PubSub, log *zap.Logger) *KeepAliver {
 	return &KeepAliver{
 		control:  control,
 		ps:       ps,
+		log: log,
 		theyLive: make(map[uuid.UUID]int64),
 	}
 }
@@ -58,6 +59,8 @@ func (k *KeepAliver) AddAliveConn(connID uuid.UUID) {
 func (k *KeepAliver) DropDeadConn(connID uuid.UUID) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
+
+	k.pronounceDead(connID)
 
 	if _, ok := k.theyLive[connID]; !ok {
 		return

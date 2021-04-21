@@ -41,6 +41,14 @@ func PlayerJoined(joinedPlayer *pb.PlayerJoined) *E {
 	}
 }
 
+func PlayerLeft(leftPlayer *pb.PlayerLeft) *E {
+	return &E{
+		Envelope: pb.Envelope{
+			Message: &pb.Envelope_PlayerLeft{PlayerLeft: leftPlayer},
+		},
+	}
+}
+
 func CloseConn(closeConn *pb.CloseConn) *E {
 	return &E{
 		Envelope: pb.Envelope{

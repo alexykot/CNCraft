@@ -71,19 +71,9 @@ func (d *DispatcherTransmitter) register() error {
 		}
 		d.log.Debug("connection closing requested", zap.String("conn", closeConn.Id))
 
-		var connState protocol.State
-		switch protocol.State(closeConn.State) {
-		case protocol.Login:
-			connState = protocol.Login
-		case protocol.Play:
-			connState = protocol.Play
-		default:
-			return // other connection states do not have a defined disconnect procedure
-		}
-
-		if err := d.triggerDisconnect(connState, connID); err != nil {
-			d.log.Error("failed to trigger disconnect", zap.String("conn", closeConn.Id))
-			return
+		playerLeftLope := envelope.PlayerLeft(&pb.PlayerLeft{Id: connID.String()})
+		if err := d.ps.Publish(subj.MkPlayerLeft(), playerLeftLope); err != nil {
+			d.log.Error("failed to publish player left message", zap.Error(err))
 		}
 	}
 
@@ -166,7 +156,7 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 		if errors.Is(err, handlers.InvalidLoginErr) {
 			log.Info("invalid login attempt, evicting user", zap.Error(err))
 			d.auth.LoginFailure(conn.ID())
-			if err := d.triggerDisconnect(conn.GetState(), conn.ID()); err != nil {
+			if err := d.forceDisconnect(conn.GetState(), conn.ID()); err != nil {
 				log.Error("failed to trigger disconnect", zap.Error(err))
 			}
 		} else {
@@ -303,8 +293,8 @@ func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut buffer.B)
 }
 
 // TODO add chat message here to tell user why they were disconnected
-func (d *DispatcherTransmitter) triggerDisconnect(connState protocol.State, connID uuid.UUID) error {
-	d.log.Info("connection closing initiated", zap.String("conn", connID.String()))
+func (d *DispatcherTransmitter) forceDisconnect(connState protocol.State, connID uuid.UUID) error {
+	d.log.Info("evicting player", zap.String("conn", connID.String()))
 
 	bufOut := buffer.New()
 	var pacType protocol.PacketType
@@ -324,13 +314,18 @@ func (d *DispatcherTransmitter) triggerDisconnect(connState protocol.State, conn
 		return fmt.Errorf("cannot trigger disconnect on conn %s for state %d", connID.String(), connState)
 	}
 
-	lope := envelope.CPacket(&pb.CPacket{
+	packetLope := envelope.CPacket(&pb.CPacket{
 		Bytes:      bufOut.Bytes(),
 		PacketType: pacType.Value(),
 	})
 
-	if err := d.ps.Publish(subj.MkConnTransmit(connID), lope); err != nil {
+	if err := d.ps.Publish(subj.MkConnTransmit(connID), packetLope); err != nil {
 		return fmt.Errorf("failed to publish conn disconnect CPacket: %w", err)
+	}
+
+	playerLeftLope := envelope.PlayerLeft(&pb.PlayerLeft{Id: connID.String()})
+	if err := d.ps.Publish(subj.MkPlayerLeft(), playerLeftLope); err != nil {
+		return fmt.Errorf("failed to publish player left message: %w", err)
 	}
 
 	return nil
@@ -340,7 +335,7 @@ func (d *DispatcherTransmitter) triggerDisconnect(connState protocol.State, conn
 // connection state there is no way in the protocol to correctly signal upgrade to Login state, so the Notchian client
 // sends a SHandshake packet, which belongs to Handshake state and it's packetID collides with the SRequest packet
 // from the Status state. So we have to hack around this by checking the packet size, and if the connState is Status,
-// packetID is 0x00  and size is bigger than 1 byte - assume it is an SHandshake, not SRequest as it normally would be.
+// packetID is 0x00 and size is bigger than 1 byte - assume it is an SHandshake, not SRequest as it normally would be.
 func (d *DispatcherTransmitter) checkIsStatusHandshake(connState protocol.State, packetBytes []byte) bool {
 	if connState != protocol.Status { // if the connState is not Status - this hack does not apply.
 		return false
