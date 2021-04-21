@@ -3,13 +3,18 @@ package log
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-const rootLoggerName = "CNCraft"
+var longestFullNameLength int
+var longestShortNameLength int
+
+const rootLoggerName = "CNC"
 
 func GetRootLogger(level string) (*zap.Logger, error) {
 	var err error
@@ -26,8 +31,9 @@ func GetRootLogger(level string) (*zap.Logger, error) {
 		logConf = zap.NewDevelopmentConfig()
 
 		logConf.EncoderConfig.TimeKey = ""
-		logConf.EncoderConfig.NameKey = ""
 		logConf.EncoderConfig.CallerKey = ""
+		logConf.EncoderConfig.LevelKey = "capitalColor"
+		logConf.EncoderConfig.EncodeName = PaddedFullNameEncoder
 		logConf.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	} else {
 		logConf = zap.NewProductionConfig()
@@ -45,7 +51,22 @@ func GetRootLogger(level string) (*zap.Logger, error) {
 
 	// Set the global logger, this should be an unnamed logger
 	zap.ReplaceGlobals(log)
+	registerMaxLength(rootLoggerName)
 	return log.Named(rootLoggerName), nil
+}
+
+// Named is wrapping the zap.Logger.Named() method. It is needed to register logger names requested.
+func Named(parent *zap.Logger, name string) *zap.Logger {
+	if name == "" {
+		return parent
+	}
+
+	child := parent.Named(name)
+
+	// this hack is needed because there is no native way to get the name out of the logger
+	checked := child.Check(zapcore.DebugLevel, "this is a dummy")
+	registerMaxLength(checked.LoggerName)
+	return child
 }
 
 // LevelUp creates a clone of the supplied logger with the new increased log level.
@@ -56,5 +77,32 @@ func LevelUp(logger *zap.Logger, level string) *zap.Logger {
 		return logger
 	}
 
+
+
 	return logger.WithOptions(zap.IncreaseLevel(levelEnabler))
+}
+
+
+func PaddedFullNameEncoder(loggerName string, encoder zapcore.PrimitiveArrayEncoder) {
+	encoder.AppendString(fmt.Sprintf("%-"+strconv.Itoa(longestFullNameLength)+"s", loggerName))
+}
+
+func PaddedShortNameEncoder(loggerName string, encoder zapcore.PrimitiveArrayEncoder) {
+	names := strings.Split(loggerName, ".")
+	if len(names) > 0 {
+		loggerName = names[len(names)-1]
+	}
+
+	encoder.AppendString(fmt.Sprintf("%-"+strconv.Itoa(longestShortNameLength)+"s", loggerName))
+}
+
+func registerMaxLength(loggerName string) {
+	if len(loggerName) > longestFullNameLength {
+		longestFullNameLength = len(loggerName)
+	}
+
+	names := strings.Split(loggerName, ".")
+	if len(names[len(names)-1]) > longestShortNameLength {
+		longestShortNameLength = len(names[len(names)-1])
+	}
 }

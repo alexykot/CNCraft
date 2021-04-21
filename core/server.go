@@ -59,20 +59,20 @@ func NewServer(conf control.ServerConf) (Server, error) {
 
 	controlChan := make(chan control.Command)
 
-	pubSub := nats.NewPubSub(log.LevelUp(rootLog.Named("pubsub"), conf.LogLevels.PubSub), nats.NewNats(), controlChan)
+	pubSub := nats.NewPubSub(log.LevelUp(log.Named(rootLog, "pubsub"), conf.LogLevels.PubSub), nats.NewNats(), controlChan)
 
-	database, err := db.New(conf.DBURL, conf.LogLevels.DB == "DEBUG", log.LevelUp(rootLog.Named("DB"), conf.LogLevels.DB))
+	database, err := db.New(conf.DBURL, conf.LogLevels.DB == "DEBUG", log.LevelUp(log.Named(rootLog, "DB"), conf.LogLevels.DB))
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate DB: %w", err)
 	}
 
-	roster := players.NewRoster(log.LevelUp(rootLog.Named("players"), conf.LogLevels.Players), pubSub, database)
+	roster := players.NewRoster(log.LevelUp(log.Named(rootLog, "players"), conf.LogLevels.Players), pubSub, database)
 
-	dispatcher := network.NewDispatcher(log.LevelUp(rootLog.Named("dispatcher"), conf.LogLevels.Dispatcher),
+	dispatcher := network.NewDispatcher(log.LevelUp(log.Named(rootLog, "dispatcher"), conf.LogLevels.Dispatcher),
 		pubSub, auth.GetAuther(), roster,
-		network.NewKeepAliver(controlChan, pubSub, log.LevelUp(rootLog.Named("aliver"), conf.LogLevels.Dispatcher)))
+		network.NewKeepAliver(controlChan, pubSub, log.LevelUp(log.Named(rootLog, "aliver"), conf.LogLevels.Dispatcher)))
 
-	net := network.NewNetwork(conf.Network, log.LevelUp(rootLog.Named("network"), conf.LogLevels.Network),
+	net := network.NewNetwork(conf.Network, log.LevelUp(log.Named(rootLog, "network"), conf.LogLevels.Network),
 		controlChan, pubSub, dispatcher)
 
 	return &server{
@@ -152,7 +152,7 @@ func (s *server) startServer() error {
 	}
 
 	if err := handlers.RegisterEventHandlersState3(s.ps,
-		log.LevelUp(s.log.Named("players"), s.config.LogLevels.Players), s.players); err != nil {
+		log.LevelUp(log.Named(s.log, "players"), s.config.LogLevels.Players), s.players); err != nil {
 		return fmt.Errorf("failed to register Play state handlers: %w", err)
 	}
 
