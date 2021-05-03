@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/alexykot/cncraft/pkg/game/items"
+
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/chat"
 	"github.com/alexykot/cncraft/pkg/game"
@@ -266,11 +268,19 @@ func (p *CPacketCloseWindow) ProtocolID() ProtocolPacketID { return protocolCClo
 func (p *CPacketCloseWindow) Type() PacketType             { return CCloseWindow }
 func (p *CPacketCloseWindow) Push(writer buffer.B)         { panic("packet not implemented") }
 
-type CPacketWindowItems struct{}
+type CPacketWindowItems struct {
+	WindowID  int8
+	SlotCount int16
+	Slots     []items.Slot
+}
 
 func (p *CPacketWindowItems) ProtocolID() ProtocolPacketID { return protocolCWindowItems }
 func (p *CPacketWindowItems) Type() PacketType             { return CWindowItems }
-func (p *CPacketWindowItems) Push(writer buffer.B)         { panic("packet not implemented") }
+func (p *CPacketWindowItems) Push(writer buffer.B) {
+	writer.PushByte(byte(p.WindowID))
+	writer.PushInt16(p.SlotCount)
+
+}
 
 type CPacketWindowProperty struct{}
 

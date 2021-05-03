@@ -38,7 +38,7 @@ func registerGenerationTools(cmd *cobra.Command) {
 
 	codegenCmd.AddCommand(&cobra.Command{
 		Use:   "blocks {input_file.json}",
-		Short: "block ids code generation",
+		Short: "block ids code generator",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			type blockState struct {
@@ -114,24 +114,104 @@ func init(){
 		},
 	})
 
+	codegenCmd.AddCommand(&cobra.Command{
+		Use:   "items {input_file.json}",
+		Short: "items ids code generator",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			type item struct {
+				ID int `json:"protocol_id"`
+			}
+			type itemList map[string]item
+
+			registries := struct {
+				Items struct {
+					Entries itemList `json:"entries"`
+				} `json:"minecraft:item"`
+			}{}
+
+			var outFile *os.File
+			var err error
+
+			inputFileName := args[0]
+			outputFileName := args[1]
+
+			if outputFileName == "-" {
+				outFile = os.Stdout
+			} else if outFile, err = os.Create(outputFileName); err != nil {
+				return fmt.Errorf("failed to open output file %s: %w", outputFileName, err)
+			}
+			defer outFile.Close()
+
+			input, err := ioutil.ReadFile(inputFileName)
+			if err != nil {
+				return fmt.Errorf("failed to read source file %s: %w", inputFileName, err)
+			}
+
+			if err := json.Unmarshal(input, &registries); err != nil {
+				return fmt.Errorf("failed to open source file %s: %w", inputFileName, err)
+			}
+
+			itemsMap := registries.Items.Entries
+
+			itemsList := make([]string, len(itemsMap), len(itemsMap))
+
+			var constBlob, mapBlob string
+			for itemName, itemData := range itemsMap {
+				itemsList[itemData.ID] = itemName
+			}
+			for ID, itemName := range itemsList {
+				constBlob = constBlob + fmt.Sprintf("%s ItemID = %d\n", getConstName(itemName, nil), ID)
+				mapBlob = mapBlob + fmt.Sprintf("namesMap[%d] = \"%s\"\n", ID, itemName)
+			}
+
+			goResult := fmt.Sprintf(`package items
+
+type ItemID uint32
+func(b ItemID) String() string{return namesMap[b]}
+func(b ItemID) ID() uint32{return uint32(b)}
+
+const (
+%s)
+
+var namesMap map[ItemID]string
+func init(){
+	namesMap = make(map[ItemID]string)
+%s
+}
+`, constBlob, mapBlob)
+
+			result, err := format.Source([]byte(goResult))
+			if err != nil {
+				return fmt.Errorf("failed to format the output: %w", err)
+			}
+
+			if _, err := outFile.Write(result); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
+
+			return nil
+		},
+	})
+
 	cmd.AddCommand(codegenCmd)
 }
 
-func getConstName(blockName string, props map[string]string) string {
-	blockName = strings.Replace(blockName, "minecraft:", "", 1)
-	blockName = strings.Replace(blockName, "_", " ", -1)
-	blockName = strings.Title(blockName)
-	blockName = strings.Replace(blockName, " ", "", -1)
+func getConstName(registryName string, props map[string]string) string {
+	registryName = strings.Replace(registryName, "minecraft:", "", 1)
+	registryName = strings.Replace(registryName, "_", " ", -1)
+	registryName = strings.Title(registryName)
+	registryName = strings.Replace(registryName, " ", "", -1)
 
 	if len(props) > 0 {
-		blockName = blockName + "_"
+		registryName = registryName + "_"
 	}
 
 	for prop, value := range props {
-		blockName = blockName + strings.Title(prop) + strings.Title(value)
+		registryName = registryName + strings.Title(prop) + strings.Title(value)
 	}
 
-	return blockName
+	return registryName
 }
 
 func registerMiscTools(cmd *cobra.Command) {
