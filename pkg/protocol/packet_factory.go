@@ -177,6 +177,9 @@ func createCPacketsMap() map[PacketType]func() CPacket {
 		CHeldItemChange: func() CPacket {
 			return &CPacketHeldItemChange{}
 		},
+		CWindowItems: func() CPacket {
+			return &CPacketWindowItems{}
+		},
 		CDeclareRecipes: func() CPacket {
 			return &CPacketDeclareRecipes{}
 		},

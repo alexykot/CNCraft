@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/buffer"
 )
 
-func RegisterPacketTools(cmd *cobra.Command) {
+func RegisterPacketTools(ctx context.Context, cmd *cobra.Command) {
 	packetCmd := &cobra.Command{Use: "packet {cmd}", Short: "packet tools"}
 
 	decodeCmd := &cobra.Command{Use: "decode {cmd}", Short: "byte value decoding tools"}

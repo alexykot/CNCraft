@@ -23,93 +23,46 @@ import (
 
 // Player is an object representing the database table.
 type Player struct {
-	ID          string    `boil:"id" json:"id" toml:"id" yaml:"id"`
-	Username    string    `boil:"username" json:"username" toml:"username" yaml:"username"`
-	PositionX   float64   `boil:"position_x" json:"position_x" toml:"position_x" yaml:"position_x"`
-	PositionY   float64   `boil:"position_y" json:"position_y" toml:"position_y" yaml:"position_y"`
-	PositionZ   float64   `boil:"position_z" json:"position_z" toml:"position_z" yaml:"position_z"`
-	Yaw         float64   `boil:"yaw" json:"yaw" toml:"yaw" yaml:"yaw"`
-	Pitch       float64   `boil:"pitch" json:"pitch" toml:"pitch" yaml:"pitch"`
-	OnGround    bool      `boil:"on_ground" json:"on_ground" toml:"on_ground" yaml:"on_ground"`
-	CurrentSlot int       `boil:"current_slot" json:"current_slot" toml:"current_slot" yaml:"current_slot"`
-	Slot0       int       `boil:"slot0" json:"slot0" toml:"slot0" yaml:"slot0"`
-	Slot1       int       `boil:"slot1" json:"slot1" toml:"slot1" yaml:"slot1"`
-	Slot2       int       `boil:"slot2" json:"slot2" toml:"slot2" yaml:"slot2"`
-	Slot3       int       `boil:"slot3" json:"slot3" toml:"slot3" yaml:"slot3"`
-	Slot4       int       `boil:"slot4" json:"slot4" toml:"slot4" yaml:"slot4"`
-	Slot5       int       `boil:"slot5" json:"slot5" toml:"slot5" yaml:"slot5"`
-	Slot6       int       `boil:"slot6" json:"slot6" toml:"slot6" yaml:"slot6"`
-	Slot7       int       `boil:"slot7" json:"slot7" toml:"slot7" yaml:"slot7"`
-	CreatedAt   time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID            string    `boil:"id" json:"id" toml:"id" yaml:"id"`
+	Username      string    `boil:"username" json:"username" toml:"username" yaml:"username"`
+	PositionX     float64   `boil:"position_x" json:"position_x" toml:"position_x" yaml:"position_x"`
+	PositionY     float64   `boil:"position_y" json:"position_y" toml:"position_y" yaml:"position_y"`
+	PositionZ     float64   `boil:"position_z" json:"position_z" toml:"position_z" yaml:"position_z"`
+	Yaw           float64   `boil:"yaw" json:"yaw" toml:"yaw" yaml:"yaw"`
+	Pitch         float64   `boil:"pitch" json:"pitch" toml:"pitch" yaml:"pitch"`
+	OnGround      bool      `boil:"on_ground" json:"on_ground" toml:"on_ground" yaml:"on_ground"`
+	CurrentHotbar int       `boil:"current_hotbar" json:"current_hotbar" toml:"current_hotbar" yaml:"current_hotbar"`
+	CreatedAt     time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *playerR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L playerL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var PlayerColumns = struct {
-	ID          string
-	Username    string
-	PositionX   string
-	PositionY   string
-	PositionZ   string
-	Yaw         string
-	Pitch       string
-	OnGround    string
-	CurrentSlot string
-	Slot0       string
-	Slot1       string
-	Slot2       string
-	Slot3       string
-	Slot4       string
-	Slot5       string
-	Slot6       string
-	Slot7       string
-	CreatedAt   string
+	ID            string
+	Username      string
+	PositionX     string
+	PositionY     string
+	PositionZ     string
+	Yaw           string
+	Pitch         string
+	OnGround      string
+	CurrentHotbar string
+	CreatedAt     string
 }{
-	ID:          "id",
-	Username:    "username",
-	PositionX:   "position_x",
-	PositionY:   "position_y",
-	PositionZ:   "position_z",
-	Yaw:         "yaw",
-	Pitch:       "pitch",
-	OnGround:    "on_ground",
-	CurrentSlot: "current_slot",
-	Slot0:       "slot0",
-	Slot1:       "slot1",
-	Slot2:       "slot2",
-	Slot3:       "slot3",
-	Slot4:       "slot4",
-	Slot5:       "slot5",
-	Slot6:       "slot6",
-	Slot7:       "slot7",
-	CreatedAt:   "created_at",
+	ID:            "id",
+	Username:      "username",
+	PositionX:     "position_x",
+	PositionY:     "position_y",
+	PositionZ:     "position_z",
+	Yaw:           "yaw",
+	Pitch:         "pitch",
+	OnGround:      "on_ground",
+	CurrentHotbar: "current_hotbar",
+	CreatedAt:     "created_at",
 }
 
 // Generated where
-
-type whereHelperstring struct{ field string }
-
-func (w whereHelperstring) EQ(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperstring) NEQ(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperstring) LT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperstring) LTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperstring) GT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperstring) GTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-func (w whereHelperstring) IN(slice []string) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
-}
-func (w whereHelperstring) NIN(slice []string) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
-}
 
 type whereHelperfloat64 struct{ field string }
 
@@ -194,43 +147,27 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 }
 
 var PlayerWhere = struct {
-	ID          whereHelperstring
-	Username    whereHelperstring
-	PositionX   whereHelperfloat64
-	PositionY   whereHelperfloat64
-	PositionZ   whereHelperfloat64
-	Yaw         whereHelperfloat64
-	Pitch       whereHelperfloat64
-	OnGround    whereHelperbool
-	CurrentSlot whereHelperint
-	Slot0       whereHelperint
-	Slot1       whereHelperint
-	Slot2       whereHelperint
-	Slot3       whereHelperint
-	Slot4       whereHelperint
-	Slot5       whereHelperint
-	Slot6       whereHelperint
-	Slot7       whereHelperint
-	CreatedAt   whereHelpertime_Time
+	ID            whereHelperstring
+	Username      whereHelperstring
+	PositionX     whereHelperfloat64
+	PositionY     whereHelperfloat64
+	PositionZ     whereHelperfloat64
+	Yaw           whereHelperfloat64
+	Pitch         whereHelperfloat64
+	OnGround      whereHelperbool
+	CurrentHotbar whereHelperint
+	CreatedAt     whereHelpertime_Time
 }{
-	ID:          whereHelperstring{field: "\"cncraft\".\"players\".\"id\""},
-	Username:    whereHelperstring{field: "\"cncraft\".\"players\".\"username\""},
-	PositionX:   whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_x\""},
-	PositionY:   whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_y\""},
-	PositionZ:   whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_z\""},
-	Yaw:         whereHelperfloat64{field: "\"cncraft\".\"players\".\"yaw\""},
-	Pitch:       whereHelperfloat64{field: "\"cncraft\".\"players\".\"pitch\""},
-	OnGround:    whereHelperbool{field: "\"cncraft\".\"players\".\"on_ground\""},
-	CurrentSlot: whereHelperint{field: "\"cncraft\".\"players\".\"current_slot\""},
-	Slot0:       whereHelperint{field: "\"cncraft\".\"players\".\"slot0\""},
-	Slot1:       whereHelperint{field: "\"cncraft\".\"players\".\"slot1\""},
-	Slot2:       whereHelperint{field: "\"cncraft\".\"players\".\"slot2\""},
-	Slot3:       whereHelperint{field: "\"cncraft\".\"players\".\"slot3\""},
-	Slot4:       whereHelperint{field: "\"cncraft\".\"players\".\"slot4\""},
-	Slot5:       whereHelperint{field: "\"cncraft\".\"players\".\"slot5\""},
-	Slot6:       whereHelperint{field: "\"cncraft\".\"players\".\"slot6\""},
-	Slot7:       whereHelperint{field: "\"cncraft\".\"players\".\"slot7\""},
-	CreatedAt:   whereHelpertime_Time{field: "\"cncraft\".\"players\".\"created_at\""},
+	ID:            whereHelperstring{field: "\"cncraft\".\"players\".\"id\""},
+	Username:      whereHelperstring{field: "\"cncraft\".\"players\".\"username\""},
+	PositionX:     whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_x\""},
+	PositionY:     whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_y\""},
+	PositionZ:     whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_z\""},
+	Yaw:           whereHelperfloat64{field: "\"cncraft\".\"players\".\"yaw\""},
+	Pitch:         whereHelperfloat64{field: "\"cncraft\".\"players\".\"pitch\""},
+	OnGround:      whereHelperbool{field: "\"cncraft\".\"players\".\"on_ground\""},
+	CurrentHotbar: whereHelperint{field: "\"cncraft\".\"players\".\"current_hotbar\""},
+	CreatedAt:     whereHelpertime_Time{field: "\"cncraft\".\"players\".\"created_at\""},
 }
 
 // PlayerRels is where relationship names are stored.
@@ -250,9 +187,9 @@ func (*playerR) NewStruct() *playerR {
 type playerL struct{}
 
 var (
-	playerAllColumns            = []string{"id", "username", "position_x", "position_y", "position_z", "yaw", "pitch", "on_ground", "current_slot", "slot0", "slot1", "slot2", "slot3", "slot4", "slot5", "slot6", "slot7", "created_at"}
+	playerAllColumns            = []string{"id", "username", "position_x", "position_y", "position_z", "yaw", "pitch", "on_ground", "current_hotbar", "created_at"}
 	playerColumnsWithoutDefault = []string{"id", "username", "position_x", "position_y", "position_z", "yaw", "pitch", "created_at"}
-	playerColumnsWithDefault    = []string{"on_ground", "current_slot", "slot0", "slot1", "slot2", "slot3", "slot4", "slot5", "slot6", "slot7"}
+	playerColumnsWithDefault    = []string{"on_ground", "current_hotbar"}
 	playerPrimaryKeyColumns     = []string{"id"}
 )
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"go/format"
@@ -12,28 +13,32 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
+	"github.com/volatiletech/sqlboiler/v4/boil"
+	"go.uber.org/zap"
+
+	"github.com/alexykot/cncraft/core/db/orm"
+	"github.com/alexykot/cncraft/pkg/game/items"
+	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
 
 	"github.com/alexykot/cncraft/cmd/tools/packet"
+	coreDB "github.com/alexykot/cncraft/core/db"
 )
 
-var interrupt chan os.Signal
-
 func main() {
-	interrupt = make(chan os.Signal)
-	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+	ctx := context.Background()
+	signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 
 	cmd := &cobra.Command{Use: "tools", Short: "misc tools"}
-
-	packet.RegisterPacketTools(cmd)
-	registerGenerationTools(cmd)
-	registerMiscTools(cmd)
+	packet.RegisterPacketTools(ctx, cmd)
+	registerGenerationTools(ctx, cmd)
+	registerMiscTools(ctx, cmd)
 
 	if err := cmd.Execute(); err != nil {
 		log.Fatalf("While executing command: %s\n", err)
 	}
 }
 
-func registerGenerationTools(cmd *cobra.Command) {
+func registerGenerationTools(ctx context.Context, cmd *cobra.Command) {
 	codegenCmd := &cobra.Command{Use: "gen {cmd}", Short: "codegen tools"}
 
 	codegenCmd.AddCommand(&cobra.Command{
@@ -214,7 +219,7 @@ func getConstName(registryName string, props map[string]string) string {
 	return registryName
 }
 
-func registerMiscTools(cmd *cobra.Command) {
+func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 	miscCmd := &cobra.Command{Use: "misc {cmd}", Short: "misc tools"}
 	miscCmd.AddCommand(&cobra.Command{
 		Use:   "readfile {file}",
@@ -235,6 +240,57 @@ func registerMiscTools(cmd *cobra.Command) {
 
 			if i-64 < len(bytes) {
 				println(fmt.Sprintf("%X", bytes[i-64:len(bytes)-1]))
+			}
+
+			return nil
+		},
+	})
+
+	miscCmd.AddCommand(&cobra.Command{
+		Use:   "idkfa {player_name}",
+		Short: "give player all weapons",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dbURL, ok := os.LookupEnv("CNCRAFT_TEST_DB_URL")
+			if !ok {
+				return fmt.Errorf("CNCRAFT_TEST_DB_URL envar must be set to a valid DB URL")
+			}
+
+			db, err := coreDB.New(dbURL, false, zap.L())
+			if err != nil {
+				return fmt.Errorf("failed to open DB URL %s: %w", dbURL, err)
+			}
+
+			dbPlayer, err := orm.Players(orm.PlayerWhere.Username.EQ(args[0])).One(ctx, db)
+			if err != nil {
+				return fmt.Errorf("failed to query player: %w", err)
+			}
+
+			inventory := items.Inventory{
+				RowHotbar: [9]items.Slot{
+					{
+						IsPresent: true,
+						ItemID:    int(pItems.DiamondPickaxe),
+						ItemCount: 1,
+					},
+				},
+			}
+
+			for slotNum, slot := range inventory.ToArray() {
+				if slot.IsPresent {
+					dbItem := orm.Inventory{
+						PlayerID:   dbPlayer.ID,
+						SlotNumber: int16(slotNum),
+						ItemID:     int16(slot.ItemID),
+						ItemCount:  int16(slot.ItemCount),
+					}
+					if err := dbItem.Upsert(ctx, db, true,
+						[]string{orm.InventoryColumns.PlayerID, orm.InventoryColumns.SlotNumber},
+						boil.Whitelist(orm.InventoryColumns.ItemID, orm.InventoryColumns.ItemCount),
+						boil.Infer()); err != nil {
+						return fmt.Errorf("failed to update player inventory slot: %w", err)
+					}
+				}
 			}
 
 			return nil

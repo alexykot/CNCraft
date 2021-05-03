@@ -280,6 +280,15 @@ func (p *CPacketWindowItems) Push(writer buffer.B) {
 	writer.PushByte(byte(p.WindowID))
 	writer.PushInt16(p.SlotCount)
 
+	for _, slotItem := range p.Slots {
+		writer.PushBool(slotItem.IsPresent)
+		if slotItem.IsPresent {
+			writer.PushVarInt(int32(slotItem.ItemID))
+			writer.PushByte(byte(slotItem.ItemCount))
+
+			writer.PushByte(0x00) // TODO item NBT data not implemented
+		}
+	}
 }
 
 type CPacketWindowProperty struct{}
@@ -701,7 +710,7 @@ func (p *CPacketCamera) Type() PacketType             { return CCamera }
 func (p *CPacketCamera) Push(writer buffer.B)         { panic("packet not implemented") }
 
 type CPacketHeldItemChange struct {
-	Slot player.HotBarSlot
+	Slot items.HotBarSlot
 }
 
 func (p *CPacketHeldItemChange) ProtocolID() ProtocolPacketID { return protocolCHeldItemChange }

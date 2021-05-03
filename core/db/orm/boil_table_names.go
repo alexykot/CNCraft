@@ -4,7 +4,9 @@
 package orm
 
 var TableNames = struct {
-	Players string
+	Inventory string
+	Players   string
 }{
-	Players: "players",
+	Inventory: "inventory",
+	Players:   "players",
 }

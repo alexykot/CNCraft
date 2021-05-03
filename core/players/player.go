@@ -53,26 +53,26 @@ func (p *Player) GetLocation() data.Location {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.State.CurrentLocation
+	return p.State.Location
 }
 
 func (p *Player) SetPosition(position data.PositionF) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.State.CurrentLocation.PositionF = position
+	p.State.Location.PositionF = position
 }
 
 func (p *Player) SetRotation(rotation data.RotationF) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.State.CurrentLocation.RotationF = rotation
+	p.State.Location.RotationF = rotation
 }
 
 func (p *Player) SetOnGround(onGround bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.State.CurrentLocation.OnGround = onGround
+	p.State.Location.OnGround = onGround
 }

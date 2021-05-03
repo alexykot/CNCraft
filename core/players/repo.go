@@ -10,6 +10,7 @@ import (
 	"github.com/alexykot/cncraft/core/db/orm"
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/entities"
+	"github.com/alexykot/cncraft/pkg/game/items"
 	"github.com/alexykot/cncraft/pkg/game/player"
 )
 
@@ -61,8 +62,7 @@ func (r *repo) createNewPlayer(userID uuid.UUID, username string) *Player {
 			FoVModifier:  0.1,
 		},
 		State: player.State{
-			CurrentHotbarSlot: player.Slot0,
-			CurrentLocation: data.Location{
+			Location: data.Location{
 				PositionF: data.PositionF{
 					X: 0,
 					Y: 10,
@@ -74,16 +74,47 @@ func (r *repo) createNewPlayer(userID uuid.UUID, username string) *Player {
 }
 
 func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, replacementID uuid.UUID, username string) (*Player, error) {
-	// DEBT this hack is needed to replace the old ID of the user that was on server before with the new ID for
-	//  the newly created connection for this user.
-	slice := orm.PlayerSlice{dbPlayer}
-	updates := orm.M{orm.PlayerColumns.ID: replacementID.String()}
-	if count, err := slice.UpdateAll(context.TODO(), tx, updates); err != nil {
-		return nil, fmt.Errorf("failed to update player ID: %w", err)
-	} else if count == 0 {
-		return nil, fmt.Errorf("failed to update player ID: no rows updated")
-	} else if count > 1 {
-		return nil, fmt.Errorf("failed to update player ID: more than one row updated")
+
+	{
+		oldId := dbPlayer.ID
+		// DEBT this hack is needed to replace the old ID of the user that was on server before with the new ID for
+		//  the newly created connection for this user.
+		//  This will need to be done the other way round, i.e. update the ConnID with the one stored before,
+		//  instead of updating stored player with the new ConnID.
+
+		// dbPlayer.ID = replacementID.String()
+		// err := dbPlayer.Insert(context.TODO(), tx, boil.Infer())
+
+		if _, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(oldId)).
+			UpdateAll(context.TODO(), tx, orm.M{orm.InventoryColumns.PlayerID: replacementID.String()}); err != nil {
+			return nil, fmt.Errorf("failed to update player ID: %w", err)
+		}
+
+		if count, err := orm.Players(orm.PlayerWhere.ID.EQ(oldId)).
+			UpdateAll(context.TODO(), tx, orm.M{orm.PlayerColumns.ID: replacementID.String()}); err != nil {
+			return nil, fmt.Errorf("failed to update player ID: %w", err)
+		} else if count == 0 {
+			return nil, fmt.Errorf("failed to update player ID: no rows updated")
+		} else if count > 1 {
+			return nil, fmt.Errorf("failed to update player ID: more than one row updated")
+		}
+
+		dbPlayer.ID = replacementID.String()
+		if err := dbPlayer.Reload(context.TODO(), tx); err != nil {
+			return nil, fmt.Errorf("failed to reload player: %w", err)
+		}
+	}
+
+	dbInventory, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(dbPlayer.ID)).All(context.TODO(), tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query player inventory: %w", err)
+	}
+
+	inventory := items.Inventory{
+		CurrentHotbarSlot: items.HotBarSlot(dbPlayer.CurrentHotbar),
+	}
+	for _, dbItem := range dbInventory {
+		inventory.AssignSlot(int(dbItem.SlotNumber), int(dbItem.ItemID), int(dbItem.ItemCount))
 	}
 
 	return &Player{
@@ -96,8 +127,8 @@ func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, replacementID uuid.U
 			FoVModifier:  0.1,
 		},
 		State: player.State{
-			CurrentHotbarSlot: player.Slot0,
-			CurrentLocation: data.Location{
+			Inventory: inventory,
+			Location: data.Location{
 				PositionF: data.PositionF{
 					X: dbPlayer.PositionX,
 					Y: dbPlayer.PositionY,

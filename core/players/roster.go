@@ -151,15 +151,15 @@ func (r *Roster) publishPlayerSpatialUpdate(p *Player) {
 	lope := envelope.PlayerSpatialUpdate(&pb.PlayerSpatialUpdate{
 		Id: p.ID.String(),
 		Pos: &pb.Position{
-			X: p.State.CurrentLocation.X,
-			Y: p.State.CurrentLocation.Y,
-			Z: p.State.CurrentLocation.Z,
+			X: p.State.Location.X,
+			Y: p.State.Location.Y,
+			Z: p.State.Location.Z,
 		},
 		Rot: &pb.Rotation{
-			Yaw:   p.State.CurrentLocation.Yaw,
-			Pitch: p.State.CurrentLocation.Pitch,
+			Yaw:   p.State.Location.Yaw,
+			Pitch: p.State.Location.Pitch,
 		},
-		OnGround: p.State.CurrentLocation.OnGround,
+		OnGround: p.State.Location.OnGround,
 	})
 	if err := r.ps.Publish(subj.MkPlayerSpatialUpdate(), lope); err != nil {
 		r.log.Error("failed to publish position update", zap.Error(err))
@@ -171,9 +171,9 @@ func (r *Roster) publishNewPlayerJoined(p *Player) {
 		Id:       p.ID.String(),
 		Username: p.Username,
 		Pos: &pb.Position{
-			X: p.State.CurrentLocation.X,
-			Y: p.State.CurrentLocation.Y,
-			Z: p.State.CurrentLocation.Z,
+			X: p.State.Location.X,
+			Y: p.State.Location.Y,
+			Z: p.State.Location.Z,
 		},
 	})
 	if err := r.ps.Publish(subj.MkNewPlayerJoined(), lope); err != nil {

@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # (avoid clash of `build` command with `build` directory)
 .PHONY: build
 
-lint:
+format:
 	@go fmt ./pkg/... ./cmd/... ./core/...
 	@goimports -format-only -local "github.com/alexykot/cncraft" -l -w ./pkg ./cmd ./core
 
@@ -25,3 +25,6 @@ gen:
 run-client:
 	@reset
 	@go run ./cmd/client/client.go
+
+idkfa:
+	@go run ./cmd/tools/main.go misc idkfa Kolsar

@@ -89,7 +89,7 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CHeldItemChange)
 		heldItemChange := cpacket.(*protocol.CPacketHeldItemChange)
-		heldItemChange.Slot = p.State.CurrentHotbarSlot
+		heldItemChange.Slot = p.State.Inventory.CurrentHotbarSlot
 		outLopes = append(outLopes, mkCpacketEnvelope(heldItemChange))
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CDeclareRecipes)
@@ -97,10 +97,10 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 		declareRecipes.RecipeCount = 0 // TODO probably will be a static list of recipes defined for current server version
 		outLopes = append(outLopes, mkCpacketEnvelope(declareRecipes))
 
-		// DEBT CTags packet is not defined
-		// DEBT CEntityStatus packet is not defined
-		// DEBT CDeclareCommands packet is not defined/**/
-		// DEBT CUnlockRecipes packet is not defined
+		// TODO CTags packet is not defined
+		// TODO CEntityStatus packet is not defined
+		// TODO CDeclareCommands packet is not defined
+		// TODO CUnlockRecipes packet is not defined
 
 		// TODO move this to a separate world loader
 		chunksToLoad := currentWorld.Levels[game.Overworld.String()].Chunks()
@@ -114,22 +114,18 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 		// Player Position And Look
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerPositionAndLook)
 		posAndLook := cpacket.(*protocol.CPacketPlayerPositionAndLook)
-		posAndLook.Location = p.State.CurrentLocation // Relative is always False here.
+		posAndLook.Location = p.State.Location // Relative is always False here.
 		outLopes = append(outLopes, mkCpacketEnvelope(posAndLook))
 
-		if err := ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
-			log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))
-			return
-		}
+		// CWindowItems test
+		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CWindowItems)
+		winItems := cpacket.(*protocol.CPacketWindowItems)
+		inventorySlots := p.State.Inventory.ToArray()
+		winItems.SlotCount = int16(len(inventorySlots))
+		winItems.Slots = inventorySlots
+		outLopes = append(outLopes, mkCpacketEnvelope(winItems))
 
-		// WindowConfirmation test
-		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CWindowConfirmation)
-		winConfirm := cpacket.(*protocol.CPacketWindowConfirmation)
-		winConfirm.WindowID = 17
-		winConfirm.ActionNumber = 4369
-		winConfirm.Accepted = true
-		log.Debug("transmitting winConfirm")
-		if err := ps.Publish(subj.MkConnTransmit(userId), mkCpacketEnvelope(winConfirm)); err != nil {
+		if err := ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
 			log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))
 			return
 		}
