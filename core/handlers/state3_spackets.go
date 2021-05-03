@@ -62,12 +62,26 @@ func HandleSKeepAlive(aliveRecorder func(uuid.UUID, int64), connID uuid.UUID, sP
 	return nil
 }
 
-func HandleSPlayerPosition(posSetter func(uuid.UUID, data.PositionF), connID uuid.UUID, sPacket protocol.SPacket) error {
-	playerPos, ok := sPacket.(*protocol.SPacketPlayerPosition)
-	if !ok {
-		return fmt.Errorf("received packet is not a playerPosition: %v", sPacket)
+func HandleSPlayerSpatial(locSetter func(uuid.UUID, *data.PositionF, *data.RotationF, *bool), connID uuid.UUID, sPacket protocol.SPacket) error {
+	if playerPos, ok := sPacket.(*protocol.SPacketPlayerPosition); ok {
+		locSetter(connID, &playerPos.Position, nil, nil)
+		return nil
 	}
 
-	posSetter(connID, playerPos.Position)
+	if playerMove, ok := sPacket.(*protocol.SPacketPlayerMovement); ok {
+		locSetter(connID, nil, nil, &playerMove.OnGround)
+		return nil
+	}
+
+	return fmt.Errorf("received packet is not a spatial update (must be one of playerPosition, playerMovement): %v", sPacket)
+}
+
+// HandleSCloseWindow
+// TODO nothing to do here yet, to implement later
+func HandleSCloseWindow(sPacket protocol.SPacket) error {
+	if _, ok := sPacket.(*protocol.SPacketCloseWindow); !ok {
+		return fmt.Errorf("received packet is not a closeWindow: %v", sPacket)
+	}
+
 	return nil
 }

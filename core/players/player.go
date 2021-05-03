@@ -49,11 +49,11 @@ func (p *Player) SetSettings(settings player.Settings) {
 	p.Settings = settings
 }
 
-func (p *Player) GetPosition() data.PositionF {
+func (p *Player) GetLocation() data.Location {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.State.CurrentLocation.PositionF
+	return p.State.CurrentLocation
 }
 
 func (p *Player) SetPosition(position data.PositionF) {
@@ -61,4 +61,18 @@ func (p *Player) SetPosition(position data.PositionF) {
 	defer p.mu.Unlock()
 
 	p.State.CurrentLocation.PositionF = position
+}
+
+func (p *Player) SetRotation(rotation data.RotationF) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.State.CurrentLocation.RotationF = rotation
+}
+
+func (p *Player) SetOnGround(onGround bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.State.CurrentLocation.OnGround = onGround
 }

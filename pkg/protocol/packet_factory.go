@@ -77,6 +77,12 @@ func createSPacketsMap() map[PacketType]func() SPacket {
 		STeleportConfirm: func() SPacket {
 			return &SPacketTeleportConfirm{}
 		},
+		SPlayerMovement: func() SPacket {
+			return &SPacketPlayerMovement{}
+		},
+		SCloseWindow: func() SPacket {
+			return &SPacketCloseWindow{}
+		},
 		SQueryBlockNBT: func() SPacket {
 			return &SPacketQueryBlockNBT{}
 		},
@@ -146,6 +152,9 @@ func createCPacketsMap() map[PacketType]func() CPacket {
 		},
 		CChatMessage: func() CPacket {
 			return &CPacketChatMessage{}
+		},
+		CWindowConfirmation: func() CPacket {
+			return &CPacketWindowConfirmation{}
 		},
 		CJoinGame: func() CPacket {
 			return &CPacketJoinGame{}

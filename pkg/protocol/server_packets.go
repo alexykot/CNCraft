@@ -230,11 +230,16 @@ func (p *SPacketClickWindow) ProtocolID() ProtocolPacketID { return protocolSCli
 func (p *SPacketClickWindow) Type() PacketType             { return SClickWindow }
 func (p *SPacketClickWindow) Pull(reader buffer.B)         { panic("packet not implemented") }
 
-type SPacketCloseWindow struct{}
+type SPacketCloseWindow struct {
+	WindowID int8
+}
 
 func (p *SPacketCloseWindow) ProtocolID() ProtocolPacketID { return protocolSCloseWindow }
 func (p *SPacketCloseWindow) Type() PacketType             { return SCloseWindow }
-func (p *SPacketCloseWindow) Pull(reader buffer.B)         { panic("packet not implemented") }
+func (p *SPacketCloseWindow) Pull(reader buffer.B) error {
+	p.WindowID = int8(reader.PullByte())
+	return nil
+}
 
 type SPacketPluginMessage struct {
 	Message plugin.Message
@@ -253,7 +258,7 @@ func (p *SPacketPluginMessage) Pull(reader buffer.B) error {
 
 	p.Message = message
 
-	return nil // DEBT actually check for errors
+	return nil
 }
 
 type SPacketEditBook struct{}
@@ -352,11 +357,16 @@ func (p *SPacketPlayerRotation) Pull(reader buffer.B) error {
 	return nil // DEBT actually check for errors
 }
 
-type SPacketPlayerMovement struct{}
+type SPacketPlayerMovement struct {
+	OnGround bool
+}
 
 func (p *SPacketPlayerMovement) ProtocolID() ProtocolPacketID { return protocolSPlayerMovement }
 func (p *SPacketPlayerMovement) Type() PacketType             { return SPlayerMovement }
-func (p *SPacketPlayerMovement) Pull(reader buffer.B)         { panic("packet not implemented") }
+func (p *SPacketPlayerMovement) Pull(reader buffer.B) error {
+	p.OnGround = reader.PullBool()
+	return nil
+}
 
 type SPacketVehicleMove struct{}
 

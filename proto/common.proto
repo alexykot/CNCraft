@@ -22,7 +22,7 @@ message Envelope {
         CloseConn close_conn = 4;
         PlayerLoading player_loading = 5;
         PlayerJoined player_joined = 6;
-        PlayerPosUpdate player_pos = 7;
+        PlayerSpatialUpdate player_spatial = 7;
         NewPlayerJoined new_player = 8;
         PlayerLeft player_left = 9;
     }
@@ -75,8 +75,15 @@ message Position {
     double z = 3;
 }
 
+message Rotation {
+    float yaw = 1;
+    float pitch = 2;
+}
+
 // Updates position of the player
-message PlayerPosUpdate {
+message PlayerSpatialUpdate {
     string id = 1;
     Position pos = 2;
+    Rotation rot = 3;
+    bool on_ground = 4;
 }

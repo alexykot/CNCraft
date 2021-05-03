@@ -57,10 +57,10 @@ func CloseConn(closeConn *pb.CloseConn) *E {
 	}
 }
 
-func PlayerPosUpdate(posUpdate *pb.PlayerPosUpdate) *E {
+func PlayerSpatialUpdate(spatialUpdate *pb.PlayerSpatialUpdate) *E {
 	return &E{
 		Envelope: pb.Envelope{
-			Message: &pb.Envelope_PlayerPos{PlayerPos: posUpdate},
+			Message: &pb.Envelope_PlayerSpatial{PlayerSpatial: spatialUpdate},
 		},
 	}
 }

@@ -86,7 +86,7 @@ func startNetwork() error {
 
 func sendBuffer(bufOut buffer.B) {
 	if _, err := conn.Transmit(bufOut); err != nil {
-		panic(fmt.Errorf("faield to transmit buffer: %w", err))
+		panic(fmt.Errorf("failed to transmit buffer: %w", err))
 	}
 }
 
@@ -102,8 +102,7 @@ func handleReceive() {
 		}
 
 		packetLen := bufIn.PullVarInt()
-		println(fmt.Sprintf("received size: %d, declared packet length: %d", size, packetLen))
-		println(fmt.Sprintf("pulling buffer from:to : %d:%d", bufIn.IndexI(), bufIn.IndexI()+packetLen))
+		// println(fmt.Sprintf("received size: %d, declared packet length: %d", size, packetLen))
 		packetBytes := bufIn.Bytes()[bufIn.IndexI() : bufIn.IndexI()+packetLen]
 
 		handleCPacket(packetBytes)
@@ -117,34 +116,35 @@ func handleCPacket(packetBytes []byte) {
 		connState = protocol.Play
 	}
 
-	println(fmt.Sprintf("received packet type %d/%X", connState, protocolPacketID))
-
 	pacType := protocol.MakeCType(connState, protocolPacketID)
-	switch pacType {
-	case protocol.CLoginSuccess, protocol.CDisconnectLogin, protocol.CPluginMessage, protocol.CChunkData:
-		println(fmt.Sprintf("packetBytes len: %d", len(packetBytes)))
-		prettyPrintBytes(packetBytes)
-	}
-
 	cPacket, err := protocol.GetPacketFactory().MakeCPacket(pacType)
+	println(fmt.Sprintf("received packet; type %d/%X, %s; size %d", connState, protocolPacketID, pacType.String(), len(packetBytes)))
 	if err != nil {
-		println(fmt.Errorf("failed to make CPacket: %v", err))
+		println(fmt.Sprintf("failed to make CPacket: %v", err))
+		println()
 		return
 	}
-
-	println(fmt.Sprintf("pacType: %s", pacType.String()))
+	println()
 
 	switch pacType {
 	case protocol.CDisconnectLogin:
 		disconnect := cPacket.(*protocol.CPacketDisconnectLogin)
 		disconnect.Pull(bufI)
 		println(fmt.Sprintf("received disconnect, reason: %s", disconnect.Reason))
+
 	case protocol.CDisconnectPlay:
 		disconnect := cPacket.(*protocol.CPacketDisconnectPlay)
 		disconnect.Pull(bufI)
 		println(fmt.Sprintf("received disconnect, reason: %s", disconnect.Reason))
+
 	case protocol.CLoginSuccess:
 		connState = protocol.Play
+
+	case protocol.CWindowConfirmation:
+		winConfirm := cPacket.(*protocol.CPacketWindowConfirmation)
+		winConfirm.Pull(bufI)
+		println(fmt.Sprintf("Window Confirmation: %v", winConfirm))
+
 	case protocol.CChunkData:
 		spacket, _ := protocol.GetPacketFactory().MakeSPacket(protocol.SHandshake)
 		handshake, _ := spacket.(*protocol.SPacketHandshake)
@@ -158,8 +158,6 @@ func handleCPacket(packetBytes []byte) {
 		sendBuffer(bufHandshake)
 		println("SHandshake sent")
 		println(fmt.Sprintf("SHandshake bytes: %X", bufHandshake.Bytes()))
-	default:
-		println()
 	}
 }
 

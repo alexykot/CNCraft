@@ -60,7 +60,7 @@ func (d *DispatcherTransmitter) register() error {
 	closeHandler := func(lope *envelope.E) {
 		closeConn := lope.GetCloseConn()
 		if closeConn == nil {
-			d.log.Error("failed to parse envelope - there is no closeConn inside", zap.Any("envelope", lope))
+			d.log.Error("failed to parse envelope: there is no closeConn inside", zap.Any("envelope", lope))
 			return
 		}
 
@@ -96,7 +96,7 @@ func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
 
 		pbCPacket := lope.GetCpacket()
 		if pbCPacket == nil {
-			log.Error("failed to parse envelope - there is no CPacket inside", zap.Any("envelope", lope))
+			log.Error("failed to parse envelope: there is no CPacket inside", zap.Any("envelope", lope))
 			return
 		}
 		pacType := protocol.PacketType(pbCPacket.PacketType)
@@ -147,7 +147,7 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 
 	sPacket, err := d.parseSPacket(conn.GetState(), packetBytes)
 	if err != nil {
-		log.Error("cannot handle new SPacket - could not parse bytes", zap.Error(err))
+		log.Error("cannot handle new SPacket: could not parse bytes", zap.Error(err))
 		return
 	}
 	log.Debug("handling SPacket", zap.String("type", sPacket.Type().String()))
@@ -160,7 +160,7 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 				log.Error("failed to trigger disconnect", zap.Error(err))
 			}
 		} else {
-			log.Error("cannot handle new packet - failed to dispatch handling", zap.Error(err))
+			log.Error("cannot handle new packet: failed to dispatch handling", zap.Error(err))
 		}
 		return
 	}
@@ -180,11 +180,11 @@ func (d *DispatcherTransmitter) parseSPacket(connState protocol.State, packetByt
 
 	sPacket, err := protocol.GetPacketFactory().MakeSPacket(pacType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make SPacket: %w", err)
+		return nil, fmt.Errorf("failed to make SPacket from pacType %d/%X, %s: %w", connState, protocolPacketID, pacType.String(), err)
 	}
 
 	if err := sPacket.Pull(bufI); err != nil {
-		return nil, fmt.Errorf("failed to parse buffer into SPacket `%X`: %w", int32(pacType), err)
+		return nil, fmt.Errorf("failed to parse buffer into SPacket, pacType %d/%X, %s: %w", connState, protocolPacketID, pacType.String(), err)
 	}
 	return sPacket, nil
 }
@@ -230,8 +230,10 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 		}
 	case protocol.SKeepAlive:
 		err = handlers.HandleSKeepAlive(d.aliver.receiveKeepAlive, conn.ID(), sPacket)
-	case protocol.SPlayerPosition:
-		err = handlers.HandleSPlayerPosition(d.roster.SetPlayerPos, conn.ID(), sPacket)
+	case protocol.SPlayerPosition, protocol.SPlayerMovement:
+		err = handlers.HandleSPlayerSpatial(d.roster.SetPlayerSpatial, conn.ID(), sPacket)
+	case protocol.SCloseWindow:
+		err = handlers.HandleSCloseWindow(sPacket)
 	default:
 		return nil
 		// DEBT turn this error back on once all expected packets are handled

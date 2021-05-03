@@ -25,6 +25,7 @@ type RotationF struct {
 type Location struct {
 	PositionF
 	RotationF
+	OnGround bool
 }
 
 type Relativity struct {

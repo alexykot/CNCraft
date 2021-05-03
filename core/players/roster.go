@@ -80,14 +80,25 @@ func (r *Roster) GetPlayer(userID uuid.UUID) (*Player, bool) {
 	return p, ok
 }
 
-func (r *Roster) SetPlayerPos(userID uuid.UUID, position data.PositionF) {
+func (r *Roster) SetPlayerSpatial(userID uuid.UUID, position *data.PositionF, rotation *data.RotationF, onGround *bool) {
 	p, ok := r.GetPlayer(userID)
 	if !ok {
 		return
 	}
-	p.SetPosition(position)
 
-	r.publishPlayerPosUpdate(p)
+	if position != nil {
+		p.SetPosition(*position)
+	}
+
+	if rotation != nil {
+		p.SetRotation(*rotation)
+	}
+
+	if onGround != nil {
+		p.SetOnGround(*onGround)
+	}
+
+	r.publishPlayerSpatialUpdate(p)
 }
 
 // RegisterHandlers creates subscriptions to all relevant global subjects.
@@ -136,16 +147,21 @@ func (r *Roster) playerLeftHandler(lope *envelope.E) {
 	delete(r.players, userID)
 }
 
-func (r *Roster) publishPlayerPosUpdate(p *Player) {
-	lope := envelope.PlayerPosUpdate(&pb.PlayerPosUpdate{
+func (r *Roster) publishPlayerSpatialUpdate(p *Player) {
+	lope := envelope.PlayerSpatialUpdate(&pb.PlayerSpatialUpdate{
 		Id: p.ID.String(),
 		Pos: &pb.Position{
 			X: p.State.CurrentLocation.X,
 			Y: p.State.CurrentLocation.Y,
 			Z: p.State.CurrentLocation.Z,
 		},
+		Rot: &pb.Rotation{
+			Yaw:   p.State.CurrentLocation.Yaw,
+			Pitch: p.State.CurrentLocation.Pitch,
+		},
+		OnGround: p.State.CurrentLocation.OnGround,
 	})
-	if err := r.ps.Publish(subj.MkPlayerPosUpdate(), lope); err != nil {
+	if err := r.ps.Publish(subj.MkPlayerSpatialUpdate(), lope); err != nil {
 		r.log.Error("failed to publish position update", zap.Error(err))
 	}
 }

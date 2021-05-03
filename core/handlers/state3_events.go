@@ -121,5 +121,17 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 			log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))
 			return
 		}
+
+		// WindowConfirmation test
+		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CWindowConfirmation)
+		winConfirm := cpacket.(*protocol.CPacketWindowConfirmation)
+		winConfirm.WindowID = 17
+		winConfirm.ActionNumber = 4369
+		winConfirm.Accepted = true
+		log.Debug("transmitting winConfirm")
+		if err := ps.Publish(subj.MkConnTransmit(userId), mkCpacketEnvelope(winConfirm)); err != nil {
+			log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))
+			return
+		}
 	}
 }

@@ -77,11 +77,8 @@ func LevelUp(logger *zap.Logger, level string) *zap.Logger {
 		return logger
 	}
 
-
-
 	return logger.WithOptions(zap.IncreaseLevel(levelEnabler))
 }
-
 
 func PaddedFullNameEncoder(loggerName string, encoder zapcore.PrimitiveArrayEncoder) {
 	encoder.AppendString(fmt.Sprintf("%-"+strconv.Itoa(longestFullNameLength)+"s", loggerName))

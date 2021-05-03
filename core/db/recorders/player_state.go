@@ -17,7 +17,7 @@ import (
 // RegisterPlayerStateHandlers registers handlers for envelopes carrying updates of the player state that
 // need to be persisted.
 func RegisterPlayerStateHandlers(ps nats.PubSub, log *zap.Logger, db *sql.DB) error {
-	if err := ps.Subscribe(subj.MkPlayerPosUpdate(), handlePlayerPos(log, db)); err != nil {
+	if err := ps.Subscribe(subj.MkPlayerSpatialUpdate(), handlePlayerSpatial(log, db)); err != nil {
 		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
 	}
 
@@ -53,32 +53,40 @@ func handleNewPlayer(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 	}
 }
 
-func handlePlayerPos(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
+func handlePlayerSpatial(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 	return func(inLope *envelope.E) {
 		log := log
 		db := db
 
-		posUpdate := inLope.GetPlayerPos()
-		if posUpdate == nil {
-			log.Error("envelope does not contain position update", zap.Any("envelope", inLope))
+		spatial := inLope.GetPlayerSpatial()
+		if spatial == nil {
+			log.Error("envelope does not contain spatial update", zap.Any("envelope", inLope))
 			return
 		}
-		player, err := orm.FindPlayer(context.TODO(), db, posUpdate.Id)
+		player, err := orm.FindPlayer(context.TODO(), db, spatial.Id)
 		if err == sql.ErrNoRows {
-			log.Warn("received posUpdate for nonexistent player, ignoring", zap.String("id", posUpdate.Id))
+			log.Warn("received posUpdate for nonexistent player, ignoring", zap.String("id", spatial.Id))
 			return
 		} else if err != nil {
-			log.Error("failed to fetch user by UUID", zap.String("id", posUpdate.Id), zap.Error(err))
+			log.Error("failed to fetch user by UUID", zap.String("id", spatial.Id), zap.Error(err))
 			return
 		}
 
-		player.PositionX = posUpdate.Pos.X
-		player.PositionY = posUpdate.Pos.Y
-		player.PositionZ = posUpdate.Pos.Z
+		player.PositionX = spatial.Pos.X
+		player.PositionY = spatial.Pos.Y
+		player.PositionZ = spatial.Pos.Z
+
+		player.Yaw = float64(spatial.Rot.Yaw)
+		player.Pitch = float64(spatial.Rot.Pitch)
+
+		player.OnGround = spatial.OnGround
 
 		if _, err = player.Update(context.TODO(), db,
-			boil.Whitelist(orm.PlayerColumns.PositionX, orm.PlayerColumns.PositionY, orm.PlayerColumns.PositionZ)); err != nil {
-			log.Error("failed to save user position", zap.String("id", posUpdate.Id), zap.Error(err))
+			boil.Whitelist(
+				orm.PlayerColumns.PositionX, orm.PlayerColumns.PositionY, orm.PlayerColumns.PositionZ,
+				orm.PlayerColumns.Yaw, orm.PlayerColumns.Pitch, orm.PlayerColumns.OnGround,
+			)); err != nil {
+			log.Error("failed to save user position", zap.String("id", spatial.Id), zap.Error(err))
 			return
 		}
 	}

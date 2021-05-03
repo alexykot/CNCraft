@@ -19,6 +19,7 @@ func MkNewConn() string { return "conn.new" }
 func MkConnClose() string { return "conn.close" }
 
 // *** Player related subjects ***
+
 // MkPlayerLoading creates a subject name string for announcing new users joining server.
 //  This is send after successful login and triggers client world loading and player spawn.
 func MkPlayerLoading() string { return "players.loading" }
@@ -27,14 +28,14 @@ func MkPlayerLoading() string { return "players.loading" }
 //  This is sent after the player has successfully spawned in the world.
 func MkPlayerJoined() string { return "players.joined" }
 
-// MkPlayerJoined creates a subject name string for announcing new players successfully joined server.
+// MkPlayerLeft creates a subject name string for announcing new players successfully joined server.
 //  This is sent after the player has successfully spawned in the world.
 func MkPlayerLeft() string { return "players.left" }
 
-// MkPlayerPosUpdate creates a subject name string for announcing player position updates.
+// MkPlayerSpatialUpdate creates a subject name string for announcing player position updates.
 //  This is sent every time player position changes.
-func MkPlayerPosUpdate() string { return "players.update.position" }
+func MkPlayerSpatialUpdate() string { return "players.update.spatial" }
 
-// MkPlayerPosUpdate creates a subject name string for announcing new players joining server for the first time.
+// MkNewPlayerJoined creates a subject name string for announcing new players joining server for the first time.
 //  This is sent every time player position changes.
 func MkNewPlayerJoined() string { return "players.joined.first_time" }

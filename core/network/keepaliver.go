@@ -36,7 +36,7 @@ func NewKeepAliver(control chan control.Command, ps nats.PubSub, log *zap.Logger
 	return &KeepAliver{
 		control:  control,
 		ps:       ps,
-		log: log,
+		log:      log,
 		theyLive: make(map[uuid.UUID]int64),
 	}
 }

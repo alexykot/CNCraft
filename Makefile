@@ -22,3 +22,6 @@ gen:
 	@go generate ./...
 	@./core/db/gen.sh
 
+run-client:
+	@reset
+	@go run ./cmd/client/client.go
