@@ -86,6 +86,11 @@ func HandleSHeldItemChange(heldItemSetter func(connID uuid.UUID, heldItem uint8)
 	return nil
 }
 
+func HandleSClickWindow(connID uuid.UUID, sPacket protocol.SPacket) error {
+	// TODO implement next
+	return nil
+}
+
 // HandleSCloseWindow - TODO nothing to do here yet, to implement later
 func HandleSCloseWindow(sPacket protocol.SPacket) error {
 	if _, ok := sPacket.(*protocol.SPacketCloseWindow); !ok {
