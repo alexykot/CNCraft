@@ -20,11 +20,14 @@ message Envelope {
         CPacket cpacket = 2;
         SPacket spacket = 3;
         CloseConn close_conn = 4;
+
         PlayerLoading player_loading = 5;
-        PlayerJoined player_joined = 6;
-        PlayerSpatialUpdate player_spatial = 7;
-        NewPlayerJoined new_player = 8;
-        PlayerLeft player_left = 9;
+        NewPlayerJoined new_player = 6;
+        PlayerJoined player_joined = 7;
+        PlayerLeft player_left = 8;
+
+        PlayerSpatialUpdate player_spatial = 9;
+        PlayerInventoryUpdate player_inventory = 10;
     }
 }
 
@@ -88,4 +91,17 @@ message PlayerSpatialUpdate {
     Position pos = 2;
     Rotation rot = 3;
     bool on_ground = 4;
+}
+
+message InventoryItem {
+    int32 slot_id = 1;
+    int32 item_id = 2;
+    int32 item_count = 3;
+}
+
+// Updates player inventory state
+message PlayerInventoryUpdate {
+    string player_id = 1;
+    int32 current_hotbar = 2;
+    repeated InventoryItem inventory = 3;
 }

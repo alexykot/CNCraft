@@ -14,7 +14,7 @@ CREATE TABLE cncraft.players
     pitch          FLOAT                       NOT NULL,
     on_ground      BOOL                        NOT NULL DEFAULT TRUE,
 
-    current_hotbar INT                         NOT NULL DEFAULT 0,
+    current_hotbar SMALLINT                    NOT NULL DEFAULT 0,
 
     created_at     TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     PRIMARY KEY (id)

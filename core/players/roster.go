@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/alexykot/cncraft/pkg/game/items"
+
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/envelope"
@@ -121,6 +123,15 @@ func (r *Roster) SetPlayerSpatial(connID uuid.UUID, position *data.PositionF, ro
 	r.publishPlayerSpatialUpdate(p)
 }
 
+func (r *Roster) SetPlayerHeldItem(connID uuid.UUID, heldItem uint8) {
+	p, ok := r.GetPlayerByConnID(connID)
+	if !ok {
+		return
+	}
+	p.State.Inventory.CurrentHotbarSlot = items.HotBarSlot(heldItem)
+	r.publishPlayerInventoryUpdate(p)
+}
+
 // RegisterHandlers creates subscriptions to all relevant global subjects.
 func (r *Roster) RegisterHandlers() error {
 	if err := r.ps.Subscribe(subj.MkPlayerJoined(), r.playerJoinedHandler); err != nil {
@@ -135,21 +146,24 @@ func (r *Roster) RegisterHandlers() error {
 	return nil
 }
 
-func (r *Roster) playerJoinedHandler(lope *envelope.E) {
-	// joined := lope.GetPlayerJoined()
-	// if joined == nil {/**/
-	//	r.log.Error("failed to parse envelope - no JoinedPlayer inside", zap.Any("envelope", lope))
-	//	return
-	// }
-	//
-	// userId, err := uuid.Parse(joined.Id)
-	// if err != nil {
-	//	r.log.Error("failed to parse user ID as UUID", zap.Any("id", joined.Id))
-	//	return
-	// }
-
-	// TODO implement this
+func (r *Roster) publishNewPlayerJoined(p *Player) {
+	lope := envelope.NewPlayerJoined(&pb.NewPlayerJoined{
+		PlayerId: p.ID.String(),
+		ConnId:   p.ConnID.String(),
+		Username: p.Username,
+		Pos: &pb.Position{
+			X: p.State.Location.X,
+			Y: p.State.Location.Y,
+			Z: p.State.Location.Z,
+		},
+	})
+	if err := r.ps.Publish(subj.MkNewPlayerJoined(), lope); err != nil {
+		r.log.Error("failed to publish position update", zap.Error(err))
+	}
 }
+
+// TODO not sure if this is needed
+func (r *Roster) playerJoinedHandler(_ *envelope.E) {}
 
 func (r *Roster) playerLeftHandler(lope *envelope.E) {
 	left := lope.GetPlayerLeft()
@@ -186,18 +200,19 @@ func (r *Roster) publishPlayerSpatialUpdate(p *Player) {
 	}
 }
 
-func (r *Roster) publishNewPlayerJoined(p *Player) {
-	lope := envelope.NewPlayerJoined(&pb.NewPlayerJoined{
-		PlayerId: p.ID.String(),
-		ConnId:   p.ConnID.String(),
-		Username: p.Username,
-		Pos: &pb.Position{
-			X: p.State.Location.X,
-			Y: p.State.Location.Y,
-			Z: p.State.Location.Z,
-		},
-	})
-	if err := r.ps.Publish(subj.MkNewPlayerJoined(), lope); err != nil {
-		r.log.Error("failed to publish position update", zap.Error(err))
+func (r *Roster) publishPlayerInventoryUpdate(p *Player) {
+	update := &pb.PlayerInventoryUpdate{PlayerId: p.ID.String(), CurrentHotbar: int32(p.State.Inventory.CurrentHotbarSlot)}
+	for i, item := range p.State.Inventory.ToArray() {
+		if item.IsPresent {
+			update.Inventory = append(update.Inventory, &pb.InventoryItem{
+				SlotId:    int32(i),
+				ItemId:    int32(item.ItemID),
+				ItemCount: int32(item.ItemCount),
+			})
+		}
+	}
+
+	if err := r.ps.Publish(subj.MkPlayerInventoryUpdate(), envelope.PlayerInventoryUpdate(update)); err != nil {
+		r.log.Error("failed to publish inventory update", zap.Error(err))
 	}
 }

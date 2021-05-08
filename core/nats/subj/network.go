@@ -33,10 +33,14 @@ func MkPlayerJoined() string { return "players.joined" }
 //  This is sent after the player has successfully spawned in the world.
 func MkPlayerLeft() string { return "players.left" }
 
+// MkNewPlayerJoined creates a subject name string for announcing new players joining server for the first time.
+//  This is sent every time player position changes.
+func MkNewPlayerJoined() string { return "players.joined.first_time" }
+
 // MkPlayerSpatialUpdate creates a subject name string for announcing player position updates.
 //  This is sent every time player position changes.
 func MkPlayerSpatialUpdate() string { return "players.update.spatial" }
 
-// MkNewPlayerJoined creates a subject name string for announcing new players joining server for the first time.
-//  This is sent every time player position changes.
-func MkNewPlayerJoined() string { return "players.joined.first_time" }
+// MkPlayerInventoryUpdate creates a subject name string for announcing player inventory updates.
+//  This is sent every time player inventory changes (including hotbar).
+func MkPlayerInventoryUpdate() string { return "players.update.inventory" }

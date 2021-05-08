@@ -65,6 +65,14 @@ func PlayerSpatialUpdate(spatialUpdate *pb.PlayerSpatialUpdate) *E {
 	}
 }
 
+func PlayerInventoryUpdate(inventoryUpdate *pb.PlayerInventoryUpdate) *E {
+	return &E{
+		Envelope: pb.Envelope{
+			Message: &pb.Envelope_PlayerInventory{PlayerInventory: inventoryUpdate},
+		},
+	}
+}
+
 func NewPlayerJoined(newPlayer *pb.NewPlayerJoined) *E {
 	return &E{
 		Envelope: pb.Envelope{

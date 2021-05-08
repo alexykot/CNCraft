@@ -76,8 +76,17 @@ func HandleSPlayerSpatial(locSetter func(uuid.UUID, *data.PositionF, *data.Rotat
 	return fmt.Errorf("received packet is not a spatial update (must be one of playerPosition, playerMovement): %v", sPacket)
 }
 
-// HandleSCloseWindow
-// TODO nothing to do here yet, to implement later
+func HandleSHeldItemChange(heldItemSetter func(connID uuid.UUID, heldItem uint8), connID uuid.UUID, sPacket protocol.SPacket) error {
+	heldItem, ok := sPacket.(*protocol.SPacketHeldItemChange)
+	if !ok {
+		return fmt.Errorf("received packet is not a heldItemChange: %v", sPacket)
+	}
+
+	heldItemSetter(connID, heldItem.Slot)
+	return nil
+}
+
+// HandleSCloseWindow - TODO nothing to do here yet, to implement later
 func HandleSCloseWindow(sPacket protocol.SPacket) error {
 	if _, ok := sPacket.(*protocol.SPacketCloseWindow); !ok {
 		return fmt.Errorf("received packet is not a closeWindow: %v", sPacket)
@@ -86,11 +95,19 @@ func HandleSCloseWindow(sPacket protocol.SPacket) error {
 	return nil
 }
 
-// HandleSEntityAction
-// TODO nothing to do here yet, to implement later
+// HandleSEntityAction - TODO nothing to do here yet, to implement later
 func HandleSEntityAction(sPacket protocol.SPacket) error {
 	if _, ok := sPacket.(*protocol.SPacketEntityAction); !ok {
 		return fmt.Errorf("received packet is not a closeWindow: %v", sPacket)
+	}
+
+	return nil
+}
+
+// HandleSAnimation - TODO nothing to do here yet, to implement later
+func HandleSAnimation(sPacket protocol.SPacket) error {
+	if _, ok := sPacket.(*protocol.SPacketAnimation); !ok {
+		return fmt.Errorf("received packet is not Animation: %v", sPacket)
 	}
 
 	return nil

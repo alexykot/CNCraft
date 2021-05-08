@@ -238,6 +238,10 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 		err = handlers.HandleSCloseWindow(sPacket)
 	case protocol.SEntityAction:
 		err = handlers.HandleSEntityAction(sPacket)
+	case protocol.SAnimation:
+		err = handlers.HandleSAnimation(sPacket)
+	case protocol.SHeldItemChange:
+		err = handlers.HandleSHeldItemChange(d.roster.SetPlayerHeldItem, conn.ID(), sPacket)
 	default:
 		return nil
 		// DEBT turn this error back on once all expected packets are handled

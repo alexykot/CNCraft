@@ -19,10 +19,6 @@ import (
 // RegisterPlayerStateHandlers registers handlers for envelopes carrying updates of the player state that
 // need to be persisted.
 func RegisterPlayerStateHandlers(ps nats.PubSub, log *zap.Logger, db *sql.DB) error {
-	if err := ps.Subscribe(subj.MkPlayerSpatialUpdate(), handlePlayerSpatial(log, db)); err != nil {
-		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
-	}
-
 	if err := ps.Subscribe(subj.MkNewPlayerJoined(), handleNewPlayer(log, db)); err != nil {
 		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
 	}
@@ -31,6 +27,13 @@ func RegisterPlayerStateHandlers(ps nats.PubSub, log *zap.Logger, db *sql.DB) er
 		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
 	}
 
+	if err := ps.Subscribe(subj.MkPlayerSpatialUpdate(), handlePlayerSpatial(log, db)); err != nil {
+		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
+	}
+
+	if err := ps.Subscribe(subj.MkPlayerInventoryUpdate(), handlePlayerInventory(log, db)); err != nil {
+		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
+	}
 	return nil
 }
 
@@ -129,6 +132,65 @@ func handlePlayerSpatial(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 				orm.PlayerColumns.Yaw, orm.PlayerColumns.Pitch, orm.PlayerColumns.OnGround,
 			)); err != nil {
 			log.Error("failed to save user position", zap.String("id", spatial.PlayerId), zap.Error(err))
+		}
+	}
+}
+
+func handlePlayerInventory(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
+	return func(inLope *envelope.E) {
+		log := log
+		db := db
+
+		inventory := inLope.GetPlayerInventory()
+		if inventory == nil {
+			log.Error("envelope does not contain inventory update", zap.Any("envelope", inLope))
+			return
+		}
+
+		playerId, err := uuid.Parse(inventory.PlayerId)
+		if err != nil {
+			log.Error("failed to parse player ID", zap.String("id", inventory.PlayerId), zap.Error(err))
+			return
+		}
+
+		tx, err := db.Begin()
+		if err != nil {
+			log.Error("failed to start tx", zap.Error(err))
+			return
+		}
+
+		dbPlayer, err := orm.FindPlayer(context.TODO(), tx, playerId)
+		if err == sql.ErrNoRows {
+			log.Warn("received posUpdate for nonexistent player, ignoring", zap.String("id", inventory.PlayerId))
+			return
+		} else if err != nil {
+			log.Error("failed to fetch player by UUID", zap.String("id", inventory.PlayerId), zap.Error(err))
+			return
+		}
+
+		if _, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(playerId)).DeleteAll(context.TODO(), tx); err != nil {
+			log.Error("failed to wipe player inventory", zap.String("id", inventory.PlayerId), zap.Error(err))
+			_ = tx.Rollback()
+			return
+		}
+
+		for _, item := range inventory.Inventory {
+			dbItem := orm.Inventory{
+				PlayerID:   playerId,
+				SlotNumber: int16(item.SlotId),
+				ItemID:     int16(item.ItemId),
+				ItemCount:  int16(item.ItemCount),
+			}
+			if err := dbItem.Insert(context.TODO(), tx, boil.Infer()); err != nil {
+				log.Error("failed to wipe player inventory", zap.String("id", inventory.PlayerId), zap.Error(err))
+				_ = tx.Rollback()
+				return
+			}
+		}
+
+		dbPlayer.CurrentHotbar = int16(inventory.CurrentHotbar)
+		if _, err = dbPlayer.Update(context.TODO(), db, boil.Whitelist(orm.PlayerColumns.CurrentHotbar)); err != nil {
+			log.Error("failed to save user position", zap.String("id", inventory.PlayerId), zap.Error(err))
 		}
 	}
 }

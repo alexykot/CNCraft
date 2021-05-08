@@ -1,51 +1,51 @@
 package protocol
 
 import (
-    "fmt"
+	"fmt"
 
-    "github.com/alexykot/cncraft/pkg/buffer"
-    "github.com/alexykot/cncraft/pkg/game"
-    "github.com/alexykot/cncraft/pkg/game/data"
-    "github.com/alexykot/cncraft/pkg/game/player"
-    "github.com/alexykot/cncraft/pkg/protocol/plugin"
+	"github.com/alexykot/cncraft/pkg/buffer"
+	"github.com/alexykot/cncraft/pkg/game"
+	"github.com/alexykot/cncraft/pkg/game/data"
+	"github.com/alexykot/cncraft/pkg/game/player"
+	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 )
 
 // HANDSHAKE STATE PACKETS
 type SPacketHandshake struct {
-    Version int32
+	Version int32
 
-    Host string
-    Port uint16
+	Host string
+	Port uint16
 
-    NextState State
+	NextState State
 }
 
 func (p *SPacketHandshake) ProtocolID() ProtocolPacketID { return protocolSHandshake }
 func (p *SPacketHandshake) Type() PacketType             { return SHandshake }
 func (p *SPacketHandshake) Pull(reader buffer.B) error {
-    var err error
+	var err error
 
-    p.Version = reader.PullVarInt()
-    p.Host = reader.PullString()
-    p.Port = reader.PullUint16()
+	p.Version = reader.PullVarInt()
+	p.Host = reader.PullString()
+	p.Port = reader.PullUint16()
 
-    nextState := reader.PullVarInt()
+	nextState := reader.PullVarInt()
 
-    if p.NextState, err = IntToState(int(nextState)); err != nil {
-        return fmt.Errorf("failed to parse handshake  next state: %w", err)
-    }
+	if p.NextState, err = IntToState(int(nextState)); err != nil {
+		return fmt.Errorf("failed to parse handshake  next state: %w", err)
+	}
 
-    return nil
+	return nil
 }
 
 func (p *SPacketHandshake) Push(writer buffer.B) {
-    writer.PushVarInt(int32(protocolSHandshake))
+	writer.PushVarInt(int32(protocolSHandshake))
 
-    writer.PushVarInt(p.Version)
-    writer.PushString(p.Host)
-    writer.PushUint16(p.Port)
+	writer.PushVarInt(p.Version)
+	writer.PushString(p.Host)
+	writer.PushUint16(p.Port)
 
-    writer.PushVarInt(int32(p.NextState))
+	writer.PushVarInt(int32(p.NextState))
 }
 
 // STATUS STATE PACKETS
@@ -54,92 +54,92 @@ type SPacketRequest struct{}
 func (p *SPacketRequest) ProtocolID() ProtocolPacketID { return protocolSRequest }
 func (p *SPacketRequest) Type() PacketType             { return SRequest }
 func (p *SPacketRequest) Pull(reader buffer.B) error {
-    // no fields
-    return nil
+	// no fields
+	return nil
 }
 
 type SPacketPing struct {
-    Payload int64
+	Payload int64
 }
 
 func (p *SPacketPing) ProtocolID() ProtocolPacketID { return protocolSPing }
 func (p *SPacketPing) Type() PacketType             { return SPing }
 func (p *SPacketPing) Pull(reader buffer.B) error {
-    p.Payload = reader.PullInt64()
-    return nil // DEBT actually check for errors
+	p.Payload = reader.PullInt64()
+	return nil // DEBT actually check for errors
 }
 
 // LOGIN STATE PACKETS
 type SPacketLoginStart struct {
-    Username string
+	Username string
 }
 
 func (p *SPacketLoginStart) ProtocolID() ProtocolPacketID { return protocolSLoginStart }
 func (p *SPacketLoginStart) Type() PacketType             { return SLoginStart }
 func (p *SPacketLoginStart) Pull(reader buffer.B) error {
-    p.Username = reader.PullString()
-    return nil // DEBT actually check for errors
+	p.Username = reader.PullString()
+	return nil // DEBT actually check for errors
 }
 
 func (p *SPacketLoginStart) Push(writer buffer.B) {
-    writer.PushVarInt(int32(protocolSLoginStart))
-    writer.PushString(p.Username)
+	writer.PushVarInt(int32(protocolSLoginStart))
+	writer.PushString(p.Username)
 }
 
 type SPacketEncryptionResponse struct {
-    SharedSecret []byte
-    VerifyToken  []byte
+	SharedSecret []byte
+	VerifyToken  []byte
 }
 
 func (p *SPacketEncryptionResponse) ProtocolID() ProtocolPacketID { return protocolSEncryptionResponse }
 func (p *SPacketEncryptionResponse) Type() PacketType             { return SEncryptionResponse }
 func (p *SPacketEncryptionResponse) Pull(reader buffer.B) error {
-    p.SharedSecret = reader.PullBytes()
-    p.VerifyToken = reader.PullBytes()
-    return nil // DEBT actually check for errors
+	p.SharedSecret = reader.PullBytes()
+	p.VerifyToken = reader.PullBytes()
+	return nil // DEBT actually check for errors
 }
 
 type SPacketLoginPluginResponse struct {
-    Message int32
-    Success bool
-    OptData []byte
+	Message int32
+	Success bool
+	OptData []byte
 }
 
 func (p *SPacketLoginPluginResponse) ProtocolID() ProtocolPacketID {
-    return protocolSLoginPluginResponse
+	return protocolSLoginPluginResponse
 }
 func (p *SPacketLoginPluginResponse) Type() PacketType { return SLoginPluginResponse }
 func (p *SPacketLoginPluginResponse) Pull(reader buffer.B) error {
-    p.Message = reader.PullVarInt()
-    p.Success = reader.PullBool()
-    p.OptData = reader.Bytes()[reader.IndexI():reader.Len()]
-    return nil // DEBT actually check for errors
+	p.Message = reader.PullVarInt()
+	p.Success = reader.PullBool()
+	p.OptData = reader.Bytes()[reader.IndexI():reader.Len()]
+	return nil // DEBT actually check for errors
 }
 
 // PLAY STATE PACKETS
 
 type SPacketTeleportConfirm struct {
-    TeleportID int32
+	TeleportID int32
 }
 
 func (p *SPacketTeleportConfirm) ProtocolID() ProtocolPacketID { return protocolSTeleportConfirm }
 func (p *SPacketTeleportConfirm) Type() PacketType             { return STeleportConfirm }
 func (p *SPacketTeleportConfirm) Pull(reader buffer.B) error {
-    p.TeleportID = reader.PullVarInt()
-    return nil // DEBT actually check for errors
+	p.TeleportID = reader.PullVarInt()
+	return nil // DEBT actually check for errors
 }
 
 type SPacketQueryBlockNBT struct {
-    TransactionID int32
-    Location      data.PositionI
+	TransactionID int32
+	Location      data.PositionI
 }
 
 func (p *SPacketQueryBlockNBT) ProtocolID() ProtocolPacketID { return protocolSQueryBlockNBT }
 func (p *SPacketQueryBlockNBT) Type() PacketType             { return SQueryBlockNBT }
 func (p *SPacketQueryBlockNBT) Pull(reader buffer.B) error {
-    p.TransactionID = reader.PullVarInt()
-    p.Location.Pull(reader)
-    return nil // DEBT actually check for errors
+	p.TransactionID = reader.PullVarInt()
+	p.Location.Pull(reader)
+	return nil // DEBT actually check for errors
 }
 
 type SPacketQueryEntityNBT struct{}
@@ -149,61 +149,61 @@ func (p *SPacketQueryEntityNBT) Type() PacketType             { return SQueryEnt
 func (p *SPacketQueryEntityNBT) Pull(reader buffer.B)         { panic("packet not implemented") }
 
 type SPacketSetDifficulty struct {
-    Difficulty game.Difficulty
+	Difficulty game.Difficulty
 }
 
 func (p *SPacketSetDifficulty) ProtocolID() ProtocolPacketID { return protocolSSetDifficulty }
 func (p *SPacketSetDifficulty) Type() PacketType             { return SSetDifficulty }
 func (p *SPacketSetDifficulty) Pull(reader buffer.B) error {
-    p.Difficulty = game.DifficultyValueOf(reader.PullByte())
-    return nil // DEBT actually check for errors
+	p.Difficulty = game.DifficultyValueOf(reader.PullByte())
+	return nil // DEBT actually check for errors
 }
 
 type SPacketChatMessage struct {
-    Message string
+	Message string
 }
 
 func (p *SPacketChatMessage) ProtocolID() ProtocolPacketID { return protocolSChatMessage }
 func (p *SPacketChatMessage) Type() PacketType             { return SChatMessage }
 func (p *SPacketChatMessage) Pull(reader buffer.B) error {
-    p.Message = reader.PullString()
-    return nil // DEBT actually check for errors
+	p.Message = reader.PullString()
+	return nil // DEBT actually check for errors
 }
 
 type SPacketClientStatus struct {
-    Action player.StatusAction
+	Action player.StatusAction
 }
 
 func (p *SPacketClientStatus) ProtocolID() ProtocolPacketID { return protocolSClientStatus }
 func (p *SPacketClientStatus) Type() PacketType             { return SClientStatus }
 func (p *SPacketClientStatus) Pull(reader buffer.B) error {
-    p.Action = player.StatusAction(reader.PullVarInt())
-    return nil // DEBT actually check for errors
+	p.Action = player.StatusAction(reader.PullVarInt())
+	return nil // DEBT actually check for errors
 }
 
 type SPacketClientSettings struct {
-    Locale       string
-    ViewDistance byte
-    ChatMode     player.ChatMode
-    ChatColors   bool // if false, strip messages of colors before sending
-    SkinParts    player.SkinParts
-    MainHand     player.MainHand
+	Locale       string
+	ViewDistance byte
+	ChatMode     player.ChatMode
+	ChatColors   bool // if false, strip messages of colors before sending
+	SkinParts    player.SkinParts
+	MainHand     player.MainHand
 }
 
 func (p *SPacketClientSettings) ProtocolID() ProtocolPacketID { return protocolSClientSettings }
 func (p *SPacketClientSettings) Type() PacketType             { return SClientSettings }
 func (p *SPacketClientSettings) Pull(reader buffer.B) error {
-    p.Locale = reader.PullString()
-    p.ViewDistance = reader.PullByte()
-    p.ChatMode = player.ChatMode(reader.PullVarInt())
-    p.ChatColors = reader.PullBool()
+	p.Locale = reader.PullString()
+	p.ViewDistance = reader.PullByte()
+	p.ChatMode = player.ChatMode(reader.PullVarInt())
+	p.ChatColors = reader.PullBool()
 
-    parts := player.SkinParts{}
-    parts.Pull(reader)
+	parts := player.SkinParts{}
+	parts.Pull(reader)
 
-    p.SkinParts = parts
-    p.MainHand = player.MainHand(reader.PullVarInt())
-    return nil // DEBT actually check for errors
+	p.SkinParts = parts
+	p.MainHand = player.MainHand(reader.PullVarInt())
+	return nil // DEBT actually check for errors
 }
 
 type SPacketTabComplete struct{}
@@ -231,34 +231,34 @@ func (p *SPacketClickWindow) Type() PacketType             { return SClickWindow
 func (p *SPacketClickWindow) Pull(reader buffer.B)         { panic("packet not implemented") }
 
 type SPacketCloseWindow struct {
-    WindowID int8
+	WindowID int8
 }
 
 func (p *SPacketCloseWindow) ProtocolID() ProtocolPacketID { return protocolSCloseWindow }
 func (p *SPacketCloseWindow) Type() PacketType             { return SCloseWindow }
 func (p *SPacketCloseWindow) Pull(reader buffer.B) error {
-    p.WindowID = int8(reader.PullByte())
-    return nil
+	p.WindowID = int8(reader.PullByte())
+	return nil
 }
 
 type SPacketPluginMessage struct {
-    Message plugin.Message
+	Message plugin.Message
 }
 
 func (p *SPacketPluginMessage) ProtocolID() ProtocolPacketID { return protocolSPluginMessage }
 func (p *SPacketPluginMessage) Type() PacketType             { return SPluginMessage }
 func (p *SPacketPluginMessage) Pull(reader buffer.B) error {
-    channel := reader.PullString()
-    message := plugin.GetMessageForChannel(plugin.Channel(channel))
-    if message == nil {
-        return fmt.Errorf("channel `%s` not found", channel)
-    }
+	channel := reader.PullString()
+	message := plugin.GetMessageForChannel(plugin.Channel(channel))
+	if message == nil {
+		return fmt.Errorf("channel `%s` not found", channel)
+	}
 
-    message.Pull(reader)
+	message.Pull(reader)
 
-    p.Message = message
+	p.Message = message
 
-    return nil
+	return nil
 }
 
 type SPacketEditBook struct{}
@@ -280,14 +280,14 @@ func (p *SPacketGenerateStructure) Type() PacketType             { return SGener
 func (p *SPacketGenerateStructure) Pull(reader buffer.B)         { panic("packet not implemented") }
 
 type SPacketKeepAlive struct {
-    KeepAliveID int64
+	KeepAliveID int64
 }
 
 func (p *SPacketKeepAlive) ProtocolID() ProtocolPacketID { return protocolSKeepAlive }
 func (p *SPacketKeepAlive) Type() PacketType             { return SKeepAlive }
 func (p *SPacketKeepAlive) Pull(reader buffer.B) error {
-    p.KeepAliveID = reader.PullInt64()
-    return nil // DEBT actually check for errors
+	p.KeepAliveID = reader.PullInt64()
+	return nil // DEBT actually check for errors
 }
 
 type SPacketLockDifficulty struct{}
@@ -297,75 +297,75 @@ func (p *SPacketLockDifficulty) Type() PacketType             { return SLockDiff
 func (p *SPacketLockDifficulty) Pull(reader buffer.B)         { panic("packet not implemented") }
 
 type SPacketPlayerPosition struct {
-    Position data.PositionF
-    OnGround bool
+	Position data.PositionF
+	OnGround bool
 }
 
 func (p *SPacketPlayerPosition) ProtocolID() ProtocolPacketID { return protocolSPlayerPosition }
 func (p *SPacketPlayerPosition) Type() PacketType             { return SPlayerPosition }
 func (p *SPacketPlayerPosition) Pull(reader buffer.B) error {
-    p.Position = data.PositionF{
-        X: reader.PullFloat64(),
-        Y: reader.PullFloat64(),
-        Z: reader.PullFloat64(),
-    }
+	p.Position = data.PositionF{
+		X: reader.PullFloat64(),
+		Y: reader.PullFloat64(),
+		Z: reader.PullFloat64(),
+	}
 
-    p.OnGround = reader.PullBool()
-    return nil // DEBT actually check for errors
+	p.OnGround = reader.PullBool()
+	return nil // DEBT actually check for errors
 }
 
 type SPacketPlayerPosAndRotation struct {
-    Location data.Location
-    OnGround bool
+	Location data.Location
+	OnGround bool
 }
 
 func (p *SPacketPlayerPosAndRotation) ProtocolID() ProtocolPacketID {
-    return protocolSPlayerPosAndRotation
+	return protocolSPlayerPosAndRotation
 }
 func (p *SPacketPlayerPosAndRotation) Type() PacketType { return SPlayerPosAndRotation }
 func (p *SPacketPlayerPosAndRotation) Pull(reader buffer.B) error {
-    p.Location = data.Location{
-        PositionF: data.PositionF{
-            X: reader.PullFloat64(),
-            Y: reader.PullFloat64(),
-            Z: reader.PullFloat64(),
-        },
-        RotationF: data.RotationF{
-            Yaw:   reader.PullFloat32(),
-            Pitch: reader.PullFloat32(),
-        },
-    }
+	p.Location = data.Location{
+		PositionF: data.PositionF{
+			X: reader.PullFloat64(),
+			Y: reader.PullFloat64(),
+			Z: reader.PullFloat64(),
+		},
+		RotationF: data.RotationF{
+			Yaw:   reader.PullFloat32(),
+			Pitch: reader.PullFloat32(),
+		},
+	}
 
-    p.OnGround = reader.PullBool()
-    return nil // DEBT actually check for errors
+	p.OnGround = reader.PullBool()
+	return nil // DEBT actually check for errors
 }
 
 type SPacketPlayerRotation struct {
-    Rotation data.RotationF
-    OnGround bool
+	Rotation data.RotationF
+	OnGround bool
 }
 
 func (p *SPacketPlayerRotation) ProtocolID() ProtocolPacketID { return protocolSPlayerRotation }
 func (p *SPacketPlayerRotation) Type() PacketType             { return SPlayerRotation }
 func (p *SPacketPlayerRotation) Pull(reader buffer.B) error {
-    p.Rotation = data.RotationF{
-        Yaw:   reader.PullFloat32(),
-        Pitch: reader.PullFloat32(),
-    }
+	p.Rotation = data.RotationF{
+		Yaw:   reader.PullFloat32(),
+		Pitch: reader.PullFloat32(),
+	}
 
-    p.OnGround = reader.PullBool()
-    return nil // DEBT actually check for errors
+	p.OnGround = reader.PullBool()
+	return nil // DEBT actually check for errors
 }
 
 type SPacketPlayerMovement struct {
-    OnGround bool
+	OnGround bool
 }
 
 func (p *SPacketPlayerMovement) ProtocolID() ProtocolPacketID { return protocolSPlayerMovement }
 func (p *SPacketPlayerMovement) Type() PacketType             { return SPlayerMovement }
 func (p *SPacketPlayerMovement) Pull(reader buffer.B) error {
-    p.OnGround = reader.PullBool()
-    return nil
+	p.OnGround = reader.PullBool()
+	return nil
 }
 
 type SPacketVehicleMove struct{}
@@ -393,24 +393,24 @@ func (p *SPacketCraftRecipeRequest) Type() PacketType             { return SCraf
 func (p *SPacketCraftRecipeRequest) Pull(reader buffer.B)         { panic("packet not implemented") }
 
 type SPacketPlayerAbilities struct {
-    Abilities   player.Abilities
-    FlightSpeed float32
-    GroundSpeed float32
+	Abilities   player.Abilities
+	FlightSpeed float32
+	GroundSpeed float32
 }
 
 func (p *SPacketPlayerAbilities) ProtocolID() ProtocolPacketID { return protocolSPlayerAbilities }
 func (p *SPacketPlayerAbilities) Type() PacketType             { return SPlayerAbilities }
 func (p *SPacketPlayerAbilities) Pull(reader buffer.B) error {
-    panic("changes in 1.16.4 need to be implemented")
+	panic("changes in 1.16.4 need to be implemented")
 
-    abilities := player.Abilities{}
-    abilities.Pull(reader)
+	abilities := player.Abilities{}
+	abilities.Pull(reader)
 
-    p.Abilities = abilities
+	p.Abilities = abilities
 
-    p.FlightSpeed = reader.PullFloat32()
-    p.GroundSpeed = reader.PullFloat32()
-    return nil // DEBT actually check for errors
+	p.FlightSpeed = reader.PullFloat32()
+	p.GroundSpeed = reader.PullFloat32()
+	return nil // DEBT actually check for errors
 }
 
 type SPacketPlayerDigging struct{}
@@ -419,17 +419,17 @@ func (p *SPacketPlayerDigging) ProtocolID() ProtocolPacketID { return protocolSP
 func (p *SPacketPlayerDigging) Type() PacketType             { return SPlayerDigging }
 func (p *SPacketPlayerDigging) Pull(reader buffer.B)         { panic("packet not implemented") }
 
-type SPacketEntityAction struct{
-    EntityID, ActionID, JumpBoost int32
+type SPacketEntityAction struct {
+	EntityID, ActionID, JumpBoost int32
 }
 
 func (p *SPacketEntityAction) ProtocolID() ProtocolPacketID { return protocolSEntityAction }
 func (p *SPacketEntityAction) Type() PacketType             { return SEntityAction }
 func (p *SPacketEntityAction) Pull(reader buffer.B) error {
-    p.EntityID = reader.PullVarInt()
-    p.ActionID = reader.PullVarInt()
-    p.JumpBoost = reader.PullVarInt()
-    return nil
+	p.EntityID = reader.PullVarInt()
+	p.ActionID = reader.PullVarInt()
+	p.JumpBoost = reader.PullVarInt()
+	return nil
 }
 
 type SPacketSteerVehicle struct{}
@@ -480,11 +480,16 @@ func (p *SPacketSetBeaconEffect) ProtocolID() ProtocolPacketID { return protocol
 func (p *SPacketSetBeaconEffect) Type() PacketType             { return SSetBeaconEffect }
 func (p *SPacketSetBeaconEffect) Pull(reader buffer.B)         { panic("packet not implemented") }
 
-type SPacketHeldItemChange struct{}
+type SPacketHeldItemChange struct {
+	Slot uint8
+}
 
 func (p *SPacketHeldItemChange) ProtocolID() ProtocolPacketID { return protocolSHeldItemChange }
 func (p *SPacketHeldItemChange) Type() PacketType             { return SHeldItemChange }
-func (p *SPacketHeldItemChange) Pull(reader buffer.B)         { panic("packet not implemented") }
+func (p *SPacketHeldItemChange) Pull(reader buffer.B) error {
+	p.Slot = uint8(reader.PullInt16())
+	return nil
+}
 
 type SPacketUpdateCommandBlock struct{}
 
@@ -495,7 +500,7 @@ func (p *SPacketUpdateCommandBlock) Pull(reader buffer.B)         { panic("packe
 type SPacketUpdateCommandBlockMinecart struct{}
 
 func (p *SPacketUpdateCommandBlockMinecart) ProtocolID() ProtocolPacketID {
-    return protocolSUpdateCommandBlockMinecart
+	return protocolSUpdateCommandBlockMinecart
 }
 func (p *SPacketUpdateCommandBlockMinecart) Type() PacketType     { return SUpdateCommandBlockMinecart }
 func (p *SPacketUpdateCommandBlockMinecart) Pull(reader buffer.B) { panic("packet not implemented") }
@@ -503,7 +508,7 @@ func (p *SPacketUpdateCommandBlockMinecart) Pull(reader buffer.B) { panic("packe
 type SPacketCreativeInventoryAction struct{}
 
 func (p *SPacketCreativeInventoryAction) ProtocolID() ProtocolPacketID {
-    return protocolSCreativeInventoryAction
+	return protocolSCreativeInventoryAction
 }
 func (p *SPacketCreativeInventoryAction) Type() PacketType     { return SCreativeInventoryAction }
 func (p *SPacketCreativeInventoryAction) Pull(reader buffer.B) { panic("packet not implemented") }
@@ -517,7 +522,7 @@ func (p *SPacketUpdateJigsawBlock) Pull(reader buffer.B)         { panic("packet
 type SPacketUpdateStructureBlock struct{}
 
 func (p *SPacketUpdateStructureBlock) ProtocolID() ProtocolPacketID {
-    return protocolSUpdateStructureBlock
+	return protocolSUpdateStructureBlock
 }
 func (p *SPacketUpdateStructureBlock) Type() PacketType     { return SUpdateStructureBlock }
 func (p *SPacketUpdateStructureBlock) Pull(reader buffer.B) { panic("packet not implemented") }
@@ -528,11 +533,16 @@ func (p *SPacketUpdateSign) ProtocolID() ProtocolPacketID { return protocolSUpda
 func (p *SPacketUpdateSign) Type() PacketType             { return SUpdateSign }
 func (p *SPacketUpdateSign) Pull(reader buffer.B)         { panic("packet not implemented") }
 
-type SPacketAnimation struct{}
+type SPacketAnimation struct {
+	Hand uint8
+}
 
 func (p *SPacketAnimation) ProtocolID() ProtocolPacketID { return protocolSAnimation }
 func (p *SPacketAnimation) Type() PacketType             { return SAnimation }
-func (p *SPacketAnimation) Pull(reader buffer.B)         { panic("packet not implemented") }
+func (p *SPacketAnimation) Pull(reader buffer.B) error {
+	p.Hand = uint8(reader.PullVarInt())
+	return nil
+}
 
 type SPacketSpectate struct{}
 
@@ -543,7 +553,7 @@ func (p *SPacketSpectate) Pull(reader buffer.B)         { panic("packet not impl
 type SPacketPlayerBlockPlacement struct{}
 
 func (p *SPacketPlayerBlockPlacement) ProtocolID() ProtocolPacketID {
-    return protocolSPlayerBlockPlacement
+	return protocolSPlayerBlockPlacement
 }
 func (p *SPacketPlayerBlockPlacement) Type() PacketType     { return SPlayerBlockPlacement }
 func (p *SPacketPlayerBlockPlacement) Pull(reader buffer.B) { panic("packet not implemented") }

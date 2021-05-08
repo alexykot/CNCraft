@@ -87,11 +87,6 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 		abilities.FieldOfView = p.Settings.FoVModifier
 		outLopes = append(outLopes, mkCpacketEnvelope(abilities))
 
-		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CHeldItemChange)
-		heldItemChange := cpacket.(*protocol.CPacketHeldItemChange)
-		heldItemChange.Slot = p.State.Inventory.CurrentHotbarSlot
-		outLopes = append(outLopes, mkCpacketEnvelope(heldItemChange))
-
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CDeclareRecipes)
 		declareRecipes := cpacket.(*protocol.CPacketDeclareRecipes)
 		declareRecipes.RecipeCount = 0 // TODO probably will be a static list of recipes defined for current server version
@@ -117,13 +112,18 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 		posAndLook.Location = p.State.Location // Relative is always False here.
 		outLopes = append(outLopes, mkCpacketEnvelope(posAndLook))
 
-		// CWindowItems test
+		// Player inventory init
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CWindowItems)
 		winItems := cpacket.(*protocol.CPacketWindowItems)
 		inventorySlots := p.State.Inventory.ToArray()
 		winItems.SlotCount = int16(len(inventorySlots))
 		winItems.Slots = inventorySlots
 		outLopes = append(outLopes, mkCpacketEnvelope(winItems))
+
+		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CHeldItemChange)
+		heldItemChange := cpacket.(*protocol.CPacketHeldItemChange)
+		heldItemChange.Slot = p.State.Inventory.CurrentHotbarSlot
+		outLopes = append(outLopes, mkCpacketEnvelope(heldItemChange))
 
 		if err := ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
 			log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))

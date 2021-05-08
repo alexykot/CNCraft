@@ -34,7 +34,7 @@ type Player struct {
 	Yaw           float64     `boil:"yaw" json:"yaw" toml:"yaw" yaml:"yaw"`
 	Pitch         float64     `boil:"pitch" json:"pitch" toml:"pitch" yaml:"pitch"`
 	OnGround      bool        `boil:"on_ground" json:"on_ground" toml:"on_ground" yaml:"on_ground"`
-	CurrentHotbar int         `boil:"current_hotbar" json:"current_hotbar" toml:"current_hotbar" yaml:"current_hotbar"`
+	CurrentHotbar int16       `boil:"current_hotbar" json:"current_hotbar" toml:"current_hotbar" yaml:"current_hotbar"`
 	CreatedAt     time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *playerR `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -153,29 +153,6 @@ func (w whereHelperbool) LTE(x bool) qm.QueryMod { return qmhelper.Where(w.field
 func (w whereHelperbool) GT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
 func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
 
-type whereHelperint struct{ field string }
-
-func (w whereHelperint) EQ(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperint) NEQ(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperint) LT(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperint) LTE(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperint) GT(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperint) GTE(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-func (w whereHelperint) IN(slice []int) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
-}
-func (w whereHelperint) NIN(slice []int) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
-}
-
 type whereHelpertime_Time struct{ field string }
 
 func (w whereHelpertime_Time) EQ(x time.Time) qm.QueryMod {
@@ -207,7 +184,7 @@ var PlayerWhere = struct {
 	Yaw           whereHelperfloat64
 	Pitch         whereHelperfloat64
 	OnGround      whereHelperbool
-	CurrentHotbar whereHelperint
+	CurrentHotbar whereHelperint16
 	CreatedAt     whereHelpertime_Time
 }{
 	ID:            whereHelperuuid_UUID{field: "\"cncraft\".\"players\".\"id\""},
@@ -219,7 +196,7 @@ var PlayerWhere = struct {
 	Yaw:           whereHelperfloat64{field: "\"cncraft\".\"players\".\"yaw\""},
 	Pitch:         whereHelperfloat64{field: "\"cncraft\".\"players\".\"pitch\""},
 	OnGround:      whereHelperbool{field: "\"cncraft\".\"players\".\"on_ground\""},
-	CurrentHotbar: whereHelperint{field: "\"cncraft\".\"players\".\"current_hotbar\""},
+	CurrentHotbar: whereHelperint16{field: "\"cncraft\".\"players\".\"current_hotbar\""},
 	CreatedAt:     whereHelpertime_Time{field: "\"cncraft\".\"players\".\"created_at\""},
 }
 
