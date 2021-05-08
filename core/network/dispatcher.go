@@ -64,16 +64,18 @@ func (d *DispatcherTransmitter) register() error {
 			return
 		}
 
-		connID, err := uuid.Parse(closeConn.Id)
+		connID, err := uuid.Parse(closeConn.ConnId)
 		if err != nil {
-			d.log.Error("failed to parse conn ID as UUID", zap.String("id", closeConn.Id))
+			d.log.Error("failed to parse conn ID as UUID", zap.String("id", closeConn.ConnId))
 			return
 		}
-		d.log.Debug("connection closing requested", zap.String("conn", closeConn.Id))
+		d.log.Debug("connection closing requested", zap.String("conn", closeConn.ConnId))
 
-		playerLeftLope := envelope.PlayerLeft(&pb.PlayerLeft{Id: connID.String()})
-		if err := d.ps.Publish(subj.MkPlayerLeft(), playerLeftLope); err != nil {
-			d.log.Error("failed to publish player left message", zap.Error(err))
+		if playerID, ok := d.roster.GetPlayerIDByConnID(connID); ok {
+			playerLeftLope := envelope.PlayerLeft(&pb.PlayerLeft{PlayerId: playerID.String()})
+			if err := d.ps.Publish(subj.MkPlayerLeft(), playerLeftLope); err != nil {
+				d.log.Error("failed to publish player left message", zap.Error(err))
+			}
 		}
 	}
 
@@ -217,13 +219,13 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 			d.auth, d.ps, debugStateSetter, conn.EnableEncryption, conn.EnableCompression, d.aliver.AddAliveConn,
 			conn.ID(), sPacket)
 	case protocol.SPluginMessage:
-		if player, ok := d.roster.GetPlayer(conn.ID()); !ok {
+		if player, ok := d.roster.GetPlayerByConnID(conn.ID()); !ok {
 			err = fmt.Errorf("player %s not found ", conn.ID())
 		} else {
 			err = handlers.HandleSPluginMessage(d.log, player, sPacket)
 		}
 	case protocol.SClientSettings:
-		if player, ok := d.roster.GetPlayer(conn.ID()); !ok {
+		if player, ok := d.roster.GetPlayerByConnID(conn.ID()); !ok {
 			err = fmt.Errorf("player %s not found ", conn.ID())
 		} else {
 			err = handlers.HandleSClientSettings(player, sPacket)
@@ -325,9 +327,11 @@ func (d *DispatcherTransmitter) forceDisconnect(connState protocol.State, connID
 		return fmt.Errorf("failed to publish conn disconnect CPacket: %w", err)
 	}
 
-	playerLeftLope := envelope.PlayerLeft(&pb.PlayerLeft{Id: connID.String()})
-	if err := d.ps.Publish(subj.MkPlayerLeft(), playerLeftLope); err != nil {
-		return fmt.Errorf("failed to publish player left message: %w", err)
+	if playerID, ok := d.roster.GetPlayerIDByConnID(connID); ok {
+		playerLeftLope := envelope.PlayerLeft(&pb.PlayerLeft{PlayerId: playerID.String()})
+		if err := d.ps.Publish(subj.MkPlayerLeft(), playerLeftLope); err != nil {
+			return fmt.Errorf("failed to publish player left message: %w", err)
+		}
 	}
 
 	return nil

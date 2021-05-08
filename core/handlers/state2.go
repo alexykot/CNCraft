@@ -24,21 +24,20 @@ func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(protocol.
 		return nil, fmt.Errorf("received packet is not a loginStart: %v", sPacket)
 	}
 
-	userID := connID // By design connection ID is also the auth user ID and then the player ID.
-	if err := auther.BootstrapUser(userID, loginStart.Username); err != nil {
+	if err := auther.BootstrapUser(connID, loginStart.Username); err != nil {
 		return nil, fmt.Errorf("failed to bootstrap user: %w", err)
 	}
 
 	if control.GetCurrentConfig().IsCracked { // "cracked" or "offline-mode" server does not do authentication or encryption
 		loginSuccess, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CLoginSuccess) // Predefined packet is expected to always exist.
-		loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = userID
+		loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = connID
 		loginSuccess.(*protocol.CPacketLoginSuccess).PlayerName = loginStart.Username
 
 		stateSetter(protocol.Play)
-		aliver(userID)
+		aliver(connID)
 		lope := envelope.PlayerLoading(&pb.PlayerLoading{
-			Id:        userID.String(),
-			ProfileId: userID.String(),
+			ConnId:    connID.String(),
+			ProfileId: connID.String(),
 			Username:  loginStart.Username,
 			// TODO also publish skin data
 		})
@@ -53,8 +52,8 @@ func HandleSLoginStart(auther auth.A, ps nats.PubSub, stateSetter func(protocol.
 	encRequest := cpacket.(*protocol.CPacketEncryptionRequest)                         // And always be of the correct type.
 
 	encRequest.ServerID = control.GetCurrentConfig().ServerID
-	encRequest.PublicKey = auther.GetUserPubkey(userID)
-	encRequest.VerifyToken = auther.GetUserVerifyToken(userID)
+	encRequest.PublicKey = auther.GetUserPubkey(connID)
+	encRequest.VerifyToken = auther.GetUserVerifyToken(connID)
 
 	return []protocol.CPacket{encRequest}, nil
 }
@@ -68,28 +67,26 @@ func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
 		return nil, fmt.Errorf("received packet is not an SEncryptionResponse: %v", sPacket)
 	}
 
-	userID := connID // By design connection ID is also the auth user ID and then the player ID.
-
-	savedToken := auther.GetUserVerifyToken(userID)
-	returnedToken, err := auther.DecryptUserVerifyToken(userID, encResponse.VerifyToken)
+	savedToken := auther.GetUserVerifyToken(connID)
+	returnedToken, err := auther.DecryptUserVerifyToken(connID, encResponse.VerifyToken)
 	if bytes.Compare(returnedToken, savedToken) != 0 {
 		return nil, newPacketError(InvalidLoginErr, fmt.Errorf("supplied verify token does not match the saved one: %X != %X",
 			returnedToken, savedToken))
 	}
 
-	sharedSecret, err := auther.DecryptUserSharedSecret(userID, encResponse.SharedSecret)
+	sharedSecret, err := auther.DecryptUserSharedSecret(connID, encResponse.SharedSecret)
 	if err != nil {
 		return nil, newPacketError(InvalidLoginErr, fmt.Errorf("failed to decrypt user shared secret: %w", err))
 	}
 
-	//mojangData, err := auther.RunMojangSessionAuth(userID, sharedSecret)
-	//if err != nil {
+	// mojangData, err := auther.RunMojangSessionAuth(userID, sharedSecret)
+	// if err != nil {
 	//	return nil, newPacketError(InvalidLoginErr, fmt.Errorf("failed to run Mojang session server auth: %w", err))
-	//}
+	// }
 	// DEBT mojang session auth returns HTTP 204, unclear why, to debug later
 	mojangData := &mojang.AuthResponse{
 		ProfileID:  uuid.New(),
-		Username:   auther.GetUserName(userID),
+		Username:   auther.GetUserName(connID),
 		Properties: nil,
 	}
 
@@ -106,9 +103,9 @@ func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
 	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerName = mojangData.Username
 
 	stateSetter(protocol.Play)
-	aliver(userID)
+	aliver(connID)
 	lope := envelope.PlayerLoading(&pb.PlayerLoading{
-		Id:        userID.String(),
+		ConnId:    connID.String(),
 		ProfileId: mojangData.ProfileID.String(),
 		Username:  mojangData.Username,
 		// TODO also publish skin data
@@ -117,7 +114,7 @@ func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
 		return nil, fmt.Errorf("failed to publish player loading envelope: %w", err)
 	}
 
-	auther.LoginSuccess(userID)
+	auther.LoginSuccess(connID)
 
 	return []protocol.CPacket{setCompression, loginSuccess}, nil
 }

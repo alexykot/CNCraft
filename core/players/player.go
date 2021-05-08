@@ -12,6 +12,7 @@ import (
 
 type Player struct {
 	ID        uuid.UUID
+	ConnID    uuid.UUID
 	PC        entities.PlayerCharacter
 	Username  string
 	Settings  player.Settings

@@ -3,6 +3,7 @@ package subj
 import "github.com/google/uuid"
 
 // *** Connection related subjects ***
+
 // MkConnReceive creates a subject name string for given connection ID for receiving server bound packets.
 func MkConnReceive(connID uuid.UUID) string { return "conn." + connID.String() + ".receive" }
 

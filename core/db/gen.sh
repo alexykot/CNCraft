@@ -67,16 +67,13 @@ output = "$DB_ROOT/orm"
     type = "apd.NullDecimal"
   [types.imports]
     third_party = ['"github.com/cockroachdb/apd/v2"']
-# Uncomment this if we will want to use UUID natively in the ORM.
-# Not using it now as strings need less overhead and we are not using any
-# UUID-specific functions.
-# [[types]]
-#   [types.match]
-#     db_type = "uuid"
-#   [types.replace]
-#     type = "uuid.UUID"
-#   [types.imports]
-#     third_party = ['"github.com/google/uuid"']
+[[types]]
+  [types.match]
+    db_type = "uuid"
+  [types.replace]
+    type = "uuid.UUID"
+  [types.imports]
+    third_party = ['"github.com/google/uuid"']
 EOF
 }
 

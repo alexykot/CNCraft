@@ -39,13 +39,13 @@ message SPacket {
 }
 
 message CloseConn {
-    string id = 1;
+    string conn_id = 1;
     ConnState state = 2;
 }
 
 // A player is about to join, but not spawned yet.
 message PlayerLoading {
-    string id = 1;
+    string conn_id = 1;
     string profile_id = 2;
     string username = 3;
     // TODO also publish skin data
@@ -53,20 +53,22 @@ message PlayerLoading {
 
 // A new player joined for the first time.
 message NewPlayerJoined {
-    string id = 1;
-    string profile_id = 2;
-    string username = 3;
-    Position pos = 4;
+    string player_id = 1;
+    string conn_id = 2;
+    string profile_id = 3;
+    string username = 4;
+    Position pos = 5;
 }
 
 // A player has fully joined and spawned.
 message PlayerJoined {
-    string id = 1;
+    string player_id = 1;
+    string conn_id = 2;
 }
 
 // A player has left and disconnected.
 message PlayerLeft {
-    string id = 1;
+    string player_id = 1;
 }
 
 message Position {
@@ -82,7 +84,7 @@ message Rotation {
 
 // Updates position of the player
 message PlayerSpatialUpdate {
-    string id = 1;
+    string player_id = 1;
     Position pos = 2;
     Rotation rot = 3;
     bool on_ground = 4;

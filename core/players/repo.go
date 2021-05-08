@@ -1,11 +1,14 @@
 package players
 
+import "C"
 import (
 	"context"
 	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	"github.com/alexykot/cncraft/core/db/orm"
 	"github.com/alexykot/cncraft/pkg/game/data"
@@ -23,7 +26,7 @@ func newRepo(db *sql.DB) *repo {
 	return &repo{db}
 }
 
-func (r *repo) InitPlayer(userID uuid.UUID, username string) (p *Player, isNew bool, err error) {
+func (r *repo) InitPlayer(username string, connID uuid.UUID) (p *Player, isNew bool, err error) {
 	tx, err := r.db.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to begin transaction: %w", err)
@@ -35,10 +38,10 @@ func (r *repo) InitPlayer(userID uuid.UUID, username string) (p *Player, isNew b
 	}
 
 	if err == sql.ErrNoRows {
-		p = r.createNewPlayer(userID, username)
+		p = r.createNewPlayer(username, connID)
 		isNew = true
 	} else {
-		if p, err = r.loadPlayer(tx, dbPlayer, userID, username); err != nil {
+		if p, err = r.loadPlayer(tx, dbPlayer, username, connID); err != nil {
 			return nil, false, fmt.Errorf("failed to load player: %w", err)
 		}
 	}
@@ -51,9 +54,10 @@ func (r *repo) InitPlayer(userID uuid.UUID, username string) (p *Player, isNew b
 }
 
 // TODO this needs to be replaced with proper spawn point and starting conditions.
-func (r *repo) createNewPlayer(userID uuid.UUID, username string) *Player {
+func (r *repo) createNewPlayer(username string, connID uuid.UUID) *Player {
 	return &Player{
-		ID:       userID,
+		ID:       uuid.New(),
+		ConnID:   connID,
 		PC:       entities.NewPC(username, player.MaxHealth),
 		Username: username,
 		Settings: player.Settings{
@@ -73,39 +77,11 @@ func (r *repo) createNewPlayer(userID uuid.UUID, username string) *Player {
 	}
 }
 
-func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, replacementID uuid.UUID, username string) (*Player, error) {
+func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, username string, connID uuid.UUID) (*Player, error) {
+	dbPlayer.ConnID = null.StringFrom(connID.String())
+	_, err := dbPlayer.Update(context.TODO(), tx, boil.Whitelist(orm.PlayerColumns.ConnID))
 
-	{
-		oldId := dbPlayer.ID
-		// DEBT this hack is needed to replace the old ID of the user that was on server before with the new ID for
-		//  the newly created connection for this user.
-		//  This will need to be done the other way round, i.e. update the ConnID with the one stored before,
-		//  instead of updating stored player with the new ConnID.
-
-		// dbPlayer.ID = replacementID.String()
-		// err := dbPlayer.Insert(context.TODO(), tx, boil.Infer())
-
-		if _, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(oldId)).
-			UpdateAll(context.TODO(), tx, orm.M{orm.InventoryColumns.PlayerID: replacementID.String()}); err != nil {
-			return nil, fmt.Errorf("failed to update player ID: %w", err)
-		}
-
-		if count, err := orm.Players(orm.PlayerWhere.ID.EQ(oldId)).
-			UpdateAll(context.TODO(), tx, orm.M{orm.PlayerColumns.ID: replacementID.String()}); err != nil {
-			return nil, fmt.Errorf("failed to update player ID: %w", err)
-		} else if count == 0 {
-			return nil, fmt.Errorf("failed to update player ID: no rows updated")
-		} else if count > 1 {
-			return nil, fmt.Errorf("failed to update player ID: more than one row updated")
-		}
-
-		dbPlayer.ID = replacementID.String()
-		if err := dbPlayer.Reload(context.TODO(), tx); err != nil {
-			return nil, fmt.Errorf("failed to reload player: %w", err)
-		}
-	}
-
-	dbInventory, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(dbPlayer.ID)).All(context.TODO(), tx)
+	dbInventories, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(dbPlayer.ID)).All(context.TODO(), tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query player inventory: %w", err)
 	}
@@ -113,12 +89,13 @@ func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, replacementID uuid.U
 	inventory := items.Inventory{
 		CurrentHotbarSlot: items.HotBarSlot(dbPlayer.CurrentHotbar),
 	}
-	for _, dbItem := range dbInventory {
+	for _, dbItem := range dbInventories {
 		inventory.AssignSlot(int(dbItem.SlotNumber), int(dbItem.ItemID), int(dbItem.ItemCount))
 	}
 
 	return &Player{
-		ID:       replacementID,
+		ID:       dbPlayer.ID,
+		ConnID:   connID,
 		PC:       entities.NewPC(username, player.MaxHealth),
 		Username: username,
 		Settings: player.Settings{

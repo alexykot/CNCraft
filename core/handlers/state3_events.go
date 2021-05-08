@@ -41,9 +41,9 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 			return
 		}
 
-		userId, err := uuid.Parse(loading.Id)
+		userId, err := uuid.Parse(loading.ConnId)
 		if err != nil {
-			log.Error("failed to parse user ID as UUID", zap.String("id", loading.Id), zap.Error(err))
+			log.Error("failed to parse user ID as UUID", zap.String("id", loading.ConnId), zap.Error(err))
 			return
 		}
 		log.Debug("handling player loading", zap.String("user", userId.String()))

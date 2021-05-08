@@ -99,8 +99,8 @@ func (k *KeepAliver) tick(ctx context.Context) {
 
 func (k *KeepAliver) pronounceDead(connID uuid.UUID) {
 	lope := envelope.CloseConn(&pb.CloseConn{
-		Id:    connID.String(),
-		State: pb.ConnState_PLAY, // keepAliver is only active in the Play state
+		ConnId: connID.String(),
+		State:  pb.ConnState_PLAY, // keepAliver is only active in the Play state
 	})
 
 	if err := k.ps.Publish(subj.MkConnClose(), lope); err != nil {

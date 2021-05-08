@@ -22,7 +22,7 @@ type Roster struct {
 	mu   sync.Mutex
 	repo *repo
 
-	players map[uuid.UUID]*Player // ID of the user always matches ID of the corresponding connection.
+	players map[uuid.UUID]*Player
 }
 
 func NewRoster(log *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
@@ -37,7 +37,7 @@ func NewRoster(log *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
 	}
 }
 
-func (r *Roster) AddPlayer(userID uuid.UUID, username string) (*Player, error) {
+func (r *Roster) AddPlayer(connID uuid.UUID, username string) (*Player, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -58,30 +58,50 @@ func (r *Roster) AddPlayer(userID uuid.UUID, username string) (*Player, error) {
 
 	var err error
 	var isNew bool
-	if r.players[userID], isNew, err = r.repo.InitPlayer(userID, username); err != nil {
+	var p *Player
+	if p, isNew, err = r.repo.InitPlayer(username, connID); err != nil {
 		return nil, fmt.Errorf("failed to init player: %w", err)
 	}
 
 	if isNew {
-		r.log.Debug("new player joined for the first time", zap.Any("player", r.players[userID]))
-		r.publishNewPlayerJoined(r.players[userID])
+		r.log.Debug("new player joined for the first time", zap.Any("player", p))
+		r.publishNewPlayerJoined(p)
 	} else {
-		r.log.Debug("rejoining player loaded", zap.Any("player", r.players[userID]))
+		r.log.Debug("rejoining player loaded", zap.Any("player", p))
 	}
 
-	return r.players[userID], nil
+	r.players[p.ID] = p
+	return p, nil
 }
 
-func (r *Roster) GetPlayer(userID uuid.UUID) (*Player, bool) {
+func (r *Roster) GetPlayerByConnID(connID uuid.UUID) (*Player, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	p, ok := r.players[userID]
-	return p, ok
+	for _, p := range r.players {
+		if p.ConnID == connID {
+			return p, true
+		}
+	}
+
+	return nil, false
 }
 
-func (r *Roster) SetPlayerSpatial(userID uuid.UUID, position *data.PositionF, rotation *data.RotationF, onGround *bool) {
-	p, ok := r.GetPlayer(userID)
+func (r *Roster) GetPlayerIDByConnID(connID uuid.UUID) (uuid.UUID, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, p := range r.players {
+		if p.ConnID == connID {
+			return p.ID, true
+		}
+	}
+
+	return uuid.UUID{}, false
+}
+
+func (r *Roster) SetPlayerSpatial(connID uuid.UUID, position *data.PositionF, rotation *data.RotationF, onGround *bool) {
+	p, ok := r.GetPlayerByConnID(connID)
 	if !ok {
 		return
 	}
@@ -117,7 +137,7 @@ func (r *Roster) RegisterHandlers() error {
 
 func (r *Roster) playerJoinedHandler(lope *envelope.E) {
 	// joined := lope.GetPlayerJoined()
-	// if joined == nil {
+	// if joined == nil {/**/
 	//	r.log.Error("failed to parse envelope - no JoinedPlayer inside", zap.Any("envelope", lope))
 	//	return
 	// }
@@ -138,18 +158,18 @@ func (r *Roster) playerLeftHandler(lope *envelope.E) {
 		return
 	}
 
-	userID, err := uuid.Parse(left.Id)
+	playerID, err := uuid.Parse(left.PlayerId)
 	if err != nil {
-		r.log.Error("failed to parse user ID as UUID", zap.Any("id", left.Id))
+		r.log.Error("failed to parse conn ID as UUID", zap.Any("id", left.PlayerId))
 	}
 
-	r.log.Debug("player leaving", zap.Any("player", r.players[userID]))
-	delete(r.players, userID)
+	r.log.Debug("player leaving", zap.Any("player", r.players[playerID]))
+	delete(r.players, playerID)
 }
 
 func (r *Roster) publishPlayerSpatialUpdate(p *Player) {
 	lope := envelope.PlayerSpatialUpdate(&pb.PlayerSpatialUpdate{
-		Id: p.ID.String(),
+		PlayerId: p.ID.String(),
 		Pos: &pb.Position{
 			X: p.State.Location.X,
 			Y: p.State.Location.Y,
@@ -168,7 +188,8 @@ func (r *Roster) publishPlayerSpatialUpdate(p *Player) {
 
 func (r *Roster) publishNewPlayerJoined(p *Player) {
 	lope := envelope.NewPlayerJoined(&pb.NewPlayerJoined{
-		Id:       p.ID.String(),
+		PlayerId: p.ID.String(),
+		ConnId:   p.ConnID.String(),
 		Username: p.Username,
 		Pos: &pb.Position{
 			X: p.State.Location.X,

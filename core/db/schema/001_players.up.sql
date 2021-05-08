@@ -4,6 +4,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE cncraft.players
 (
     id             UUID                        NOT NULL,
+    conn_id        UUID                        NULL,
     username       VARCHAR(128)                NOT NULL,
 
     position_x     DOUBLE PRECISION            NOT NULL,
@@ -22,8 +23,7 @@ CREATE UNIQUE INDEX ix_players_username ON cncraft.players (username);
 
 CREATE TABLE cncraft.inventory
 (
-    -- player_id   UUID REFERENCES cncraft.players (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-    player_id   UUID NOT NULL,
+    player_id   UUID REFERENCES cncraft.players (id) ON DELETE CASCADE,
     slot_number SMALLINT NOT NULL DEFAULT 0,
     item_id     SMALLINT NOT NULL DEFAULT 0,
     item_count  SMALLINT NOT NULL DEFAULT 0,
