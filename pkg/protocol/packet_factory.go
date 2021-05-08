@@ -107,6 +107,9 @@ func createSPacketsMap() map[PacketType]func() SPacket {
 		SPlayerPosition: func() SPacket {
 			return &SPacketPlayerPosition{}
 		},
+		SEntityAction: func() SPacket {
+			return &SPacketEntityAction{}
+		},
 		SPlayerPosAndRotation: func() SPacket {
 			return &SPacketPlayerPosAndRotation{}
 		},

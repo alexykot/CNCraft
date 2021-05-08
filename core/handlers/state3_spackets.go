@@ -85,3 +85,13 @@ func HandleSCloseWindow(sPacket protocol.SPacket) error {
 
 	return nil
 }
+
+// HandleSEntityAction
+// TODO nothing to do here yet, to implement later
+func HandleSEntityAction(sPacket protocol.SPacket) error {
+	if _, ok := sPacket.(*protocol.SPacketEntityAction); !ok {
+		return fmt.Errorf("received packet is not a closeWindow: %v", sPacket)
+	}
+
+	return nil
+}

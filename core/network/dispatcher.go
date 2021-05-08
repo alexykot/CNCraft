@@ -236,6 +236,8 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 		err = handlers.HandleSPlayerSpatial(d.roster.SetPlayerSpatial, conn.ID(), sPacket)
 	case protocol.SCloseWindow:
 		err = handlers.HandleSCloseWindow(sPacket)
+	case protocol.SEntityAction:
+		err = handlers.HandleSEntityAction(sPacket)
 	default:
 		return nil
 		// DEBT turn this error back on once all expected packets are handled
