@@ -60,12 +60,13 @@ func (r *repo) createNewPlayer(username string, connID uuid.UUID) *Player {
 		ConnID:   connID,
 		PC:       entities.NewPC(username, player.MaxHealth),
 		Username: username,
-		Settings: player.Settings{
+		Settings: &player.Settings{
 			ViewDistance: 7,
 			FlyingSpeed:  0.05,
 			FoVModifier:  0.1,
 		},
-		State: player.State{
+		Abilities: &player.Abilities{},
+		State: &player.State{
 			Location: data.Location{
 				PositionF: data.PositionF{
 					X: 0,
@@ -86,11 +87,11 @@ func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, username string, con
 		return nil, fmt.Errorf("failed to query player inventory: %w", err)
 	}
 
-	inventory := items.Inventory{
-		CurrentHotbarSlot: items.HotBarSlot(dbPlayer.CurrentHotbar),
-	}
+	inventory := items.NewInventory()
+	inventory.CurrentHotbarSlot = uint8(dbPlayer.CurrentHotbar)
+
 	for _, dbItem := range dbInventories {
-		inventory.AssignSlot(int(dbItem.SlotNumber), int(dbItem.ItemID), int(dbItem.ItemCount))
+		inventory.SetSlot(dbItem.SlotNumber, items.Slot{ItemID: dbItem.ItemID, ItemCount: dbItem.ItemCount})
 	}
 
 	return &Player{
@@ -98,12 +99,13 @@ func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, username string, con
 		ConnID:   connID,
 		PC:       entities.NewPC(username, player.MaxHealth),
 		Username: username,
-		Settings: player.Settings{
+		Settings: &player.Settings{
 			ViewDistance: 7,
 			FlyingSpeed:  0.05,
 			FoVModifier:  0.1,
 		},
-		State: player.State{
+		Abilities: &player.Abilities{},
+		State: &player.State{
 			Inventory: inventory,
 			Location: data.Location{
 				PositionF: data.PositionF{

@@ -5,7 +5,9 @@ import (
 )
 
 type Inventory struct {
-	CurrentHotbarSlot HotBarSlot
+	clickMgr
+
+	CurrentHotbarSlot uint8
 
 	RowTop    [9]Slot
 	RowMiddle [9]Slot
@@ -19,22 +21,14 @@ type Inventory struct {
 	Result Slot
 }
 
-type HotBarSlot byte
-
-const (
-	Slot0 HotBarSlot = iota
-	Slot1
-	Slot2
-	Slot3
-	Slot4
-	Slot5
-	Slot6
-	Slot7
-	Slot8
-)
+func NewInventory() *Inventory {
+	inv := &Inventory{}
+	inv.WindowID = InventoryWindow
+	inv.Clickable = inv // TODO don't like this ouroboros-style wiring
+	return inv
+}
 
 // ToArray converts Inventory into correctly numbered array of slots for marshalling into a packet.
-// TODO Possibly later move this into centralised Window implementation for all types of windows.
 func (i Inventory) ToArray() []Slot {
 	result := make([]Slot, 46, 46)
 	result[0] = i.Result
@@ -70,29 +64,37 @@ func (i Inventory) ToArray() []Slot {
 	return result
 }
 
-func (i *Inventory) AssignSlot(slotNumber, itemID, itemCount int) {
-	var item Slot
-	if itemID != int(pItems.Air) {
-		item.IsPresent = true
-		item.ItemID = itemID
-		item.ItemCount = itemCount
+func (i *Inventory) GetSlot(slotID int16) Slot {
+	if slotID < 0 {
+		return Slot{}
 	}
 
-	if slotNumber == 0 {
+	items := i.ToArray()
+	if slotID > int16(len(items)-1) {
+		return Slot{}
+	}
+
+	return items[slotID]
+}
+
+func (i *Inventory) SetSlot(slotID int16, item Slot) {
+	item.IsPresent = item.ItemID != int16(pItems.Air)
+
+	if slotID == 0 {
 		i.Result = item
-	} else if slotNumber > 0 && slotNumber < 5 {
-		i.Craft[slotNumber-1] = item
-	} else if slotNumber > 4 && slotNumber < 9 {
-		i.Armor[slotNumber-5] = item
-	} else if slotNumber > 8 && slotNumber < 18 {
-		i.RowTop[slotNumber-9] = item
-	} else if slotNumber > 17 && slotNumber < 27 {
-		i.RowMiddle[slotNumber-18] = item
-	} else if slotNumber > 26 && slotNumber < 36 {
-		i.RowBottom[slotNumber-27] = item
-	} else if slotNumber > 35 && slotNumber < 45 {
-		i.RowHotbar[slotNumber-36] = item
-	} else if slotNumber == 45 {
+	} else if slotID > 0 && slotID < 5 {
+		i.Craft[slotID-1] = item
+	} else if slotID > 4 && slotID < 9 {
+		i.Armor[slotID-5] = item
+	} else if slotID > 8 && slotID < 18 {
+		i.RowTop[slotID-9] = item
+	} else if slotID > 17 && slotID < 27 {
+		i.RowMiddle[slotID-18] = item
+	} else if slotID > 26 && slotID < 36 {
+		i.RowBottom[slotID-27] = item
+	} else if slotID > 35 && slotID < 45 {
+		i.RowHotbar[slotID-36] = item
+	} else if slotID == 45 {
 		i.Offhand = item
 	}
 }

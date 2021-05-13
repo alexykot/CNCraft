@@ -7,5 +7,5 @@ import (
 
 type State struct {
 	Location  data.Location
-	Inventory items.Inventory
+	Inventory *items.Inventory
 }

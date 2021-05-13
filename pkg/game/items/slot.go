@@ -2,7 +2,7 @@ package items
 
 type Slot struct {
 	IsPresent bool
-	ItemID    int
-	ItemCount int
+	ItemID    int16
+	ItemCount int16
 	NBT       map[string]string // DEBT not clear atm how to handle this NBT compound
 }

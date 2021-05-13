@@ -15,35 +15,35 @@ type Player struct {
 	ConnID    uuid.UUID
 	PC        entities.PlayerCharacter
 	Username  string
-	Settings  player.Settings
-	Abilities player.Abilities
-	State     player.State
+	Settings  *player.Settings
+	Abilities *player.Abilities
+	State     *player.State
 
 	mu sync.Mutex
 }
 
-func (p *Player) GetState() player.State {
+func (p *Player) GetState() *player.State {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	return p.State
 }
 
-func (p *Player) SetState(state player.State) {
+func (p *Player) SetState(state *player.State) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	p.State = state
 }
 
-func (p *Player) GetSettings() player.Settings {
+func (p *Player) GetSettings() *player.Settings {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	return p.Settings
 }
 
-func (p *Player) SetSettings(settings player.Settings) {
+func (p *Player) SetSettings(settings *player.Settings) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

@@ -266,23 +266,20 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 				return fmt.Errorf("failed to query player: %w", err)
 			}
 
-			inventory := items.Inventory{
-				RowHotbar: [9]items.Slot{
-					{
-						IsPresent: true,
-						ItemID:    int(pItems.DiamondPickaxe),
-						ItemCount: 1,
-					},
-				},
-			}
+			inventory := items.NewInventory()
+			inventory.RowHotbar = [9]items.Slot{{
+				IsPresent: true,
+				ItemID:    int16(pItems.DiamondPickaxe),
+				ItemCount: 1,
+			}}
 
 			for slotNum, slot := range inventory.ToArray() {
 				if slot.IsPresent {
 					dbItem := orm.Inventory{
 						PlayerID:   dbPlayer.ID,
 						SlotNumber: int16(slotNum),
-						ItemID:     int16(slot.ItemID),
-						ItemCount:  int16(slot.ItemCount),
+						ItemID:     slot.ItemID,
+						ItemCount:  slot.ItemCount,
 					}
 					if err := dbItem.Upsert(ctx, db, true,
 						[]string{orm.InventoryColumns.PlayerID, orm.InventoryColumns.SlotNumber},

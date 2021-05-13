@@ -6,6 +6,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/alexykot/cncraft/pkg/game/items"
+
 	"github.com/alexykot/cncraft/core/players"
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/protocol"
@@ -86,8 +88,28 @@ func HandleSHeldItemChange(heldItemSetter func(connID uuid.UUID, heldItem uint8)
 	return nil
 }
 
-func HandleSClickWindow(connID uuid.UUID, sPacket protocol.SPacket) error {
-	// TODO implement next
+func HandleSClickWindow(connID uuid.UUID, inventory *items.Inventory, inventoryUpdater func(uuid.UUID), sPacket protocol.SPacket) error {
+	click, ok := sPacket.(*protocol.SPacketClickWindow)
+	if !ok {
+		return fmt.Errorf("received packet is not a clickWindow: %v", sPacket)
+	}
+
+	switch click.WindowID {
+	case uint8(items.InventoryWindow):
+		isInventoryUpdated, err := inventory.HandleClick(click.ActionID, click.SlotID, click.Mode, click.Button, click.ClickedItem)
+		if err != nil {
+			// TODO this is not a packet handling error, this is an illegitimate inventory action from the client.
+			//  This needs to trigger negative WindowConfirmation response packet and put inventory into "upset" state.
+			return fmt.Errorf("error handling inventory click: %w", err)
+		}
+
+		if isInventoryUpdated {
+			inventoryUpdater(connID)
+		}
+	default:
+		return fmt.Errorf("window ID %d is not implemented", click.WindowID)
+	}
+
 	return nil
 }
 

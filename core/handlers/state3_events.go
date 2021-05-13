@@ -82,7 +82,7 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerAbilities)
 		abilities := cpacket.(*protocol.CPacketPlayerAbilities)
-		abilities.Abilities = p.Abilities
+		abilities.Abilities = *p.Abilities
 		abilities.FlyingSpeed = p.Settings.FlyingSpeed
 		abilities.FieldOfView = p.Settings.FoVModifier
 		outLopes = append(outLopes, mkCpacketEnvelope(abilities))

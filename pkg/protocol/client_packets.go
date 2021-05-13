@@ -710,13 +710,13 @@ func (p *CPacketCamera) Type() PacketType             { return CCamera }
 func (p *CPacketCamera) Push(writer buffer.B)         { panic("packet not implemented") }
 
 type CPacketHeldItemChange struct {
-	Slot items.HotBarSlot
+	Slot uint8
 }
 
 func (p *CPacketHeldItemChange) ProtocolID() ProtocolPacketID { return protocolCHeldItemChange }
 func (p *CPacketHeldItemChange) Type() PacketType             { return CHeldItemChange }
 func (p *CPacketHeldItemChange) Push(writer buffer.B) {
-	writer.PushByte(byte(p.Slot))
+	writer.PushByte(p.Slot)
 }
 
 type CPacketUpdateViewPosition struct{}

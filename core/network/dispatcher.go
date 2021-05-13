@@ -202,8 +202,7 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 		d.log.Debug("changed connState", zap.String("conn", conn.ID().String()), zap.String("state", state.String()))
 	}
 
-	pacType := sPacket.Type()
-	switch pacType {
+	switch sPacket.Type() {
 	case protocol.SHandshake:
 		err = handlers.HandleSHandshake(debugStateSetter, sPacket)
 	case protocol.SRequest:
@@ -216,20 +215,21 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 		cPackets, err = handlers.HandleSLoginStart(d.auth, d.ps, debugStateSetter, d.aliver.AddAliveConn, conn.ID(), sPacket)
 	case protocol.SEncryptionResponse:
 		cPackets, err = handlers.HandleSEncryptionResponse(
-			d.auth, d.ps, debugStateSetter, conn.EnableEncryption, conn.EnableCompression, d.aliver.AddAliveConn,
-			conn.ID(), sPacket)
+			d.auth, d.ps, debugStateSetter, conn.EnableEncryption, conn.EnableCompression, d.aliver.AddAliveConn, conn.ID(), sPacket)
 	case protocol.SPluginMessage:
-		if player, ok := d.roster.GetPlayerByConnID(conn.ID()); !ok {
+		player, ok := d.roster.GetPlayerByConnID(conn.ID())
+		if !ok {
 			err = fmt.Errorf("player %s not found ", conn.ID())
-		} else {
-			err = handlers.HandleSPluginMessage(d.log, player, sPacket)
+			break
 		}
+		err = handlers.HandleSPluginMessage(d.log, player, sPacket)
 	case protocol.SClientSettings:
-		if player, ok := d.roster.GetPlayerByConnID(conn.ID()); !ok {
+		player, ok := d.roster.GetPlayerByConnID(conn.ID())
+		if !ok {
 			err = fmt.Errorf("player %s not found ", conn.ID())
-		} else {
-			err = handlers.HandleSClientSettings(player, sPacket)
+			break
 		}
+		err = handlers.HandleSClientSettings(player, sPacket)
 	case protocol.SKeepAlive:
 		err = handlers.HandleSKeepAlive(d.aliver.receiveKeepAlive, conn.ID(), sPacket)
 	case protocol.SPlayerPosition, protocol.SPlayerMovement:
@@ -243,7 +243,12 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	case protocol.SHeldItemChange:
 		err = handlers.HandleSHeldItemChange(d.roster.SetPlayerHeldItem, conn.ID(), sPacket)
 	case protocol.SClickWindow:
-		err = handlers.HandleSClickWindow(conn.ID(), sPacket)
+		player, ok := d.roster.GetPlayerByConnID(conn.ID())
+		if !ok {
+			err = fmt.Errorf("player %s not found ", conn.ID())
+			break
+		}
+		err = handlers.HandleSClickWindow(conn.ID(), player.State.Inventory, d.roster.PlayerInventoryChanged, sPacket)
 	default:
 		return nil
 		// DEBT turn this error back on once all expected packets are handled
@@ -251,10 +256,10 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to handle %s packet: %w", pacType.String(), err)
+		return fmt.Errorf("failed to handle %s packet: %w", sPacket.Type().String(), err)
 	}
 	if cPackets != nil {
-		for _, cPacket := range cPackets {
+		for _, cPacket := range cPackets { /**/
 			if err := d.transmitCPacket(conn, cPacket); err != nil {
 				return fmt.Errorf("failed to transmit %s packet: %w", cPacket.Type().String(), err)
 			}

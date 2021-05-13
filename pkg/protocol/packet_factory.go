@@ -61,28 +61,27 @@ func createSPacketsMap() map[PacketType]func() SPacket {
 		SLoginPluginResponse: func() SPacket { return &SPacketLoginPluginResponse{} },
 
 		// Play state
-		SKeepAlive:            func() SPacket { return &SPacketKeepAlive{} },
-		SClientStatus:         func() SPacket { return &SPacketClientStatus{} },
-		SClientSettings:       func() SPacket { return &SPacketClientSettings{} },
-		SSetDifficulty:        func() SPacket { return &SPacketSetDifficulty{} },
-		SPlayerAbilities:      func() SPacket { return &SPacketPlayerAbilities{} },
+		SKeepAlive:       func() SPacket { return &SPacketKeepAlive{} },
+		SClientStatus:    func() SPacket { return &SPacketClientStatus{} },
+		SClientSettings:  func() SPacket { return &SPacketClientSettings{} },
+		SSetDifficulty:   func() SPacket { return &SPacketSetDifficulty{} },
+		SPlayerAbilities: func() SPacket { return &SPacketPlayerAbilities{} },
 
-		SPluginMessage:        func() SPacket { return &SPacketPluginMessage{} },
-		STeleportConfirm:      func() SPacket { return &SPacketTeleportConfirm{} },
-		SQueryBlockNBT:        func() SPacket { return &SPacketQueryBlockNBT{} },
-		SChatMessage:          func() SPacket { return &SPacketChatMessage{} },
+		SPluginMessage:   func() SPacket { return &SPacketPluginMessage{} },
+		STeleportConfirm: func() SPacket { return &SPacketTeleportConfirm{} },
+		SQueryBlockNBT:   func() SPacket { return &SPacketQueryBlockNBT{} },
+		SChatMessage:     func() SPacket { return &SPacketChatMessage{} },
 
-		SHeldItemChange:       func() SPacket { return &SPacketHeldItemChange{} },
-		SEntityAction:         func() SPacket { return &SPacketEntityAction{} },
-		SAnimation:            func() SPacket { return &SPacketAnimation{} },
-		SClickWindow:          func() SPacket { return &SPacketClickWindow{} },
-		SCloseWindow:          func() SPacket { return &SPacketCloseWindow{} },
+		SHeldItemChange: func() SPacket { return &SPacketHeldItemChange{} },
+		SEntityAction:   func() SPacket { return &SPacketEntityAction{} },
+		SAnimation:      func() SPacket { return &SPacketAnimation{} },
+		SClickWindow:    func() SPacket { return &SPacketClickWindow{} },
+		SCloseWindow:    func() SPacket { return &SPacketCloseWindow{} },
 
 		SPlayerMovement:       func() SPacket { return &SPacketPlayerMovement{} },
 		SPlayerPosition:       func() SPacket { return &SPacketPlayerPosition{} },
 		SPlayerPosAndRotation: func() SPacket { return &SPacketPlayerPosAndRotation{} },
 		SPlayerRotation:       func() SPacket { return &SPacketPlayerRotation{} },
-
 	}
 }
 

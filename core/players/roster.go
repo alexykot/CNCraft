@@ -8,8 +8,6 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/alexykot/cncraft/pkg/game/items"
-
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/envelope"
@@ -66,10 +64,10 @@ func (r *Roster) AddPlayer(connID uuid.UUID, username string) (*Player, error) {
 	}
 
 	if isNew {
-		r.log.Debug("new player joined for the first time", zap.Any("player", p))
+		r.log.Debug("new player joined for the first time", zap.String("name", p.Username))
 		r.publishNewPlayerJoined(p)
 	} else {
-		r.log.Debug("rejoining player loaded", zap.Any("player", p))
+		r.log.Debug("rejoining player loaded", zap.String("name", p.Username))
 	}
 
 	r.players[p.ID] = p
@@ -102,6 +100,7 @@ func (r *Roster) GetPlayerIDByConnID(connID uuid.UUID) (uuid.UUID, bool) {
 	return uuid.UUID{}, false
 }
 
+// SetPlayerSpatial - *bool type is used here to separate true/false valus from an absence of value to update
 func (r *Roster) SetPlayerSpatial(connID uuid.UUID, position *data.PositionF, rotation *data.RotationF, onGround *bool) {
 	p, ok := r.GetPlayerByConnID(connID)
 	if !ok {
@@ -128,7 +127,15 @@ func (r *Roster) SetPlayerHeldItem(connID uuid.UUID, heldItem uint8) {
 	if !ok {
 		return
 	}
-	p.State.Inventory.CurrentHotbarSlot = items.HotBarSlot(heldItem)
+	p.State.Inventory.CurrentHotbarSlot = heldItem
+	r.publishPlayerInventoryUpdate(p)
+}
+
+func (r *Roster) PlayerInventoryChanged(connID uuid.UUID) {
+	p, ok := r.GetPlayerByConnID(connID)
+	if !ok {
+		return
+	}
 	r.publishPlayerInventoryUpdate(p)
 }
 
@@ -177,7 +184,7 @@ func (r *Roster) playerLeftHandler(lope *envelope.E) {
 		r.log.Error("failed to parse conn ID as UUID", zap.Any("id", left.PlayerId))
 	}
 
-	r.log.Debug("player leaving", zap.Any("player", r.players[playerID]))
+	r.log.Debug("player leaving", zap.String("name", r.players[playerID].Username))
 	delete(r.players, playerID)
 }
 
