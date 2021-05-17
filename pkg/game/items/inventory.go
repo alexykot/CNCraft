@@ -29,7 +29,7 @@ func NewInventory() *Inventory {
 }
 
 // ToArray converts Inventory into correctly numbered array of slots for marshalling into a packet.
-func (i Inventory) ToArray() []Slot {
+func (i *Inventory) ToArray() []Slot {
 	result := make([]Slot, 46, 46)
 	result[0] = i.Result
 	result[1] = i.Craft[0]
@@ -96,5 +96,12 @@ func (i *Inventory) SetSlot(slotID int16, item Slot) {
 		i.RowHotbar[slotID-36] = item
 	} else if slotID == 45 {
 		i.Offhand = item
+	}
+}
+
+func (i *Inventory) reset() {
+	wipe := make([]Slot, 46, 46)
+	for ii, _ := range wipe {
+		i.SetSlot(int16(ii), Slot{})
 	}
 }

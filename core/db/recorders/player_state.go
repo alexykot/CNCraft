@@ -181,7 +181,6 @@ func handlePlayerInventory(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 				ItemID:     int16(item.ItemId),
 				ItemCount:  int16(item.ItemCount),
 			}
-			println(fmt.Sprintf("saving item %v", dbItem))
 			if err := dbItem.Insert(context.TODO(), tx, boil.Infer()); err != nil {
 				log.Error("failed to wipe player inventory", zap.String("id", inventory.PlayerId), zap.Error(err))
 				_ = tx.Rollback()

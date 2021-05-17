@@ -267,11 +267,18 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 			}
 
 			inventory := items.NewInventory()
-			inventory.RowHotbar = [9]items.Slot{{
-				IsPresent: true,
-				ItemID:    int16(pItems.DiamondPickaxe),
-				ItemCount: 1,
-			}}
+			inventory.RowHotbar = [9]items.Slot{
+				{
+					IsPresent: true,
+					ItemID:    int16(pItems.DiamondPickaxe),
+					ItemCount: 1,
+				},
+				{
+					IsPresent: true,
+					ItemID:    int16(pItems.Bedrock),
+					ItemCount: 40,
+				},
+			}
 
 			for slotNum, slot := range inventory.ToArray() {
 				if slot.IsPresent {
