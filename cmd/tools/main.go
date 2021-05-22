@@ -266,7 +266,7 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 				return fmt.Errorf("failed to query player: %w", err)
 			}
 
-			inventory := items.NewInventory()
+			inventory := items.NewInventory(zap.L())
 			inventory.RowHotbar = [9]items.Slot{
 				{
 					IsPresent: true,

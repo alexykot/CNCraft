@@ -34,7 +34,8 @@ type logLevels struct {
 	Dispatcher string `yaml:"dispatcher"`
 	Network    string `yaml:"network"`
 	PubSub     string `yaml:"pubsub"`
-	Players    string `yaml:"users"`
+	Players    string `yaml:"players"`
+	Windows    string `yaml:"windows"`
 	DB         string `yaml:"db"`
 }
 
@@ -66,6 +67,7 @@ func GetDefaultConfig() ServerConf {
 			PubSub:     "ERROR",
 
 			Players: "DEBUG",
+			Windows: "DEBUG",
 			DB:      "ERROR",
 		},
 		IsCracked:           true,
@@ -88,6 +90,9 @@ func addDefaults(conf ServerConf) ServerConf {
 	}
 	if conf.LogLevels.Players == "" {
 		conf.LogLevels.Players = conf.LogLevels.Baseline
+	}
+	if conf.LogLevels.Windows == "" {
+		conf.LogLevels.Windows = conf.LogLevels.Baseline
 	}
 	if conf.LogLevels.DB == "" {
 		conf.LogLevels.DB = conf.LogLevels.Baseline

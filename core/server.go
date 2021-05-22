@@ -66,7 +66,10 @@ func NewServer(conf control.ServerConf) (Server, error) {
 		return nil, fmt.Errorf("could not instantiate DB: %w", err)
 	}
 
-	roster := players.NewRoster(log.LevelUp(log.Named(rootLog, "players"), conf.LogLevels.Players), pubSub, database)
+	roster := players.NewRoster(
+		log.LevelUp(log.Named(rootLog, "players"), conf.LogLevels.Players),
+		log.LevelUp(log.Named(rootLog, "windows"), conf.LogLevels.Players),
+		pubSub, database)
 
 	dispatcher := network.NewDispatcher(log.LevelUp(log.Named(rootLog, "dispatcher"), conf.LogLevels.Dispatcher),
 		pubSub, auth.GetAuther(), roster,

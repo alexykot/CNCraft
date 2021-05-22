@@ -25,11 +25,11 @@ type Roster struct {
 	players map[uuid.UUID]*Player
 }
 
-func NewRoster(log *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
+func NewRoster(log, windowLog *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
 	return &Roster{
 		log:  log,
 		ps:   ps,
-		repo: newRepo(db),
+		repo: newRepo(db, windowLog),
 
 		// DEBT this is a single point of synchronisation for all currently connected players. This will break
 		//  down in multi-node cluster setup, and cluster-global synchronisation will be needed instead.

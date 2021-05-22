@@ -1,11 +1,13 @@
 package items
 
 import (
+	"go.uber.org/zap"
+
 	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
 )
 
 type Inventory struct {
-	clickMgr
+	windowMgr
 
 	CurrentHotbarSlot uint8
 
@@ -21,10 +23,14 @@ type Inventory struct {
 	Result Slot
 }
 
-func NewInventory() *Inventory {
-	inv := &Inventory{}
-	inv.WindowID = InventoryWindow
-	inv.Clickable = inv // TODO don't like this ouroboros-style wiring
+func NewInventory(windowLog *zap.Logger) *Inventory {
+	inv := &Inventory{
+		windowMgr: windowMgr{
+			WindowID: InventoryWindow,
+			log:      windowLog,
+		},
+	}
+	inv.clickable = inv // TODO don't like this Ouroboros wiring
 	return inv
 }
 
@@ -78,7 +84,7 @@ func (i *Inventory) GetSlot(slotID int16) Slot {
 }
 
 func (i *Inventory) SetSlot(slotID int16, item Slot) {
-	item.IsPresent = item.ItemID != int16(pItems.Air)
+	item.IsPresent = item.ItemID != pItems.Air
 
 	if slotID == 0 {
 		i.Result = item
@@ -103,5 +109,13 @@ func (i *Inventory) reset() {
 	wipe := make([]Slot, 46, 46)
 	for ii, _ := range wipe {
 		i.SetSlot(int16(ii), Slot{})
+	}
+}
+
+func (i *Inventory) GetRange(isTop whatRange) slotRange {
+	if isTop {
+		return slotRange{9, 35}
+	} else {
+		return slotRange{36, 44}
 	}
 }

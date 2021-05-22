@@ -8,6 +8,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/items"
 	"github.com/alexykot/cncraft/pkg/game/player"
+	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
 	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 )
 
@@ -244,7 +245,7 @@ func (p *SPacketClickWindow) Pull(reader buffer.B) error {
 	p.Mode = int16(reader.PullVarInt())
 	p.ClickedItem.IsPresent = reader.PullBool()
 	if p.ClickedItem.IsPresent {
-		p.ClickedItem.ItemID = int16(reader.PullVarInt())
+		p.ClickedItem.ItemID = pItems.ItemID(reader.PullVarInt())
 		p.ClickedItem.ItemCount = int16(reader.PullByte())
 	}
 	return nil

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 type windowID uint8
@@ -16,12 +18,14 @@ const (
 type clickable interface {
 	GetSlot(slotID int16) Slot
 	SetSlot(slotID int16, item Slot)
+	GetRange(whatRange) slotRange
 }
 
-type clickMgr struct {
+type windowMgr struct {
 	WindowID  windowID
-	Clickable clickable
+	clickable clickable
 
+	log        *zap.Logger
 	mu         sync.Mutex
 	lastAction int16
 	isOpen     bool
@@ -46,12 +50,11 @@ const (
 	middleMouseButton = 2
 )
 
-func (m *clickMgr) HandleClick(actionID, slotID, mode int16, button uint8, clickedItem Slot) (bool, error) {
+func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clickedItem Slot) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// println()
-	// println(fmt.Sprintf("actionID: %d, lastAction: %d", actionID, m.lastAction))
+	m.log.Debug(fmt.Sprintf("actionID: %d, lastAction: %d", actionID, m.lastAction))
 
 	if m.lastAction+1 != actionID {
 		return false, fmt.Errorf("action ID out of sequence, next action should be %d", m.lastAction+1)
@@ -72,8 +75,12 @@ func (m *clickMgr) HandleClick(actionID, slotID, mode int16, button uint8, click
 	switch clickMode(mode) {
 	case simpleClick:
 		inventoryUpdated, err = m.handleMode0(slotID, button, clickedItem)
-	default:
+	case shftClick:
+		inventoryUpdated, err = m.handleMode1(slotID, button, clickedItem)
+	case numberKey, middleClick, drop, dragPaint, doubleClick:
 		return false, fmt.Errorf("mode %s not supported", clickMode(mode).String())
+	default:
+		return false, fmt.Errorf("invalid mode %d received", mode)
 	}
 
 	if err == nil {
@@ -83,72 +90,72 @@ func (m *clickMgr) HandleClick(actionID, slotID, mode int16, button uint8, click
 	return inventoryUpdated, err
 }
 
-func (m *clickMgr) OpenWindow()  { m.isOpen = true }
-func (m *clickMgr) CloseWindow() { m.isOpen = false }
+func (m *windowMgr) OpenWindow()  { m.isOpen = true }
+func (m *windowMgr) CloseWindow() { m.isOpen = false } // TODO do something with cursor contents here
 
-// DEBT this all does not yet consider item stackability
-func (m *clickMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (bool, error) {
-	slotItem := m.Clickable.GetSlot(slotID)
+func (m *windowMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (bool, error) {
+	slotItem := m.clickable.GetSlot(slotID)
 
 	if !slotEqual(slotItem, clickedItem) {
 		return false, fmt.Errorf("slot contents not equal to clickedItem supplied")
 	}
 
-	println(fmt.Sprintf("button: %d; slotID: %d; slotItem: %v; clickedItem: %v", button, slotID, slotItem, clickedItem))
+	m.log.Debug(fmt.Sprintf("button: %d; slotID: %d; slotItem: %v; clickedItem: %v", button, slotID, slotItem, clickedItem),
+		zap.Int("mode", 0))
 
 	switch button {
 	case leftMouseButton:
-		println("left click")
+		m.log.Debug("left click", zap.Int("mode", 0))
 		if m.cursor.IsPresent { // put down something
-			println("put down")
+			m.log.Debug("put down", zap.Int("mode", 0))
 
 			if slotItem.IsPresent {
-				println("slot not empty")
+				m.log.Debug("slot not empty", zap.Int("mode", 0))
 				if m.cursor.ItemID == slotItem.ItemID { // same things in cursor and slot - join
-					println("join")
+					m.log.Debug("join", zap.Int("mode", 0))
 					slotNewCount := m.cursor.ItemCount + slotItem.ItemCount
-					cursorNewCount := slotNewCount - getMaxStack(slotItem.ItemID)
+					cursorNewCount := slotNewCount - slotItem.ItemID.MaxStack()
 					if cursorNewCount > 0 { // total doesn't fit in one stack, something left on cursor
-						slotItem.ItemCount = getMaxStack(slotItem.ItemID)
+						slotItem.ItemCount = slotItem.ItemID.MaxStack()
 						m.cursor.ItemCount = cursorNewCount
 					} else { // total fits in one stack, cursor empty
 						slotItem.ItemCount = slotNewCount
 						m.cursor = Slot{}
 					}
-					m.Clickable.SetSlot(slotID, slotItem)
+					m.clickable.SetSlot(slotID, slotItem)
 				} else { // different things in cursor and slot - swap
-					println("swap")
-					m.Clickable.SetSlot(slotID, m.cursor)
+					m.log.Debug("swap", zap.Int("mode", 0))
+					m.clickable.SetSlot(slotID, m.cursor)
 					m.cursor = slotItem
 				}
 			} else {
-				println("slot empty")
-				m.Clickable.SetSlot(slotID, m.cursor)
+				m.log.Debug("slot empty", zap.Int("mode", 0))
+				m.clickable.SetSlot(slotID, m.cursor)
 				m.cursor = Slot{}
 			}
 			return true, nil
 		} else { // pick up something
-			println("pick up")
+			m.log.Debug("pick up", zap.Int("mode", 0))
 			if slotItem.IsPresent {
-				println("picked item")
+				m.log.Debug("picked item", zap.Int("mode", 0))
 				m.cursor = slotItem // TODO the contents of the cursor should be persisted as well
-				m.Clickable.SetSlot(slotID, Slot{})
+				m.clickable.SetSlot(slotID, Slot{})
 				return true, nil
 			} else {
-				println("nothing to pick up")
+				m.log.Debug("nothing to pick up", zap.Int("mode", 0))
 				return false, nil
 			}
 		}
 	case rightMouseButton:
-		println("right click")
+		m.log.Debug("right click", zap.Int("mode", 0))
 		if m.cursor.IsPresent { // put down something
-			println("put down")
+			m.log.Debug("put down", zap.Int("mode", 0))
 
 			if slotItem.IsPresent {
-				println("slot not empty")
+				m.log.Debug("slot not empty", zap.Int("mode", 0))
 				if m.cursor.ItemID == slotItem.ItemID { // same things in cursor and slot - join one item from cursor stack
-					println("join one item")
-					slotNewCount := int16(math.Min(float64(slotItem.ItemCount + 1), float64(getMaxStack(slotItem.ItemID))))
+					m.log.Debug("join one item", zap.Int("mode", 0))
+					slotNewCount := int16(math.Min(float64(slotItem.ItemCount+1), float64(slotItem.ItemID.MaxStack())))
 					moved := slotNewCount - slotItem.ItemCount
 					cursorNewCount := m.cursor.ItemCount - moved
 					slotItem.ItemCount = slotNewCount
@@ -156,19 +163,19 @@ func (m *clickMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (bo
 					if m.cursor.ItemCount == 0 { // nothing left on the cursor
 						m.cursor = Slot{}
 					}
-					m.Clickable.SetSlot(slotID, slotItem)
+					m.clickable.SetSlot(slotID, slotItem)
 				} else { // different things in cursor and slot
 					if slotItem.ItemCount == 1 { // only one item on cursor - swap
-						println("swap")
-						m.Clickable.SetSlot(slotID, m.cursor)
+						m.log.Debug("swap", zap.Int("mode", 0))
+						m.clickable.SetSlot(slotID, m.cursor)
 						m.cursor = slotItem
 					} else { // more than one item on cursor - can't do anything
-						println("can't swap, ignoring")
+						m.log.Debug("can't swap, ignoring", zap.Int("mode", 0))
 						return false, nil
 					}
 				}
 			} else { // slot empty, put one item down
-				println("slot empty - put one down")
+				m.log.Debug("slot empty - put one down", zap.Int("mode", 0))
 				var newSlotItem Slot
 				newSlotItem.IsPresent = true
 				newSlotItem.ItemID = m.cursor.ItemID
@@ -177,13 +184,13 @@ func (m *clickMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (bo
 				if m.cursor.ItemCount == 0 { // nothing left on the cursor
 					m.cursor = Slot{}
 				}
-				m.Clickable.SetSlot(slotID, newSlotItem)
+				m.clickable.SetSlot(slotID, newSlotItem)
 			}
 			return true, nil
 		} else { // pick up something
-			println("pick up")
+			m.log.Debug("pick up", zap.Int("mode", 0))
 			if slotItem.IsPresent {
-				println("picked half-stack")
+				m.log.Debug("picked half-stack", zap.Int("mode", 0))
 
 				var pickupItem Slot
 				pickupItem.IsPresent = true
@@ -197,17 +204,84 @@ func (m *clickMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (bo
 					slotItem.IsPresent = false
 					slotItem.ItemID = 0
 				}
-				m.Clickable.SetSlot(slotID, slotItem)
+				m.clickable.SetSlot(slotID, slotItem)
 				m.cursor = pickupItem // TODO the contents of the cursor should be persisted as well
 				return true, nil
 			} else {
-				println("nothing to pick up")
+				m.log.Debug("nothing to pick up", zap.Int("mode", 0))
 				return false, nil
 			}
 		}
 	default:
-		return false, fmt.Errorf("button %d not supported for mode 0", button)
-
+		return false, fmt.Errorf("button %d is invalid for mode 0", button)
 	}
 }
 
+func (m *windowMgr) handleMode1(slotID int16, button uint8, clickedItem Slot) (bool, error) {
+	slotItem := m.clickable.GetSlot(slotID)
+
+	if !slotEqual(slotItem, clickedItem) {
+		return false, fmt.Errorf("slot contents not equal to clickedItem supplied")
+	}
+
+	m.log.Debug(fmt.Sprintf("button: %d; slotID: %d; slotItem: %v; clickedItem: %v", button, slotID, slotItem, clickedItem),
+		zap.Int("mode", 1))
+
+	switch button {
+	case leftMouseButton, rightMouseButton:
+		if !slotItem.IsPresent {
+			return false, nil
+		}
+
+		topRange := m.clickable.GetRange(top)
+		bottomRange := m.clickable.GetRange(bottom)
+
+		var targetRange slotRange
+		if topRange.InRange(slotID) {
+			targetRange = bottomRange // target range is opposite of where the click happened
+		} else if bottomRange.InRange(slotID) {
+			targetRange = topRange // target range is opposite of where the click happened
+		} else {
+			// TODO handle shift+click when slotID is not in one of the standard ranges
+			return false, fmt.Errorf("slotID out of range")
+		}
+
+		sameItemSlots := targetRange.GetItemSlots(m.clickable, slotItem.ItemID)
+		var hasChanged bool
+		if len(sameItemSlots) > 0 {
+			for _, sameItemSlotID := range sameItemSlots {
+				sameItem := m.clickable.GetSlot(sameItemSlotID)
+				newItemCount := int16(math.Min(float64(sameItem.ItemCount+slotItem.ItemCount), float64(sameItem.ItemID.MaxStack())))
+
+				hasChanged = sameItem.ItemCount != newItemCount
+				slotItem.ItemCount = slotItem.ItemCount - (newItemCount - sameItem.ItemCount)
+				sameItem.ItemCount = newItemCount
+
+				if slotItem.ItemCount <= 0 {
+					slotItem = Slot{}
+				}
+				m.clickable.SetSlot(sameItemSlotID, sameItem)
+				m.clickable.SetSlot(slotID, slotItem)
+				if !slotItem.IsPresent {
+					return true, nil // everything distributed, nothing else to do
+				}
+			}
+		}
+
+		// either no same item slots were found, or there was not enough space in those stacks to distribute everything (or item is unstackable)
+		emptySlots := targetRange.GetEmptySlots(m.clickable)
+		if len(emptySlots) > 0 {
+			println(fmt.Sprintf("empty slots available, put remaining %d items into the first empty slot %d", slotItem.ItemCount, emptySlots[0]))
+			m.clickable.SetSlot(emptySlots[0], slotItem) // place remainder of the item stack into first empty slot
+			m.clickable.SetSlot(slotID, Slot{})
+			return true, nil
+		}
+
+		// we get here if there was not enough spaces in the sameItemSlots to distribute everything,
+		// and no empty slots are available
+		println("not enough space to distribute everything, something left behind")
+		return hasChanged, nil
+	default:
+		return false, fmt.Errorf("button %d not supported for mode 0", button)
+	}
+}

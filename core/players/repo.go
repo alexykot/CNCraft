@@ -9,6 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"go.uber.org/zap"
+
+	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
 
 	"github.com/alexykot/cncraft/core/db/orm"
 	"github.com/alexykot/cncraft/pkg/game/data"
@@ -19,11 +22,12 @@ import (
 
 // repo is a player repository, it implements handling the persistent storage of player data.
 type repo struct {
-	db *sql.DB
+	windowLog *zap.Logger
+	db        *sql.DB
 }
 
-func newRepo(db *sql.DB) *repo {
-	return &repo{db}
+func newRepo(db *sql.DB, windowLog *zap.Logger) *repo {
+	return &repo{windowLog, db}
 }
 
 func (r *repo) InitPlayer(username string, connID uuid.UUID) (p *Player, isNew bool, err error) {
@@ -55,6 +59,8 @@ func (r *repo) InitPlayer(username string, connID uuid.UUID) (p *Player, isNew b
 
 // TODO this needs to be replaced with proper spawn point and starting conditions.
 func (r *repo) createNewPlayer(username string, connID uuid.UUID) *Player {
+	inventory := items.NewInventory(r.windowLog)
+
 	return &Player{
 		ID:       uuid.New(),
 		ConnID:   connID,
@@ -67,6 +73,7 @@ func (r *repo) createNewPlayer(username string, connID uuid.UUID) *Player {
 		},
 		Abilities: &player.Abilities{},
 		State: &player.State{
+			Inventory: inventory,
 			Location: data.Location{
 				PositionF: data.PositionF{
 					X: 0,
@@ -87,11 +94,11 @@ func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, username string, con
 		return nil, fmt.Errorf("failed to query player inventory: %w", err)
 	}
 
-	inventory := items.NewInventory()
+	inventory := items.NewInventory(r.windowLog)
 	inventory.CurrentHotbarSlot = uint8(dbPlayer.CurrentHotbar)
 
 	for _, dbItem := range dbInventories {
-		inventory.SetSlot(dbItem.SlotNumber, items.Slot{ItemID: dbItem.ItemID, ItemCount: dbItem.ItemCount})
+		inventory.SetSlot(dbItem.SlotNumber, items.Slot{ItemID: pItems.ItemID(dbItem.ItemID), ItemCount: dbItem.ItemCount})
 	}
 
 	return &Player{

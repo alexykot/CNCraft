@@ -1,8 +1,10 @@
 package items
 
+import pItems "github.com/alexykot/cncraft/pkg/protocol/items"
+
 type Slot struct {
 	IsPresent bool
-	ItemID    int16 // TODO pItems.ItemID ?
+	ItemID    pItems.ItemID
 	ItemCount int16
 	NBT       map[string]string // DEBT not clear atm how to handle this NBT compound
 }
@@ -13,6 +15,36 @@ func slotEqual(itemLeft, itemRight Slot) bool {
 		itemLeft.ItemCount == itemRight.ItemCount
 }
 
-func getMaxStack(itemID int16) int16 {
-	return 64 // DEBT replace this with per-item stackability count
+type whatRange bool
+
+const top whatRange = true
+const bottom whatRange = false
+
+type slotRange struct {
+	start, end int16
+}
+
+func (r slotRange) InRange(slotID int16) bool {
+	return slotID >= r.start && slotID <= r.end
+}
+
+func (r slotRange) GetEmptySlots(window clickable) []int16 {
+	var emptySlots []int16
+	for slotID := r.start; slotID <= r.end; slotID++ {
+		if !window.GetSlot(slotID).IsPresent {
+			emptySlots = append(emptySlots, slotID)
+		}
+	}
+	return emptySlots
+}
+
+func (r slotRange) GetItemSlots(window clickable, itemID pItems.ItemID) []int16 {
+	var itemSlots []int16
+	for slotID := r.start; slotID <= r.end; slotID++ {
+		slotItem := window.GetSlot(slotID)
+		if slotItem.IsPresent && slotItem.ItemID == itemID {
+			itemSlots = append(itemSlots, slotID)
+		}
+	}
+	return itemSlots
 }
