@@ -252,13 +252,13 @@ func (p *SPacketClickWindow) Pull(reader buffer.B) error {
 }
 
 type SPacketCloseWindow struct {
-	WindowID int8
+	WindowID items.WindowID
 }
 
 func (p *SPacketCloseWindow) ProtocolID() ProtocolPacketID { return protocolSCloseWindow }
 func (p *SPacketCloseWindow) Type() PacketType             { return SCloseWindow }
 func (p *SPacketCloseWindow) Pull(reader buffer.B) error {
-	p.WindowID = int8(reader.PullByte())
+	p.WindowID = items.WindowID(reader.PullByte())
 	return nil
 }
 

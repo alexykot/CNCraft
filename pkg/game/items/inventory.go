@@ -107,15 +107,20 @@ func (i *Inventory) SetSlot(slotID int16, item Slot) {
 
 func (i *Inventory) reset() {
 	wipe := make([]Slot, 46, 46)
-	for ii, _ := range wipe {
+	for ii := range wipe {
 		i.SetSlot(int16(ii), Slot{})
 	}
 }
 
-func (i *Inventory) GetRange(isTop whatRange) slotRange {
-	if isTop {
-		return slotRange{9, 35}
-	} else {
-		return slotRange{36, 44}
+func (i *Inventory) GetRange(rangeType rangeType) slotRange {
+	var slots slotRange
+	switch rangeType {
+	case top:
+		slots = slotRange{9, 35}
+	case bottom:
+		slots = slotRange{36, 44}
+	case hotbar:
+		slots = slotRange{36, 44}
 	}
+	return slots
 }

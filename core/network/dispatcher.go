@@ -234,8 +234,6 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 		err = handlers.HandleSKeepAlive(d.aliver.receiveKeepAlive, conn.ID(), sPacket)
 	case protocol.SPlayerPosition, protocol.SPlayerMovement:
 		err = handlers.HandleSPlayerSpatial(d.roster.SetPlayerSpatial, conn.ID(), sPacket)
-	case protocol.SCloseWindow:
-		err = handlers.HandleSCloseWindow(sPacket)
 	case protocol.SEntityAction:
 		err = handlers.HandleSEntityAction(sPacket)
 	case protocol.SAnimation:
@@ -249,6 +247,13 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 			break
 		}
 		err = handlers.HandleSClickWindow(conn.ID(), player.State.Inventory, d.roster.PlayerInventoryChanged, sPacket)
+	case protocol.SCloseWindow:
+		player, ok := d.roster.GetPlayerByConnID(conn.ID())
+		if !ok {
+			err = fmt.Errorf("player %s not found ", conn.ID())
+			break
+		}
+		err = handlers.HandleSCloseWindow(player, sPacket)
 	default:
 		return nil
 		// DEBT turn this error back on once all expected packets are handled

@@ -9,27 +9,30 @@ import (
 	"go.uber.org/zap"
 )
 
-type windowID uint8
+type WindowID uint8
 
 const (
-	InventoryWindow windowID = 0
+	InventoryWindow WindowID = 0
 )
 
 type clickable interface {
 	GetSlot(slotID int16) Slot
 	SetSlot(slotID int16, item Slot)
-	GetRange(whatRange) slotRange
+	GetRange(rangeType) slotRange
 }
 
 type windowMgr struct {
-	WindowID  windowID
+	WindowID  WindowID
 	clickable clickable
 
 	log        *zap.Logger
 	mu         sync.Mutex
 	lastAction int16
 	isOpen     bool
-	cursor     Slot
+	// DEBT is server crashes while cursor is not empty - item on the cursor will be lost.
+	//  Need to persist cursor contents and find a way to recover it after a crash as
+	//  cursor contents cannot be communicated to the client.
+	cursor Slot
 }
 
 type clickMode uint8
@@ -44,20 +47,36 @@ const (
 	doubleClick clickMode = 6
 )
 
+const slotOutsideWindow = -999
+
 const (
 	leftMouseButton   = 0
 	rightMouseButton  = 1
 	middleMouseButton = 2
+
+	kbdKey1 = 0
+	kbdKey2 = 1
+	kbdKey3 = 2
+	kbdKey4 = 3
+	kbdKey5 = 4
+	kbdKey6 = 5
+	kbdKey7 = 6
+	kbdKey8 = 7
+	kbdKey9 = 8
+
+	kbdKeyQ = 0
 )
 
-func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clickedItem Slot) (bool, error) {
+func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clickedItem Slot) (*Slot, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	m.log.Debug(fmt.Sprintf("button: %d; slotID: %d; clickedItem: %v", button, slotID, clickedItem), zap.Int16("mode", mode))
 
 	m.log.Debug(fmt.Sprintf("actionID: %d, lastAction: %d", actionID, m.lastAction))
 
 	if m.lastAction+1 != actionID {
-		return false, fmt.Errorf("action ID out of sequence, next action should be %d", m.lastAction+1)
+		return nil, false, fmt.Errorf("action ID out of sequence, next action should be %d", m.lastAction+1)
 	}
 
 	// Notchian client never sends an OpenWindow packet for player inventory, we just start receiving inventory clicks.
@@ -67,41 +86,52 @@ func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clic
 	}
 
 	if !m.isOpen {
-		return false, fmt.Errorf("window ID %d is not open", m.WindowID)
+		return nil, false, fmt.Errorf("window ID %d is not open", m.WindowID)
 	}
 
 	var err error
 	var inventoryUpdated bool
+	var droppedItem Slot
 	switch clickMode(mode) {
 	case simpleClick:
-		inventoryUpdated, err = m.handleMode0(slotID, button, clickedItem)
+		droppedItem, inventoryUpdated, err = m.handleMode0(slotID, button, clickedItem)
 	case shftClick:
 		inventoryUpdated, err = m.handleMode1(slotID, button, clickedItem)
-	case numberKey, middleClick, drop, dragPaint, doubleClick:
-		return false, fmt.Errorf("mode %s not supported", clickMode(mode).String())
+	case numberKey:
+		inventoryUpdated, err = m.handleMode2(slotID, button, clickedItem)
+	case drop:
+		droppedItem, inventoryUpdated, err = m.handleMode4(slotID, button, clickedItem)
+	case middleClick, dragPaint, doubleClick:
+		m.lastAction = actionID
+		return nil, false, fmt.Errorf("mode %s not supported", clickMode(mode).String())
 	default:
-		return false, fmt.Errorf("invalid mode %d received", mode)
+		return nil, false, fmt.Errorf("invalid mode %d received", mode)
 	}
 
 	if err == nil {
 		m.lastAction = actionID
 	}
 
-	return inventoryUpdated, err
+	if droppedItem.IsPresent {
+		return &droppedItem, inventoryUpdated, err
+	} else {
+		return nil, inventoryUpdated, err
+	}
 }
 
-func (m *windowMgr) OpenWindow()  { m.isOpen = true }
-func (m *windowMgr) CloseWindow() { m.isOpen = false } // TODO do something with cursor contents here
+func (m *windowMgr) OpenWindow() { m.isOpen = true }
+func (m *windowMgr) CloseWindow() Slot {
+	m.isOpen = false
+	droppedItem := m.cursor
+	m.cursor = Slot{}
+	return droppedItem
+}
 
-func (m *windowMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (bool, error) {
+func (m *windowMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (Slot, bool, error) {
 	slotItem := m.clickable.GetSlot(slotID)
-
 	if !slotEqual(slotItem, clickedItem) {
-		return false, fmt.Errorf("slot contents not equal to clickedItem supplied")
+		return Slot{}, false, fmt.Errorf("slot contents not equal to clickedItem supplied")
 	}
-
-	m.log.Debug(fmt.Sprintf("button: %d; slotID: %d; slotItem: %v; clickedItem: %v", button, slotID, slotItem, clickedItem),
-		zap.Int("mode", 0))
 
 	switch button {
 	case leftMouseButton:
@@ -129,21 +159,28 @@ func (m *windowMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (b
 					m.cursor = slotItem
 				}
 			} else {
-				m.log.Debug("slot empty", zap.Int("mode", 0))
-				m.clickable.SetSlot(slotID, m.cursor)
-				m.cursor = Slot{}
+				if slotID == slotOutsideWindow { // click outside window, drop all from cursor
+					m.log.Debug("dropping all from cursor", zap.Int("mode", 0))
+					dropped := m.cursor
+					m.cursor = Slot{}
+					return dropped, true, nil
+				} else { // slot empty, put all down
+					m.log.Debug("slot empty", zap.Int("mode", 0))
+					m.clickable.SetSlot(slotID, m.cursor)
+					m.cursor = Slot{}
+				}
 			}
-			return true, nil
+			return Slot{}, true, nil
 		} else { // pick up something
 			m.log.Debug("pick up", zap.Int("mode", 0))
 			if slotItem.IsPresent {
 				m.log.Debug("picked item", zap.Int("mode", 0))
-				m.cursor = slotItem // TODO the contents of the cursor should be persisted as well
+				m.cursor = slotItem
 				m.clickable.SetSlot(slotID, Slot{})
-				return true, nil
+				return Slot{}, true, nil
 			} else {
 				m.log.Debug("nothing to pick up", zap.Int("mode", 0))
-				return false, nil
+				return Slot{}, false, nil
 			}
 		}
 	case rightMouseButton:
@@ -160,7 +197,7 @@ func (m *windowMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (b
 					cursorNewCount := m.cursor.ItemCount - moved
 					slotItem.ItemCount = slotNewCount
 					m.cursor.ItemCount = cursorNewCount
-					if m.cursor.ItemCount == 0 { // nothing left on the cursor
+					if m.cursor.ItemCount < 1 { // nothing left on the cursor
 						m.cursor = Slot{}
 					}
 					m.clickable.SetSlot(slotID, slotItem)
@@ -171,22 +208,34 @@ func (m *windowMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (b
 						m.cursor = slotItem
 					} else { // more than one item on cursor - can't do anything
 						m.log.Debug("can't swap, ignoring", zap.Int("mode", 0))
-						return false, nil
+						return Slot{}, false, nil
 					}
 				}
-			} else { // slot empty, put one item down
-				m.log.Debug("slot empty - put one down", zap.Int("mode", 0))
-				var newSlotItem Slot
-				newSlotItem.IsPresent = true
-				newSlotItem.ItemID = m.cursor.ItemID
-				newSlotItem.ItemCount = 1
-				m.cursor.ItemCount -= 1
-				if m.cursor.ItemCount == 0 { // nothing left on the cursor
-					m.cursor = Slot{}
+			} else {
+				if slotID == slotOutsideWindow { // click outside window, drop one item from cursor
+					// TODO this should return dropped items
+					m.log.Debug("dropping one item from cursor", zap.Int("mode", 0))
+					dropped := m.cursor
+					dropped.ItemCount = 1
+					m.cursor.ItemCount = m.cursor.ItemCount - dropped.ItemCount
+					if m.cursor.ItemCount < 1 {
+						m.cursor = Slot{}
+					}
+					return dropped, true, nil
+				} else { // slot empty, put one item down
+					m.log.Debug("slot empty - put one down", zap.Int("mode", 0))
+					var newSlotItem Slot
+					newSlotItem.IsPresent = true
+					newSlotItem.ItemID = m.cursor.ItemID
+					newSlotItem.ItemCount = 1
+					m.cursor.ItemCount -= 1
+					if m.cursor.ItemCount == 0 { // nothing left on the cursor
+						m.cursor = Slot{}
+					}
+					m.clickable.SetSlot(slotID, newSlotItem)
 				}
-				m.clickable.SetSlot(slotID, newSlotItem)
 			}
-			return true, nil
+			return Slot{}, true, nil
 		} else { // pick up something
 			m.log.Debug("pick up", zap.Int("mode", 0))
 			if slotItem.IsPresent {
@@ -205,15 +254,15 @@ func (m *windowMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (b
 					slotItem.ItemID = 0
 				}
 				m.clickable.SetSlot(slotID, slotItem)
-				m.cursor = pickupItem // TODO the contents of the cursor should be persisted as well
-				return true, nil
+				m.cursor = pickupItem
+				return Slot{}, true, nil
 			} else {
 				m.log.Debug("nothing to pick up", zap.Int("mode", 0))
-				return false, nil
+				return Slot{}, false, nil
 			}
 		}
 	default:
-		return false, fmt.Errorf("button %d is invalid for mode 0", button)
+		return Slot{}, false, fmt.Errorf("button %d is invalid for mode 0", button)
 	}
 }
 
@@ -284,4 +333,59 @@ func (m *windowMgr) handleMode1(slotID int16, button uint8, clickedItem Slot) (b
 	default:
 		return false, fmt.Errorf("button %d not supported for mode 0", button)
 	}
+}
+
+func (m *windowMgr) handleMode2(slotID int16, button uint8, clickedItem Slot) (bool, error) {
+	switch button { // Pick up that can.
+	case kbdKey1, kbdKey2, kbdKey3, kbdKey4, kbdKey5, kbdKey6, kbdKey7, kbdKey8, kbdKey9:
+		// Okay, you can go.
+	default:
+		return false, fmt.Errorf("button %d not supported for mode 2", button)
+	}
+
+	hotbarRange := m.clickable.GetRange(hotbar)
+	hotbarSlots := hotbarRange.GetSlots()
+	if len(hotbarSlots) != kbdKey9+1 {
+		return false, fmt.Errorf("unexpected number of hotbar slots")
+	}
+
+	if slotID == hotbarSlots[button] {
+		return false, nil // swapping a hotbar slot with itself
+	}
+
+	slotItem := m.clickable.GetSlot(slotID)
+	if !slotEqual(slotItem, clickedItem) {
+		return false, fmt.Errorf("slot contents not equal to clickedItem supplied")
+	}
+
+	hotbarItem := m.clickable.GetSlot(hotbarSlots[button])
+	m.clickable.SetSlot(hotbarSlots[button], slotItem)
+	m.clickable.SetSlot(slotID, hotbarItem)
+	return true, nil
+}
+
+func (m *windowMgr) handleMode4(slotID int16, button uint8, _ Slot) (Slot, bool, error) {
+	if button != kbdKeyQ {
+		return Slot{}, false, fmt.Errorf("button %d not supported for mode 4", button)
+	}
+
+	slotItem := m.clickable.GetSlot(slotID)
+	if !slotItem.IsPresent {
+		m.log.Debug(fmt.Sprintf("slot %d, item not present, nothing to drop", slotID))
+		return Slot{}, false, nil // nothing to drop
+	}
+
+	droppedItem := slotItem
+	droppedItem.ItemCount = 1
+	slotItem.ItemCount = slotItem.ItemCount - droppedItem.ItemCount
+	m.log.Debug(fmt.Sprintf("slot %d, %d item dropped, %d items left", slotID, droppedItem.ItemCount, slotItem.ItemCount))
+
+	if slotItem.ItemCount == 0 {
+		m.log.Debug(fmt.Sprintf("slot %d, no items left", slotID))
+		slotItem = Slot{}
+	}
+
+	m.clickable.SetSlot(slotID, slotItem)
+
+	return droppedItem, true, nil
 }

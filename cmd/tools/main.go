@@ -270,12 +270,12 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 			inventory.RowHotbar = [9]items.Slot{
 				{
 					IsPresent: true,
-					ItemID:    int16(pItems.DiamondPickaxe),
+					ItemID:    pItems.DiamondPickaxe,
 					ItemCount: 1,
 				},
 				{
 					IsPresent: true,
-					ItemID:    int16(pItems.Bedrock),
+					ItemID:    pItems.Bedrock,
 					ItemCount: 40,
 				},
 			}
@@ -285,7 +285,7 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 					dbItem := orm.Inventory{
 						PlayerID:   dbPlayer.ID,
 						SlotNumber: int16(slotNum),
-						ItemID:     slot.ItemID,
+						ItemID:     int16(slot.ItemID),
 						ItemCount:  slot.ItemCount,
 					}
 					if err := dbItem.Upsert(ctx, db, true,

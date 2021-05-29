@@ -73,9 +73,10 @@ type testSlot struct {
 }
 
 func tSlot(slotID int16, slot Slot) testSlot { return testSlot{slotID: slotID, Slot: slot} }
-func pickaxe() Slot {
-	return Slot{IsPresent: true, ItemID: pItems.DiamondPickaxe, ItemCount: 1}
-}
+
+func pickaxe() Slot { return Slot{IsPresent: true, ItemID: pItems.DiamondPickaxe, ItemCount: 1} }
+func showel() Slot  { return Slot{IsPresent: true, ItemID: pItems.DiamondShovel, ItemCount: 1} }
+
 func bedrock(stackCount ...int16) Slot {
 	var itemCount int16 = 64
 	if len(stackCount) > 0 {
@@ -249,6 +250,50 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			button:       rightMouseButton,
 			slotID:       hotbar2,
 			clickedItem:  bedrock(20),
+		},
+		{
+			name:         "left_click/outside_window_drop_single_item",
+			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
+			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
+			cursorStart:  pickaxe(),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       leftMouseButton,
+			slotID:       slotOutsideWindow,
+			clickedItem:  empty(),
+		},
+		{
+			name:         "right_click/outside_window_drop_single_item",
+			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
+			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
+			cursorStart:  pickaxe(),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       rightMouseButton,
+			slotID:       slotOutsideWindow,
+			clickedItem:  empty(),
+		},
+		{
+			name:         "left_click/outside_window_drop_stack_whole",
+			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
+			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
+			cursorStart:  bedrock(20),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       leftMouseButton,
+			slotID:       slotOutsideWindow,
+			clickedItem:  empty(),
+		},
+		{
+			name:         "right_click/outside_window_drop_stack_item",
+			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
+			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
+			cursorStart:  bedrock(20),
+			cursorEnd:    bedrock(19),
+			shouldChange: true,
+			button:       rightMouseButton,
+			slotID:       slotOutsideWindow,
+			clickedItem:  empty(),
 		},
 	}
 	s.runTests(simpleClick, testCases)
@@ -684,6 +729,107 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 		},
 	}
 	s.runTests(shftClick, testCases)
+}
+
+func (s *clickMgrSuite) TestHandleClick_OkMode2() {
+	testCases := []testCase{
+		{
+			name:         "number_press/single_item_swap",
+			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(rowTop1, showel())},
+			invEnd:       []testSlot{tSlot(hotbar1, showel()), tSlot(rowTop1, pickaxe())},
+			cursorStart:  empty(),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       kbdKey1,
+			slotID:       rowTop1,
+			clickedItem:  showel(),
+		},
+		{
+			name:         "number_press/empty_slot_swap_to_hotbar",
+			invStart:     []testSlot{tSlot(rowTop1, showel())},
+			invEnd:       []testSlot{tSlot(hotbar9, showel())},
+			cursorStart:  empty(),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       kbdKey9,
+			slotID:       rowTop1,
+			clickedItem:  showel(),
+		},
+		{
+			name:         "number_press/empty_slot_swap_from_hotbar",
+			invStart:     []testSlot{tSlot(hotbar3, showel())},
+			invEnd:       []testSlot{tSlot(rowTop1, showel())},
+			cursorStart:  empty(),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       kbdKey3,
+			slotID:       rowTop1,
+			clickedItem:  empty(),
+		},
+		{
+			name:         "number_press/stack_swap",
+			invStart:     []testSlot{tSlot(hotbar1, bedrock()), tSlot(rowTop1, showel())},
+			invEnd:       []testSlot{tSlot(hotbar1, showel()), tSlot(rowTop1, bedrock())},
+			cursorStart:  empty(),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       kbdKey1,
+			slotID:       rowTop1,
+			clickedItem:  showel(),
+		},
+		{
+			name:         "number_press/single_item_swap_in_hotbar",
+			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar5, showel())},
+			invEnd:       []testSlot{tSlot(hotbar1, showel()), tSlot(hotbar5, pickaxe())},
+			cursorStart:  empty(),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       kbdKey5,
+			slotID:       hotbar1,
+			clickedItem:  pickaxe(),
+		},
+		{
+			name:         "number_press/swap_to_empty_in_hotbar",
+			invStart:     []testSlot{tSlot(hotbar1, pickaxe())},
+			invEnd:       []testSlot{tSlot(hotbar5, pickaxe())},
+			cursorStart:  empty(),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       kbdKey5,
+			slotID:       hotbar1,
+			clickedItem:  pickaxe(),
+		},
+		{
+			name:         "number_press/swap_from_empty_in_hotbar",
+			invStart:     []testSlot{tSlot(hotbar1, pickaxe())},
+			invEnd:       []testSlot{tSlot(hotbar5, pickaxe())},
+			cursorStart:  empty(),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       kbdKey1,
+			slotID:       hotbar5,
+			clickedItem:  empty(),
+		},
+	}
+	s.runTests(numberKey, testCases)
+}
+
+func (s *clickMgrSuite) TestHandleClick_OkMode4() {
+	testCases := []testCase{
+		{
+			name:         "drop/Q_press",
+			invStart:     []testSlot{tSlot(hotbar1, pickaxe())},
+			invEnd:       []testSlot{},
+			cursorStart:  empty(),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       kbdKeyQ,
+			slotID:       hotbar1,
+			clickedItem:  empty(),
+		},
+	}
+
+	s.runTests(drop, testCases)
 }
 
 func (s *clickMgrSuite) runTests(mode clickMode, testCases []testCase) {

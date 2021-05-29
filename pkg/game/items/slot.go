@@ -15,10 +15,11 @@ func slotEqual(itemLeft, itemRight Slot) bool {
 		itemLeft.ItemCount == itemRight.ItemCount
 }
 
-type whatRange bool
+type rangeType string
 
-const top whatRange = true
-const bottom whatRange = false
+const top rangeType = "top"
+const bottom rangeType = "bottom"
+const hotbar rangeType = "hotbar"
 
 type slotRange struct {
 	start, end int16
@@ -26,6 +27,14 @@ type slotRange struct {
 
 func (r slotRange) InRange(slotID int16) bool {
 	return slotID >= r.start && slotID <= r.end
+}
+
+func (r slotRange) GetSlots() []int16 {
+	var slots []int16
+	for slotID := r.start; slotID <= r.end; slotID++ {
+		slots = append(slots, slotID)
+	}
+	return slots
 }
 
 func (r slotRange) GetEmptySlots(window clickable) []int16 {
