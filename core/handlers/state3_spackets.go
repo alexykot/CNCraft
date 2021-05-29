@@ -88,19 +88,28 @@ func HandleSHeldItemChange(heldItemSetter func(connID uuid.UUID, heldItem uint8)
 	return nil
 }
 
-func HandleSClickWindow(connID uuid.UUID, inventory *items.Inventory, inventoryUpdater func(uuid.UUID), sPacket protocol.SPacket) error {
-	click, ok := sPacket.(*protocol.SPacketClickWindow)
+func HandleSClickWindow(connID uuid.UUID, inventory *items.Inventory,
+	inventoryUpdater func(uuid.UUID), log *zap.Logger, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
+	windowClick, ok := sPacket.(*protocol.SPacketClickWindow)
 	if !ok {
-		return fmt.Errorf("received packet is not a clickWindow: %v", sPacket)
+		return nil, fmt.Errorf("received packet is not a clickWindow: %v", sPacket)
 	}
 
-	switch click.WindowID {
-	case uint8(items.InventoryWindow):
-		droppedItem, isInventoryUpdated, err := inventory.HandleClick(click.ActionID, click.SlotID, click.Mode, click.Button, click.ClickedItem)
+	cPacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CWindowConfirmation) // Predefined packet is expected to always exist.
+	windowConfirm := cPacket.(*protocol.CPacketWindowConfirmation)                      // And always be of the correct type.
+
+	windowConfirm.WindowID = windowClick.WindowID
+	windowConfirm.Accepted = true
+	windowConfirm.ActionID = windowClick.ActionID
+
+	switch windowClick.WindowID {
+	case items.InventoryWindow:
+		droppedItem, isInventoryUpdated, err := inventory.HandleClick(
+			windowClick.ActionID, windowClick.SlotID, windowClick.Mode, windowClick.Button, windowClick.ClickedItem)
 		if err != nil {
-			// TODO this is not a packet handling error, this is an illegitimate inventory action from the client.
-			//  This needs to trigger negative WindowConfirmation response packet and put inventory into "upset" state.
-			return fmt.Errorf("error handling inventory click: %w", err)
+			log.Warn("invalid window click received", zap.Error(err), zap.String("conn", connID.String()))
+			windowConfirm.Accepted = false
+			break
 		}
 
 		if isInventoryUpdated {
@@ -111,10 +120,10 @@ func HandleSClickWindow(connID uuid.UUID, inventory *items.Inventory, inventoryU
 			// TODO handle dropped item
 		}
 	default:
-		return fmt.Errorf("window ID %d is not implemented", click.WindowID)
+		return nil, fmt.Errorf("window ID %d is not implemented", windowClick.WindowID)
 	}
 
-	return nil
+	return []protocol.CPacket{windowConfirm}, nil
 }
 
 func HandleSCloseWindow(player *players.Player, sPacket protocol.SPacket) error {
@@ -123,13 +132,30 @@ func HandleSCloseWindow(player *players.Player, sPacket protocol.SPacket) error 
 		return fmt.Errorf("received packet is not a closeWindow: %v", sPacket)
 	}
 
-	if closeWindow.WindowID == items.InventoryWindow {
+	switch closeWindow.WindowID {
+	case items.InventoryWindow:
 		droppedItem := player.State.Inventory.CloseWindow()
 		if droppedItem.IsPresent {
 			// TODO handle dropped item
 		}
-	} else {
-		return fmt.Errorf("cannot handle closeWindow for WindowID: %d", closeWindow.WindowID)
+	default:
+		return fmt.Errorf("window ID %d is not implemented", closeWindow.WindowID)
+	}
+
+	return nil
+}
+
+func HandleSWindowConfirmation(inventory *items.Inventory, sPacket protocol.SPacket) error {
+	windowConfirm, ok := sPacket.(*protocol.SPacketWindowConfirmation)
+	if !ok {
+		return fmt.Errorf("received packet is not a windowConfirmation: %v", sPacket)
+	}
+
+	switch windowConfirm.WindowID {
+	case items.InventoryWindow:
+		inventory.Apologise(windowConfirm.ActionID)
+	default:
+		return fmt.Errorf("window ID %d is not implemented", windowConfirm.WindowID)
 	}
 
 	return nil

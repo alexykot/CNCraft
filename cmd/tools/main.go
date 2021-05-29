@@ -261,7 +261,12 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 				return fmt.Errorf("failed to open DB URL %s: %w", dbURL, err)
 			}
 
-			dbPlayer, err := orm.Players(orm.PlayerWhere.Username.EQ(args[0])).One(ctx, db)
+			tx, err := db.Begin()
+			if err != nil {
+				return fmt.Errorf("failed to start tx: %w", err)
+			}
+
+			dbPlayer, err := orm.Players(orm.PlayerWhere.Username.EQ(args[0])).One(ctx, tx)
 			if err != nil {
 				return fmt.Errorf("failed to query player: %w", err)
 			}
@@ -280,6 +285,10 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 				},
 			}
 
+			if _, err = orm.Inventories(orm.InventoryWhere.PlayerID.EQ(dbPlayer.ID)).DeleteAll(ctx, tx); err != nil {
+				return fmt.Errorf("failed to clean player inventory: %w", err)
+			}
+
 			for slotNum, slot := range inventory.ToArray() {
 				if slot.IsPresent {
 					dbItem := orm.Inventory{
@@ -288,13 +297,17 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 						ItemID:     int16(slot.ItemID),
 						ItemCount:  slot.ItemCount,
 					}
-					if err := dbItem.Upsert(ctx, db, true,
+					if err := dbItem.Upsert(ctx, tx, true,
 						[]string{orm.InventoryColumns.PlayerID, orm.InventoryColumns.SlotNumber},
 						boil.Whitelist(orm.InventoryColumns.ItemID, orm.InventoryColumns.ItemCount),
 						boil.Infer()); err != nil {
 						return fmt.Errorf("failed to update player inventory slot: %w", err)
 					}
 				}
+			}
+
+			if err = tx.Commit(); err != nil {
+				return fmt.Errorf("failed to commit tx: %w", err)
 			}
 
 			return nil

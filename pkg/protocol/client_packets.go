@@ -243,22 +243,22 @@ func (p *CPacketDeclareCommands) Type() PacketType             { return CDeclare
 func (p *CPacketDeclareCommands) Push(writer buffer.B)         { panic("packet not implemented") }
 
 type CPacketWindowConfirmation struct {
-	WindowID     int8
-	ActionNumber int16
-	Accepted     bool
+	WindowID items.WindowID
+	ActionID int16
+	Accepted bool
 }
 
 func (p *CPacketWindowConfirmation) ProtocolID() ProtocolPacketID { return protocolCWindowConfirmation }
 func (p *CPacketWindowConfirmation) Type() PacketType             { return CWindowConfirmation }
 func (p *CPacketWindowConfirmation) Push(writer buffer.B) {
 	writer.PushByte(byte(p.WindowID))
-	writer.PushInt16(p.ActionNumber)
+	writer.PushInt16(p.ActionID)
 	writer.PushBool(p.Accepted)
 }
 
 func (p *CPacketWindowConfirmation) Pull(reader buffer.B) {
-	p.WindowID = int8(reader.PullByte())
-	p.ActionNumber = reader.PullInt16()
+	p.WindowID = items.WindowID(reader.PullByte())
+	p.ActionID = reader.PullInt16()
 	p.Accepted = reader.PullBool()
 }
 

@@ -143,7 +143,7 @@ func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
 }
 
 func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byte) {
-	log := d.log.With(zap.String("connId", conn.ID().String()))
+	log := d.log.With(zap.String("conn", conn.ID().String()))
 	d.connMu[conn.ID()].Lock()
 	defer d.connMu[conn.ID()].Unlock()
 
@@ -246,7 +246,10 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 			err = fmt.Errorf("player %s not found ", conn.ID())
 			break
 		}
-		err = handlers.HandleSClickWindow(conn.ID(), player.State.Inventory, d.roster.PlayerInventoryChanged, sPacket)
+		cPackets, err = handlers.HandleSClickWindow(conn.ID(), player.State.Inventory, d.roster.PlayerInventoryChanged, d.log, sPacket)
+		if len(cPackets) > 0 {
+			d.log.Debug("transmitting window confirmation", zap.Any("windowConfirm", cPackets[0]))
+		}
 	case protocol.SCloseWindow:
 		player, ok := d.roster.GetPlayerByConnID(conn.ID())
 		if !ok {
@@ -254,6 +257,13 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 			break
 		}
 		err = handlers.HandleSCloseWindow(player, sPacket)
+	case protocol.SWindowConfirmation:
+		player, ok := d.roster.GetPlayerByConnID(conn.ID())
+		if !ok {
+			err = fmt.Errorf("player %s not found ", conn.ID())
+			break
+		}
+		err = handlers.HandleSWindowConfirmation(player.State.Inventory, sPacket)
 	default:
 		return nil
 		// DEBT turn this error back on once all expected packets are handled

@@ -29,6 +29,7 @@ type windowMgr struct {
 	mu         sync.Mutex
 	lastAction int16
 	isOpen     bool
+	isUpset    bool
 	// DEBT is server crashes while cursor is not empty - item on the cursor will be lost.
 	//  Need to persist cursor contents and find a way to recover it after a crash as
 	//  cursor contents cannot be communicated to the client.
@@ -76,7 +77,10 @@ func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clic
 	m.log.Debug(fmt.Sprintf("actionID: %d, lastAction: %d", actionID, m.lastAction))
 
 	if m.lastAction+1 != actionID {
+		m.isUpset = true
 		return nil, false, fmt.Errorf("action ID out of sequence, next action should be %d", m.lastAction+1)
+	} else if m.isUpset {
+		return nil, false, fmt.Errorf("expecting client to apologise before sending any other clicks")
 	}
 
 	// Notchian client never sends an OpenWindow packet for player inventory, we just start receiving inventory clicks.
@@ -102,7 +106,6 @@ func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clic
 	case drop:
 		droppedItem, inventoryUpdated, err = m.handleMode4(slotID, button, clickedItem)
 	case middleClick, dragPaint, doubleClick:
-		m.lastAction = actionID
 		return nil, false, fmt.Errorf("mode %s not supported", clickMode(mode).String())
 	default:
 		return nil, false, fmt.Errorf("invalid mode %d received", mode)
@@ -119,8 +122,32 @@ func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clic
 	}
 }
 
-func (m *windowMgr) OpenWindow() { m.isOpen = true }
+func (m *windowMgr) IsUpset() bool { return m.isUpset }
+func (m *windowMgr) Apologise(clientActionID int16) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.log.Debug("client apologising", zap.Bool("isUpset", m.isUpset),
+		zap.Int16("lastAction", m.lastAction), zap.Any("last client action", clientActionID))
+
+	m.isUpset = false
+	if m.lastAction < clientActionID {
+		m.lastAction = clientActionID
+	}
+}
+
+func (m *windowMgr) LastAction() int16 { return m.lastAction }
+func (m *windowMgr) OpenWindow() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.isOpen = true
+}
+
 func (m *windowMgr) CloseWindow() Slot {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.isOpen = false
 	droppedItem := m.cursor
 	m.cursor = Slot{}

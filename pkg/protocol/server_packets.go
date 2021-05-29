@@ -214,11 +214,20 @@ func (p *SPacketTabComplete) ProtocolID() ProtocolPacketID { return protocolSTab
 func (p *SPacketTabComplete) Type() PacketType             { return STabComplete }
 func (p *SPacketTabComplete) Pull(reader buffer.B)         { panic("packet not implemented") }
 
-type SPacketWindowConfirmation struct{}
+type SPacketWindowConfirmation struct {
+	WindowID items.WindowID
+	ActionID int16
+	Accepted bool
+}
 
 func (p *SPacketWindowConfirmation) ProtocolID() ProtocolPacketID { return protocolSWindowConfirmation }
 func (p *SPacketWindowConfirmation) Type() PacketType             { return SWindowConfirmation }
-func (p *SPacketWindowConfirmation) Pull(reader buffer.B)         { panic("packet not implemented") }
+func (p *SPacketWindowConfirmation) Pull(reader buffer.B) error {
+	p.WindowID = items.WindowID(reader.PullByte())
+	p.ActionID = reader.PullInt16()
+	p.Accepted = reader.PullBool()
+	return nil
+}
 
 type SPacketClickWindowButton struct{}
 
@@ -227,7 +236,7 @@ func (p *SPacketClickWindowButton) Type() PacketType             { return SClick
 func (p *SPacketClickWindowButton) Pull(reader buffer.B)         { panic("packet not implemented") }
 
 type SPacketClickWindow struct {
-	WindowID    uint8
+	WindowID    items.WindowID
 	SlotID      int16
 	Button      uint8
 	ActionID    int16
@@ -238,7 +247,7 @@ type SPacketClickWindow struct {
 func (p *SPacketClickWindow) ProtocolID() ProtocolPacketID { return protocolSClickWindow }
 func (p *SPacketClickWindow) Type() PacketType             { return SClickWindow }
 func (p *SPacketClickWindow) Pull(reader buffer.B) error {
-	p.WindowID = reader.PullByte()
+	p.WindowID = items.WindowID(reader.PullByte())
 	p.SlotID = reader.PullInt16()
 	p.Button = reader.PullByte()
 	p.ActionID = reader.PullInt16()

@@ -72,11 +72,12 @@ func createSPacketsMap() map[PacketType]func() SPacket {
 		SQueryBlockNBT:   func() SPacket { return &SPacketQueryBlockNBT{} },
 		SChatMessage:     func() SPacket { return &SPacketChatMessage{} },
 
-		SHeldItemChange: func() SPacket { return &SPacketHeldItemChange{} },
-		SEntityAction:   func() SPacket { return &SPacketEntityAction{} },
-		SAnimation:      func() SPacket { return &SPacketAnimation{} },
-		SClickWindow:    func() SPacket { return &SPacketClickWindow{} },
-		SCloseWindow:    func() SPacket { return &SPacketCloseWindow{} },
+		SHeldItemChange:     func() SPacket { return &SPacketHeldItemChange{} },
+		SEntityAction:       func() SPacket { return &SPacketEntityAction{} },
+		SAnimation:          func() SPacket { return &SPacketAnimation{} },
+		SClickWindow:        func() SPacket { return &SPacketClickWindow{} },
+		SCloseWindow:        func() SPacket { return &SPacketCloseWindow{} },
+		SWindowConfirmation: func() SPacket { return &SPacketWindowConfirmation{} },
 
 		SPlayerMovement:       func() SPacket { return &SPacketPlayerMovement{} },
 		SPlayerPosition:       func() SPacket { return &SPacketPlayerPosition{} },
