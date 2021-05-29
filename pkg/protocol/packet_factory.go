@@ -102,7 +102,6 @@ func createCPacketsMap() map[PacketType]func() CPacket {
 		// Play state packets
 		CDisconnectPlay:        func() CPacket { return &CPacketDisconnectPlay{} },
 		CChatMessage:           func() CPacket { return &CPacketChatMessage{} },
-		CWindowConfirmation:    func() CPacket { return &CPacketWindowConfirmation{} },
 		CJoinGame:              func() CPacket { return &CPacketJoinGame{} },
 		CPluginMessage:         func() CPacket { return &CPacketPluginMessage{} },
 		CPlayerPositionAndLook: func() CPacket { return &CPacketPlayerPositionAndLook{} },
@@ -110,10 +109,13 @@ func createCPacketsMap() map[PacketType]func() CPacket {
 		CServerDifficulty:      func() CPacket { return &CPacketServerDifficulty{} },
 		CPlayerAbilities:       func() CPacket { return &CPacketPlayerAbilities{} },
 		CHeldItemChange:        func() CPacket { return &CPacketHeldItemChange{} },
-		CWindowItems:           func() CPacket { return &CPacketWindowItems{} },
 		CDeclareRecipes:        func() CPacket { return &CPacketDeclareRecipes{} },
 		CChunkData:             func() CPacket { return &CPacketChunkData{} },
 		CPlayerInfo:            func() CPacket { return &CPacketPlayerInfo{} },
 		CEntityMetadata:        func() CPacket { return &CPacketEntityMetadata{} },
+
+		CWindowItems:        func() CPacket { return &CPacketWindowItems{} },
+		CSetSlot:            func() CPacket { return &CPacketSetSlot{} },
+		CWindowConfirmation: func() CPacket { return &CPacketWindowConfirmation{} },
 	}
 }

@@ -97,10 +97,11 @@ func HandleSClickWindow(connID uuid.UUID, inventory *items.Inventory,
 
 	cPacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CWindowConfirmation) // Predefined packet is expected to always exist.
 	windowConfirm := cPacket.(*protocol.CPacketWindowConfirmation)                      // And always be of the correct type.
-
 	windowConfirm.WindowID = windowClick.WindowID
-	windowConfirm.Accepted = true
 	windowConfirm.ActionID = windowClick.ActionID
+	windowConfirm.Accepted = true
+
+	var cPackets []protocol.CPacket
 
 	switch windowClick.WindowID {
 	case items.InventoryWindow:
@@ -109,6 +110,21 @@ func HandleSClickWindow(connID uuid.UUID, inventory *items.Inventory,
 		if err != nil {
 			log.Warn("invalid window click received", zap.Error(err), zap.String("conn", connID.String()))
 			windowConfirm.Accepted = false
+
+			cpacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CWindowItems)
+			windowItems := cpacket.(*protocol.CPacketWindowItems)
+			inventorySlots := inventory.ToArray()
+			windowItems.SlotCount = int16(len(inventorySlots))
+			windowItems.Slots = inventorySlots
+
+			cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CSetSlot)
+			setSlot := cpacket.(*protocol.CPacketSetSlot)
+			setSlot.WindowID = items.CursorWindow
+			setSlot.SlotID = items.CursorSlot
+			setSlot.Slot = inventory.GetCursor()
+			log.Debug("resetting cursor", zap.Any("cursor", setSlot.Slot))
+
+			cPackets = append(cPackets, windowConfirm, windowItems, setSlot)
 			break
 		}
 
@@ -119,11 +135,12 @@ func HandleSClickWindow(connID uuid.UUID, inventory *items.Inventory,
 		if droppedItem != nil {
 			// TODO handle dropped item
 		}
+		cPackets = append(cPackets, windowConfirm)
 	default:
 		return nil, fmt.Errorf("window ID %d is not implemented", windowClick.WindowID)
 	}
 
-	return []protocol.CPacket{windowConfirm}, nil
+	return cPackets, nil
 }
 
 func HandleSCloseWindow(player *players.Player, sPacket protocol.SPacket) error {

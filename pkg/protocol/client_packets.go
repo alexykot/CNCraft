@@ -269,7 +269,7 @@ func (p *CPacketCloseWindow) Type() PacketType             { return CCloseWindow
 func (p *CPacketCloseWindow) Push(writer buffer.B)         { panic("packet not implemented") }
 
 type CPacketWindowItems struct {
-	WindowID  int8
+	WindowID  items.WindowID
 	SlotCount int16
 	Slots     []items.Slot
 }
@@ -297,11 +297,26 @@ func (p *CPacketWindowProperty) ProtocolID() ProtocolPacketID { return protocolC
 func (p *CPacketWindowProperty) Type() PacketType             { return CWindowProperty }
 func (p *CPacketWindowProperty) Push(writer buffer.B)         { panic("packet not implemented") }
 
-type CPacketSetSlot struct{}
+type CPacketSetSlot struct {
+	WindowID items.WindowID
+	SlotID   int16
+	Slot     items.Slot
+}
 
 func (p *CPacketSetSlot) ProtocolID() ProtocolPacketID { return protocolCSetSlot }
 func (p *CPacketSetSlot) Type() PacketType             { return CSetSlot }
-func (p *CPacketSetSlot) Push(writer buffer.B)         { panic("packet not implemented") }
+func (p *CPacketSetSlot) Push(writer buffer.B) {
+	writer.PushByte(byte(p.WindowID))
+	writer.PushInt16(p.SlotID)
+
+	writer.PushBool(p.Slot.IsPresent)
+	if p.Slot.IsPresent {
+		writer.PushVarInt(int32(p.Slot.ItemID))
+		writer.PushByte(byte(p.Slot.ItemCount))
+
+		writer.PushByte(0x00) // TODO item NBT data not implemented
+	}
+}
 
 type CPacketSetCooldown struct{}
 

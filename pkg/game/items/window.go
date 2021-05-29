@@ -9,11 +9,14 @@ import (
 	"go.uber.org/zap"
 )
 
-type WindowID uint8
+type WindowID int8
 
 const (
+	CursorWindow    WindowID = -1 // Special value only used in CSetSlot to set cursor contents
 	InventoryWindow WindowID = 0
 )
+
+const CursorSlot = -1
 
 type clickable interface {
 	GetSlot(slotID int16) Slot
@@ -31,8 +34,8 @@ type windowMgr struct {
 	isOpen     bool
 	isUpset    bool
 	// DEBT is server crashes while cursor is not empty - item on the cursor will be lost.
-	//  Need to persist cursor contents and find a way to recover it after a crash as
-	//  cursor contents cannot be communicated to the client.
+	//  Need to persist cursor contents and find a way to recover it after a crash.
+	//  It is possible to set cursor contents using SetSlot packet.
 	cursor Slot
 }
 
@@ -136,6 +139,7 @@ func (m *windowMgr) Apologise(clientActionID int16) {
 	}
 }
 
+func (m *windowMgr) GetCursor() Slot   { return m.cursor }
 func (m *windowMgr) LastAction() int16 { return m.lastAction }
 func (m *windowMgr) OpenWindow() {
 	m.mu.Lock()
@@ -296,8 +300,8 @@ func (m *windowMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (S
 func (m *windowMgr) handleMode1(slotID int16, button uint8, clickedItem Slot) (bool, error) {
 	slotItem := m.clickable.GetSlot(slotID)
 
-	if !slotEqual(slotItem, clickedItem) {
-		return false, fmt.Errorf("slot contents not equal to clickedItem supplied")
+	if clickedItem.IsPresent {
+		return false, fmt.Errorf("clickedItem should not be present in mode 1")
 	}
 
 	m.log.Debug(fmt.Sprintf("button: %d; slotID: %d; slotItem: %v; clickedItem: %v", button, slotID, slotItem, clickedItem),
@@ -370,6 +374,10 @@ func (m *windowMgr) handleMode2(slotID int16, button uint8, clickedItem Slot) (b
 		return false, fmt.Errorf("button %d not supported for mode 2", button)
 	}
 
+	if clickedItem.IsPresent {
+		return false, fmt.Errorf("clickedItem should not be present in mode 2")
+	}
+
 	hotbarRange := m.clickable.GetRange(hotbar)
 	hotbarSlots := hotbarRange.GetSlots()
 	if len(hotbarSlots) != kbdKey9+1 {
@@ -381,10 +389,6 @@ func (m *windowMgr) handleMode2(slotID int16, button uint8, clickedItem Slot) (b
 	}
 
 	slotItem := m.clickable.GetSlot(slotID)
-	if !slotEqual(slotItem, clickedItem) {
-		return false, fmt.Errorf("slot contents not equal to clickedItem supplied")
-	}
-
 	hotbarItem := m.clickable.GetSlot(hotbarSlots[button])
 	m.clickable.SetSlot(hotbarSlots[button], slotItem)
 	m.clickable.SetSlot(slotID, hotbarItem)

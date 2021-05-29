@@ -99,6 +99,7 @@ type testCase struct {
 
 	invEnd       []testSlot
 	cursorEnd    Slot
+	dropped      Slot
 	shouldChange bool
 }
 
@@ -261,6 +262,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			button:       leftMouseButton,
 			slotID:       slotOutsideWindow,
 			clickedItem:  empty(),
+			dropped:      pickaxe(),
 		},
 		{
 			name:         "right_click/outside_window_drop_single_item",
@@ -272,6 +274,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			button:       rightMouseButton,
 			slotID:       slotOutsideWindow,
 			clickedItem:  empty(),
+			dropped:      pickaxe(),
 		},
 		{
 			name:         "left_click/outside_window_drop_stack_whole",
@@ -283,6 +286,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			button:       leftMouseButton,
 			slotID:       slotOutsideWindow,
 			clickedItem:  empty(),
+			dropped:      bedrock(20),
 		},
 		{
 			name:         "right_click/outside_window_drop_stack_item",
@@ -294,6 +298,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			button:       rightMouseButton,
 			slotID:       slotOutsideWindow,
 			clickedItem:  empty(),
+			dropped:      bedrock(1),
 		},
 	}
 	s.runTests(simpleClick, testCases)
@@ -310,7 +315,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       leftMouseButton,
 			slotID:       hotbar1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "left_click/single_item_movedown",
@@ -321,7 +326,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       leftMouseButton,
 			slotID:       rowTop1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "left_click/item_moveup_occupied",
@@ -332,7 +337,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       leftMouseButton,
 			slotID:       hotbar1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "left_click/item_movedown_occupied",
@@ -343,7 +348,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       leftMouseButton,
 			slotID:       rowTop1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name: "left_click/item_moveup_row_occupied",
@@ -376,7 +381,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       leftMouseButton,
 			slotID:       hotbar1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name: "left_click/stack_moveup_multistack_row_mostly_occupied",
@@ -409,7 +414,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       leftMouseButton,
 			slotID:       hotbar1,
-			clickedItem:  bedrock(),
+			clickedItem:  empty(),
 		},
 		{
 			name: "left_click/stack_moveup_multistack_range_mostly_occupied",
@@ -478,7 +483,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       leftMouseButton,
 			slotID:       hotbar1,
-			clickedItem:  bedrock(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "left_click/item_movedown_row_occupied",
@@ -489,7 +494,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       leftMouseButton,
 			slotID:       rowTop1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "left_click/empty_slot_up",
@@ -524,7 +529,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       rightMouseButton,
 			slotID:       hotbar1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "right_click/single_item_movedown",
@@ -535,7 +540,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       rightMouseButton,
 			slotID:       rowTop1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "right_click/item_moveup_occupied",
@@ -546,7 +551,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       rightMouseButton,
 			slotID:       hotbar1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "right_click/item_movedown_occupied",
@@ -557,7 +562,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       rightMouseButton,
 			slotID:       rowTop1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name: "right_click/item_moveup_row_occupied",
@@ -590,7 +595,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       rightMouseButton,
 			slotID:       hotbar1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name: "right_click/stack_moveup_multistack_row_mostly_occupied",
@@ -623,7 +628,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       rightMouseButton,
 			slotID:       hotbar1,
-			clickedItem:  bedrock(),
+			clickedItem:  empty(),
 		},
 		{
 			name: "right_click/stack_moveup_multistack_range_mostly_occupied",
@@ -692,7 +697,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       rightMouseButton,
 			slotID:       hotbar1,
-			clickedItem:  bedrock(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "right_click/item_movedown_row_occupied",
@@ -703,7 +708,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			shouldChange: true,
 			button:       rightMouseButton,
 			slotID:       rowTop1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "right_click/empty_slot_up",
@@ -742,7 +747,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			shouldChange: true,
 			button:       kbdKey1,
 			slotID:       rowTop1,
-			clickedItem:  showel(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "number_press/empty_slot_swap_to_hotbar",
@@ -753,7 +758,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			shouldChange: true,
 			button:       kbdKey9,
 			slotID:       rowTop1,
-			clickedItem:  showel(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "number_press/empty_slot_swap_from_hotbar",
@@ -775,7 +780,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			shouldChange: true,
 			button:       kbdKey1,
 			slotID:       rowTop1,
-			clickedItem:  showel(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "number_press/single_item_swap_in_hotbar",
@@ -786,7 +791,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			shouldChange: true,
 			button:       kbdKey5,
 			slotID:       hotbar1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "number_press/swap_to_empty_in_hotbar",
@@ -797,7 +802,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			shouldChange: true,
 			button:       kbdKey5,
 			slotID:       hotbar1,
-			clickedItem:  pickaxe(),
+			clickedItem:  empty(),
 		},
 		{
 			name:         "number_press/swap_from_empty_in_hotbar",
@@ -826,6 +831,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode4() {
 			button:       kbdKeyQ,
 			slotID:       hotbar1,
 			clickedItem:  empty(),
+			dropped:      pickaxe(),
 		},
 	}
 
@@ -844,11 +850,20 @@ func (s *clickMgrSuite) runTests(mode clickMode, testCases []testCase) {
 				s.i.SetSlot(item.slotID, item.Slot)
 			}
 
-			hasChanged, err := s.i.HandleClick(actionID, test.slotID, int16(mode), test.button, test.clickedItem)
+			dropped, hasChanged, err := s.i.HandleClick(actionID, test.slotID, int16(mode), test.button, test.clickedItem)
 			s.Require().NoError(err)
 			s.Equal(test.shouldChange, hasChanged, "inventory has not changed")
 
 			invCompare(test.invEnd, s.i.ToArray(), s.Require().Equal)
+
+			if test.dropped.IsPresent {
+				s.Require().NotNil(dropped)
+				s.Equal(test.dropped.IsPresent, dropped.IsPresent)
+				s.Equal(test.dropped.ItemID, dropped.ItemID)
+				s.Equal(test.dropped.ItemCount, dropped.ItemCount)
+			} else {
+				s.Nil(dropped)
+			}
 		})
 	}
 }
