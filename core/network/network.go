@@ -137,17 +137,20 @@ func (n *Network) handleNewConnection(ctx context.Context, conn Connection) {
 				continue
 			}
 
+			n.log.Debug("reading blob of bytes", zap.Int("len", bufIn.Len()), zap.String("conn", conn.ID().String()))
+			var packetCount int
 			for {
 				packetLen := bufIn.PullVarInt()
 				if packetLen == 0 {
-					break // no more packets for now
+					break // no more packets in this blob
 				}
 
 				packetBytes := bufIn.Bytes()[bufIn.IndexI() : bufIn.IndexI()+packetLen]
+				bufIn.SkipLen(packetLen)
+				packetCount++
 
-				n.log.Debug("received packet from client", zap.String("conn", conn.ID().String()))
-				n.log.Debug("total bytes", zap.String("bytes", fmt.Sprintf("%X", bufIn.Bytes())))
-				n.log.Debug("packet bytes", zap.String("bytes", fmt.Sprintf("%X", packetBytes)))
+				n.log.Debug(fmt.Sprintf("read a packet %d in blob", packetCount),
+					zap.Int("packetLen", int(packetLen)), zap.String("bytes", fmt.Sprintf("%X", packetBytes)))
 				n.dispatcher.HandleSPacket(conn, packetBytes)
 			}
 		}

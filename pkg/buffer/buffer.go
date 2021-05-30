@@ -70,11 +70,11 @@ func (b *Buffer) IndexO() int32 {
 }
 
 func (b *Buffer) SkipAll() {
-	b.SkipLen(b.Len() - 1)
+	b.SkipLen(int32(b.Len() - 1))
 }
 
-func (b *Buffer) SkipLen(delta int) {
-	b.iIndex = b.iIndex + int32(delta)
+func (b *Buffer) SkipLen(delta int32) {
+	b.iIndex = b.iIndex + delta
 }
 
 // pull

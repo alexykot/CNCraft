@@ -63,7 +63,7 @@ func GetDefaultConfig() ServerConf {
 			Baseline: "DEBUG",
 
 			Dispatcher: "ERROR",
-			Network:    "DEBUG",
+			Network:    "ERROR",
 			PubSub:     "ERROR",
 
 			Players: "DEBUG",
