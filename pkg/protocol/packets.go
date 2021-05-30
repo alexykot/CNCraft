@@ -13,16 +13,16 @@ const Version = 754
 
 // SPacket is server bound packet type.
 type SPacket interface {
-	ProtocolID() ProtocolPacketID // Return protocol ID of the packet.
-	Type() PacketType             // Return globally unique type ID of the packet.
-	Pull(reader buffer.B) error   // decode the server_data from provided reader into this packet
+	ProtocolID() ProtocolPacketID     // Return protocol ID of the packet.
+	Type() PacketType                 // Return globally unique type ID of the packet.
+	Pull(reader *buffer.Buffer) error // decode the server_data from provided reader into this packet
 }
 
 // CPacket is client bound packet type.
 type CPacket interface {
 	ProtocolID() ProtocolPacketID // Return protocol ID of the packet.
 	Type() PacketType             // Return globally unique type ID of the packet.
-	Push(writer buffer.B)         // encode the server_data from this packet into provided writer
+	Push(writer *buffer.Buffer)   // encode the server_data from this packet into provided writer
 }
 
 // ProtocolPacketID is the official Type of the packet as per the protocol.

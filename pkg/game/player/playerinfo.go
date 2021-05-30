@@ -23,7 +23,7 @@ type PlayerInfoAddPlayer struct {
 	Player entities.PlayerCharacter
 }
 
-func (p *PlayerInfoAddPlayer) Push(writer buffer.B) {
+func (p *PlayerInfoAddPlayer) Push(writer *buffer.Buffer) {
 	//profile := p.Player.GetProfile()
 	//writer.PushUUID(profile.UUID)
 	//writer.PushString(profile.Name)

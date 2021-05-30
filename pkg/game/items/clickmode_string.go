@@ -13,13 +13,13 @@ func _() {
 	_ = x[numberKey-2]
 	_ = x[middleClick-3]
 	_ = x[drop-4]
-	_ = x[dragPaint-5]
+	_ = x[drag-5]
 	_ = x[doubleClick-6]
 }
 
-const _clickMode_name = "simpleClickshftClicknumberKeymiddleClickdropdragPaintdoubleClick"
+const _clickMode_name = "simpleClickshftClicknumberKeymiddleClickdropdragdoubleClick"
 
-var _clickMode_index = [...]uint8{0, 11, 20, 29, 40, 44, 53, 64}
+var _clickMode_index = [...]uint8{0, 11, 20, 29, 40, 44, 48, 59}
 
 func (i clickMode) String() string {
 	if i >= clickMode(len(_clickMode_index)-1) {

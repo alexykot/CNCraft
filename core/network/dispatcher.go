@@ -310,7 +310,7 @@ func (d *DispatcherTransmitter) transmitBytes(conn Connection, packetBytes []byt
 	return nil
 }
 
-func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut buffer.B) error {
+func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut *buffer.Buffer) error {
 	if bufOut.Len() < 2 {
 		return fmt.Errorf("buffer data is too short")
 	}

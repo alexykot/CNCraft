@@ -3,7 +3,6 @@ package buffer
 import (
 	"encoding/binary"
 	"fmt"
-	"io"
 	"math"
 	"strconv"
 
@@ -11,104 +10,34 @@ import (
 )
 
 type BPush interface {
-	Push(writer B)
+	Push(writer *Buffer)
 }
 
 type BPull interface {
-	Pull(reader B)
+	Pull(reader *Buffer)
 }
 
-// TODO
-//  - break this interface into parts
-//  - make sure possible reading errors are checked and returned
-type B interface {
-	io.ReadWriter
-
-	Len() int
-
-	Bytes() []byte
-
-	IndexI() int32
-
-	IndexO() int32
-
-	SkipAll()
-
-	SkipLen(delta int)
-
-	// pull
-	PullBool() bool
-
-	PullByte() byte
-	PullBytes() []byte
-
-	PullInt16() int16
-	PullInt32() int32
-	PullInt64() int64
-
-	PullUint16() uint16
-	PullUint64() uint64
-
-	PullFloat32() float32
-	PullFloat64() float64
-
-	PullVarInt() int32
-	PullVarLong() int64
-
-	PullString() string
-
-	PullUUID() uuid.UUID
-
-	//PullNbt() *nbt.NbtCompound  // DEBT this is not going to work like that. Figure out idiomatic Go interface here.
-
-	// push
-	PushBool(data bool)
-
-	PushByte(data byte)
-	PushBytes(data []byte, prefixWithLen bool)
-
-	PushInt16(data int16)
-	PushInt32(data int32)
-	PushInt64(data int64)
-
-	PushUint16(data uint16)
-	PushUint64(data uint64)
-
-	PushFloat32(data float32)
-	PushFloat64(data float64)
-
-	PushVarInt(data int32)
-	PushVarLong(data int64)
-
-	PushString(data string)
-
-	PushUUID(data uuid.UUID)
-
-	//PushNbt(data *tags.NbtCompound)  // DEBT this is not going to work like that. Figure out idiomatic Go interface here.
-}
-
-type buffer struct {
-	iIndex int32 // TODO figure out what this means
-	oIndex int32 // TODO figure out what this means
+type Buffer struct {
+	iIndex int32
+	oIndex int32
 
 	bArray []byte
 }
 
-func (b *buffer) String() string {
+func (b *Buffer) String() string {
 	return fmt.Sprintf("Buffer[%d](i: %d, o: %d)%v", b.Len(), b.iIndex, b.oIndex, b.bArray)
 }
 
-// new
-func New() B {
+func New() *Buffer {
 	return NewFrom(make([]byte, 0, 1024*1024))
 }
 
-func NewFrom(bArray []byte) B {
-	return &buffer{bArray: bArray}
+func NewFrom(bArray []byte) *Buffer {
+	return &Buffer{bArray: bArray}
 }
 
 // stdlib ReadWriter interface
-func (b *buffer) Read(target []byte) (n int, err error) {
+func (b *Buffer) Read(target []byte) (n int, err error) {
 	if b.Len() <= len(target) {
 		copy(target, b.bArray)
 		return b.Len(), nil
@@ -118,86 +47,86 @@ func (b *buffer) Read(target []byte) (n int, err error) {
 	}
 }
 
-func (b *buffer) Write(data []byte) (n int, err error) {
+func (b *Buffer) Write(data []byte) (n int, err error) {
 	b.pushNext(data...)
 	return len(data), nil
 }
 
 // server_data
-func (b *buffer) Len() int {
+func (b *Buffer) Len() int {
 	return len(b.bArray)
 }
 
-func (b *buffer) Bytes() []byte {
+func (b *Buffer) Bytes() []byte {
 	return b.bArray
 }
 
-func (b *buffer) IndexI() int32 {
+func (b *Buffer) IndexI() int32 {
 	return b.iIndex
 }
 
-func (b *buffer) IndexO() int32 {
+func (b *Buffer) IndexO() int32 {
 	return b.oIndex
 }
 
-func (b *buffer) SkipAll() {
+func (b *Buffer) SkipAll() {
 	b.SkipLen(b.Len() - 1)
 }
 
-func (b *buffer) SkipLen(delta int) {
+func (b *Buffer) SkipLen(delta int) {
 	b.iIndex = b.iIndex + int32(delta)
 }
 
 // pull
-func (b *buffer) PullBool() bool {
+func (b *Buffer) PullBool() bool {
 	return b.pullNext() != 0
 }
 
-func (b *buffer) PullByte() byte {
+func (b *Buffer) PullByte() byte {
 	return b.pullNext()
 }
 
-func (b *buffer) PullInt16() int16 {
+func (b *Buffer) PullInt16() int16 {
 	return int16(binary.BigEndian.Uint16(b.pullSize(2)))
 }
 
-func (b *buffer) PullUint16() uint16 {
+func (b *Buffer) PullUint16() uint16 {
 	return uint16(b.pullNext())<<8 | uint16(b.pullNext())
 }
 
-func (b *buffer) PullInt32() int32 {
+func (b *Buffer) PullInt32() int32 {
 	return int32(binary.BigEndian.Uint32(b.pullSize(4)))
 }
 
-func (b *buffer) PullInt64() int64 {
+func (b *Buffer) PullInt64() int64 {
 	return int64(b.PullUint64())
 }
 
-func (b *buffer) PullUint64() uint64 {
+func (b *Buffer) PullUint64() uint64 {
 	return binary.BigEndian.Uint64(b.pullSize(8))
 }
 
-func (b *buffer) PullFloat32() float32 {
+func (b *Buffer) PullFloat32() float32 {
 	return math.Float32frombits(binary.BigEndian.Uint32(b.pullSize(4)))
 }
 
-func (b *buffer) PullFloat64() float64 {
+func (b *Buffer) PullFloat64() float64 {
 	return math.Float64frombits(binary.BigEndian.Uint64(b.pullSize(8)))
 }
 
-func (b *buffer) PullVarInt() int32 {
+func (b *Buffer) PullVarInt() int32 {
 	return int32(b.pullVariable(5))
 }
 
-func (b *buffer) PullVarLong() int64 {
+func (b *Buffer) PullVarLong() int64 {
 	return b.pullVariable(10)
 }
 
-func (b *buffer) PullString() string {
+func (b *Buffer) PullString() string {
 	return string(b.PullBytes())
 }
 
-func (b *buffer) PullBytes() []byte {
+func (b *Buffer) PullBytes() []byte {
 	size := b.PullVarInt()
 	array := b.bArray[b.iIndex : b.iIndex+size]
 
@@ -206,13 +135,13 @@ func (b *buffer) PullBytes() []byte {
 	return array
 }
 
-func (b *buffer) PullUUID() uuid.UUID {
+func (b *Buffer) PullUUID() uuid.UUID {
 	id, _ := bitsToUUID(b.PullInt64(), b.PullInt64())
 	return id
 }
 
 // push
-func (b *buffer) PushBool(data bool) {
+func (b *Buffer) PushBool(data bool) {
 	if data {
 		b.pushNext(byte(0x01))
 	} else {
@@ -220,17 +149,17 @@ func (b *buffer) PushBool(data bool) {
 	}
 }
 
-func (b *buffer) PushByte(data byte) {
+func (b *Buffer) PushByte(data byte) {
 	b.pushNext(data)
 }
 
-func (b *buffer) PushInt16(data int16) {
+func (b *Buffer) PushInt16(data int16) {
 	b.pushNext(
 		byte(data>>8),
 		byte(data))
 }
 
-func (b *buffer) PushInt32(data int32) {
+func (b *Buffer) PushInt32(data int32) {
 	b.pushNext(
 		byte(data>>24),
 		byte(data>>16),
@@ -238,7 +167,7 @@ func (b *buffer) PushInt32(data int32) {
 		byte(data))
 }
 
-func (b *buffer) PushInt64(data int64) {
+func (b *Buffer) PushInt64(data int64) {
 	b.pushNext(
 		byte(data>>56),
 		byte(data>>48),
@@ -250,13 +179,13 @@ func (b *buffer) PushInt64(data int64) {
 		byte(data))
 }
 
-func (b *buffer) PushUint16(data uint16) {
+func (b *Buffer) PushUint16(data uint16) {
 	b.pushNext(
 		byte(data>>8),
 		byte(data))
 }
 
-func (b *buffer) PushUint64(data uint64) {
+func (b *Buffer) PushUint64(data uint64) {
 	b.pushNext(
 		byte(data>>56),
 		byte(data>>48),
@@ -268,15 +197,15 @@ func (b *buffer) PushUint64(data uint64) {
 		byte(data))
 }
 
-func (b *buffer) PushFloat32(data float32) {
+func (b *Buffer) PushFloat32(data float32) {
 	b.PushInt32(int32(math.Float32bits(data)))
 }
 
-func (b *buffer) PushFloat64(data float64) {
+func (b *Buffer) PushFloat64(data float64) {
 	b.PushInt64(int64(math.Float64bits(data)))
 }
 
-func (b *buffer) PushVarInt(data int32) {
+func (b *Buffer) PushVarInt(data int32) {
 	for {
 		temp := data & 0x7F
 		data >>= 7
@@ -293,7 +222,7 @@ func (b *buffer) PushVarInt(data int32) {
 	}
 }
 
-func (b *buffer) PushVarLong(data int64) {
+func (b *Buffer) PushVarLong(data int64) {
 	for {
 		temp := data & 0x7F
 		data >>= 7
@@ -310,11 +239,11 @@ func (b *buffer) PushVarLong(data int64) {
 	}
 }
 
-func (b *buffer) PushString(data string) {
+func (b *Buffer) PushString(data string) {
 	b.PushBytes([]byte(data), true)
 }
 
-func (b *buffer) PushBytes(data []byte, prefixWithLen bool) {
+func (b *Buffer) PushBytes(data []byte, prefixWithLen bool) {
 	if prefixWithLen {
 		b.PushVarInt(int32(len(data)))
 	}
@@ -322,14 +251,14 @@ func (b *buffer) PushBytes(data []byte, prefixWithLen bool) {
 	b.pushNext(data...)
 }
 
-func (b *buffer) PushUUID(data uuid.UUID) {
+func (b *Buffer) PushUUID(data uuid.UUID) {
 	msb, lsb := bitsFromUUID(data)
 
 	b.PushInt64(msb)
 	b.PushInt64(lsb)
 }
 
-func (b *buffer) pullNext() byte {
+func (b *Buffer) pullNext() byte {
 	if b.iIndex >= int32(b.Len()) {
 		return 0
 		// panic("reached end of buffer")
@@ -345,7 +274,7 @@ func (b *buffer) pullNext() byte {
 	return next
 }
 
-func (b *buffer) pullSize(next int) []byte {
+func (b *Buffer) pullSize(next int) []byte {
 	bytes := make([]byte, next)
 
 	for i := 0; i < next; i++ {
@@ -355,12 +284,12 @@ func (b *buffer) pullSize(next int) []byte {
 	return bytes
 }
 
-func (b *buffer) pushNext(bArray ...byte) {
+func (b *Buffer) pushNext(bArray ...byte) {
 	b.oIndex += int32(len(bArray))
 	b.bArray = append(b.bArray, bArray...)
 }
 
-func (b *buffer) pullVariable(max int) int64 {
+func (b *Buffer) pullVariable(max int) int64 {
 	var num int
 	var res int64
 

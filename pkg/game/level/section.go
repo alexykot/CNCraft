@@ -3,13 +3,13 @@ package level
 import (
 	"fmt"
 
-	buff "github.com/alexykot/cncraft/pkg/buffer"
+	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/protocol/blocks"
 )
 
 // 16*16*16 blocks cubic section, part of the chunk
 type Section interface {
-	buff.BPush
+	buffer.BPush
 
 	// position in the chunk, 0 to 15
 	Index() int
@@ -83,7 +83,7 @@ func (s *section) SetBlock(x, y, z int, b Block) error {
 	return nil
 }
 
-func (s *section) Push(writer buff.B) {
+func (s *section) Push(writer *buffer.Buffer) {
 	// push count of non-air blocks
 	writer.PushInt16(SectionY * SectionZ * SectionX) // DEBT this does not consider non-air blocks yet
 

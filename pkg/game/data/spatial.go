@@ -39,18 +39,18 @@ type Relativity struct {
 	Pitch bool
 }
 
-func (r *PositionI) Pull(reader buffer.B) {
+func (r *PositionI) Pull(reader *buffer.Buffer) {
 	val := reader.PullUint64()
 	r.X = int64(val) >> 38
 	r.Y = int64(val) & 0xFFF
 	r.Z = int64(val) << 26 >> 38
 }
 
-func (r *PositionI) Push(writer buffer.B) {
+func (r *PositionI) Push(writer *buffer.Buffer) {
 	writer.PushInt64(((r.X & 0x3FFFFFF) << 38) | ((r.Z & 0x3FFFFFF) << 12) | (r.Y & 0xFFF))
 }
 
-func (r *Relativity) Push(writer buffer.B) {
+func (r *Relativity) Push(writer *buffer.Buffer) {
 	flags := byte(0)
 
 	r.Set(&flags, 0x01, r.X)

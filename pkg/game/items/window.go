@@ -47,7 +47,7 @@ const (
 	numberKey   clickMode = 2
 	middleClick clickMode = 3
 	drop        clickMode = 4
-	dragPaint   clickMode = 5
+	drag        clickMode = 5
 	doubleClick clickMode = 6
 )
 
@@ -69,6 +69,16 @@ const (
 	kbdKey9 = 8
 
 	kbdKeyQ = 0
+
+	startLeftMouseDrag   = 0
+	startRightMouseDrag  = 4
+	startMiddleMouseDrag = 8
+	addLeftDragSlot      = 1
+	addRightDragSlot     = 5
+	addMiddleDragSlot    = 9
+	endLeftMouseDrag     = 2
+	endRightMouseDrag    = 6
+	endMiddleMouseDrag   = 10
 )
 
 func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clickedItem Slot) (*Slot, bool, error) {
@@ -108,7 +118,9 @@ func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clic
 		inventoryUpdated, err = m.handleMode2(slotID, button, clickedItem)
 	case drop:
 		droppedItem, inventoryUpdated, err = m.handleMode4(slotID, button, clickedItem)
-	case middleClick, dragPaint, doubleClick:
+	case drag:
+		inventoryUpdated, err = m.handleMode5(slotID, button, clickedItem)
+	case middleClick, doubleClick:
 		return nil, false, fmt.Errorf("mode %s not supported", clickMode(mode).String())
 	default:
 		return nil, false, fmt.Errorf("invalid mode %d received", mode)
@@ -301,7 +313,7 @@ func (m *windowMgr) handleMode1(slotID int16, button uint8, clickedItem Slot) (b
 	slotItem := m.clickable.GetSlot(slotID)
 
 	if clickedItem.IsPresent {
-		return false, fmt.Errorf("clickedItem should not be present in mode 1")
+		return false, fmt.Errorf("clickedItem should not b/**/e present in mode 1")
 	}
 
 	m.log.Debug(fmt.Sprintf("button: %d; slotID: %d; slotItem: %v; clickedItem: %v", button, slotID, slotItem, clickedItem),
@@ -419,4 +431,8 @@ func (m *windowMgr) handleMode4(slotID int16, button uint8, _ Slot) (Slot, bool,
 	m.clickable.SetSlot(slotID, slotItem)
 
 	return droppedItem, true, nil
+}
+
+func (m *windowMgr) handleMode5(slotID int16, button uint8, clickedItem Slot) (bool, error) {
+	return false, nil
 }

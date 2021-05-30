@@ -101,6 +101,8 @@ type testCase struct {
 	cursorEnd    Slot
 	dropped      Slot
 	shouldChange bool
+
+	isBeingDragged bool
 }
 
 func (s *clickMgrSuite) TestHandleClick_OkMode0() {
@@ -836,6 +838,25 @@ func (s *clickMgrSuite) TestHandleClick_OkMode4() {
 	}
 
 	s.runTests(drop, testCases)
+}
+
+func (s *clickMgrSuite) TestHandleClick_OkMode5() {
+	testCases := []testCase{
+		{
+			name:         "drag/start_emptyslots",
+			invStart:     []testSlot{},
+			invEnd:       []testSlot{},
+			cursorStart:  bedrock(20),
+			cursorEnd:    empty(),
+			shouldChange: true,
+			button:       startLeftMouseDrag,
+			slotID:       slotOutsideWindow,
+			clickedItem:  empty(),
+			dropped:      empty(),
+		},
+	}
+
+	s.runTests(drag, testCases)
 }
 
 func (s *clickMgrSuite) runTests(mode clickMode, testCases []testCase) {

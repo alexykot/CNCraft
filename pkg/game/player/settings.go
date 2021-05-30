@@ -49,7 +49,7 @@ func (d *SkinParts) String() string {
 	return fmt.Sprintf("Cape:%t Head:%t Body:%t ArmL:%t ArmR:%t LegL:%t LegR:%t", d.Cape, d.Head, d.Body, d.ArmL, d.ArmR, d.LegL, d.LegR)
 }
 
-func (d *SkinParts) Push(writer buffer.B) {
+func (d *SkinParts) Push(writer *buffer.Buffer) {
 	flags := byte(0)
 
 	d.Set(&flags, 0x01, d.Cape)
@@ -63,7 +63,7 @@ func (d *SkinParts) Push(writer buffer.B) {
 	writer.PushByte(flags)
 }
 
-func (d *SkinParts) Pull(reader buffer.B) {
+func (d *SkinParts) Pull(reader *buffer.Buffer) {
 	flags := reader.PullByte()
 
 	d.Cape = d.Has(flags, 0x01)

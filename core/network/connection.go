@@ -20,8 +20,8 @@ type Connection interface {
 	EnableEncryption(secret []byte) error
 	EnableCompression()
 
-	Receive(bufIn buffer.B) (len int, err error)
-	Transmit(bufOut buffer.B) (len int, err error)
+	Receive(bufIn *buffer.Buffer) (len int, err error)
+	Transmit(bufOut *buffer.Buffer) (len int, err error)
 
 	Close() error
 }
@@ -77,7 +77,7 @@ func (c *connection) EnableCompression() {
 	c.zip.Enable()
 }
 
-func (c *connection) Receive(bufIn buffer.B) (len int, err error) {
+func (c *connection) Receive(bufIn *buffer.Buffer) (len int, err error) {
 	data := make([]byte, 2097151) // max possible packet size according to https://wiki.vg/Protocol#Packet_format
 
 	readLen, err := c.pull(data)
@@ -96,7 +96,7 @@ func (c *connection) Receive(bufIn buffer.B) (len int, err error) {
 	return readLen, nil
 }
 
-func (c *connection) Transmit(bufOut buffer.B) (len int, err error) {
+func (c *connection) Transmit(bufOut *buffer.Buffer) (len int, err error) {
 	temp := buffer.New()
 	temp.PushVarInt(getPacketLength(bufOut))
 	temp.PushBytes(bufOut.Bytes(), false)
@@ -117,7 +117,7 @@ func (c *connection) Transmit(bufOut buffer.B) (len int, err error) {
 	// }
 }
 
-func getPacketLength(bufOut buffer.B) int32 {
+func getPacketLength(bufOut *buffer.Buffer) int32 {
 	length := bufOut.Len()
 	// packetType := bufOut.PullVarInt()
 	// if packetType == 0x20 {

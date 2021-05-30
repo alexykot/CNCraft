@@ -42,11 +42,11 @@ func (b *Brand) Chan() Channel {
 	return ChannelBrand
 }
 
-func (b *Brand) Push(writer buffer.B) {
+func (b *Brand) Push(writer *buffer.Buffer) {
 	writer.PushString(b.Name)
 }
 
-func (b *Brand) Pull(reader buffer.B) {
+func (b *Brand) Pull(reader *buffer.Buffer) {
 	b.Name = reader.PullString()
 }
 
@@ -67,7 +67,7 @@ type PathEntity struct {
 	CSet    []PathPoint
 }
 
-func (p *PathEntity) Push(writer buffer.B) {
+func (p *PathEntity) Push(writer *buffer.Buffer) {
 	writer.PushInt32(int32(p.Index))
 
 	p.Target.Push(writer)
@@ -88,7 +88,7 @@ func (p *PathEntity) Push(writer buffer.B) {
 	}
 }
 
-func (p *PathEntity) Pull(reader buffer.B) {
+func (p *PathEntity) Pull(reader *buffer.Buffer) {
 	p.Index = int(reader.PullInt32())
 
 	target := PathPoint{}
@@ -140,7 +140,7 @@ type PathPoint struct {
 	DistanceTarget float32
 }
 
-func (p *PathPoint) Push(writer buffer.B) {
+func (p *PathPoint) Push(writer *buffer.Buffer) {
 	writer.PushInt32(p.X)
 	writer.PushInt32(p.Y)
 	writer.PushInt32(p.Z)
@@ -152,7 +152,7 @@ func (p *PathPoint) Push(writer buffer.B) {
 	writer.PushFloat32(p.DistanceTarget)
 }
 
-func (p *PathPoint) Pull(reader buffer.B) {
+func (p *PathPoint) Pull(reader *buffer.Buffer) {
 	p.X = reader.PullInt32()
 	p.Y = reader.PullInt32()
 	p.Z = reader.PullInt32()
@@ -190,13 +190,13 @@ func (d *DebugPaths) Chan() Channel {
 	return ChannelDebugPaths
 }
 
-func (d *DebugPaths) Push(writer buffer.B) {
+func (d *DebugPaths) Push(writer *buffer.Buffer) {
 	writer.PushInt32(d.UnknownValue1)
 	writer.PushFloat32(d.UnknownValue2)
 	d.PathEntity.Push(writer)
 }
 
-func (d *DebugPaths) Pull(reader buffer.B) {
+func (d *DebugPaths) Pull(reader *buffer.Buffer) {
 	d.UnknownValue1 = reader.PullInt32()
 	d.UnknownValue2 = reader.PullFloat32()
 
@@ -215,12 +215,12 @@ func (d *DebugNeighbors) Chan() Channel {
 	return ChannelDebugNeighbors
 }
 
-func (d *DebugNeighbors) Push(writer buffer.B) {
+func (d *DebugNeighbors) Push(writer *buffer.Buffer) {
 	writer.PushVarLong(d.Time)
 	d.Location.Push(writer)
 }
 
-func (d *DebugNeighbors) Pull(reader buffer.B) {
+func (d *DebugNeighbors) Pull(reader *buffer.Buffer) {
 	d.Time = reader.PullVarLong()
 	d.Location.Pull(reader)
 }

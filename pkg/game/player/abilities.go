@@ -17,7 +17,7 @@ type Abilities struct {
 	InstantBuild bool
 }
 
-func (p *Abilities) Push(writer buffer.B) {
+func (p *Abilities) Push(writer *buffer.Buffer) {
 	flags := byte(0)
 
 	p.Set(&flags, 0x01, p.Invulnerable)
@@ -28,7 +28,7 @@ func (p *Abilities) Push(writer buffer.B) {
 	writer.PushByte(flags)
 }
 
-func (p *Abilities) Pull(reader buffer.B) {
+func (p *Abilities) Pull(reader *buffer.Buffer) {
 	flags := reader.PullByte()
 
 	p.Invulnerable = p.Has(flags, 0x01)

@@ -84,7 +84,7 @@ func startNetwork() error {
 	return nil
 }
 
-func sendBuffer(bufOut buffer.B) {
+func sendBuffer(bufOut buffer.Buffer) {
 	if _, err := conn.Transmit(bufOut); err != nil {
 		panic(fmt.Errorf("failed to transmit buffer: %w", err))
 	}
