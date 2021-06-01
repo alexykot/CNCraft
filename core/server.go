@@ -18,6 +18,7 @@ import (
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/network"
 	"github.com/alexykot/cncraft/core/players"
+	w "github.com/alexykot/cncraft/core/world"
 	"github.com/alexykot/cncraft/pkg/log"
 	"github.com/alexykot/cncraft/pkg/protocol/auth"
 )
@@ -46,6 +47,7 @@ type server struct {
 	network *network.Network
 
 	players *players.Roster
+	world   *w.World
 
 	// chat    // chat implementation needed
 }
@@ -78,6 +80,11 @@ func NewServer(conf control.ServerConf) (Server, error) {
 	net := network.NewNetwork(conf.Network, log.LevelUp(log.Named(rootLog, "network"), conf.LogLevels.Network),
 		controlChan, pubSub, dispatcher)
 
+	world, err := w.NewWorld(conf.WorldID, log.LevelUp(log.Named(rootLog, "world"), conf.LogLevels.World), database)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate world: %w", err)
+	}
+
 	return &server{
 		config:  conf,
 		log:     rootLog,
@@ -86,6 +93,7 @@ func NewServer(conf control.ServerConf) (Server, error) {
 		signal:  make(chan os.Signal),
 		network: net,
 		players: roster,
+		world:   world,
 		db:      database,
 	}, nil
 }
@@ -154,8 +162,12 @@ func (s *server) startServer() error {
 		return fmt.Errorf("failed to register global player handlers: %w", err)
 	}
 
-	if err := handlers.RegisterEventHandlersState3(s.ps,
-		log.LevelUp(log.Named(s.log, "players"), s.config.LogLevels.Players), s.players); err != nil {
+	if err := s.world.Load(); err != nil {
+		return fmt.Errorf("failed to load world data: %w", err)
+	}
+
+	if err := handlers.RegisterEventHandlersState3(log.LevelUp(log.Named(s.log, "players"), s.config.LogLevels.Players),
+		s.ps, s.players, s.world); err != nil {
 		return fmt.Errorf("failed to register Play state handlers: %w", err)
 	}
 

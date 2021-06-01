@@ -13,6 +13,7 @@ type ServerConf struct {
 	LogLevels           logLevels `yaml:"log-levels"` // log level settings for various subsystems.
 	IsCracked           bool      `yaml:"is-cracked"` // if True - skip player authentication, connection encryption and compression. Set to False by default.
 	ServerID            string    `yaml:"server-id"`  // ID of the current server. Set to random 16 char string by default.
+	WorldID             uuid.UUID `yaml:"world-id"`   // ID of the current server. Set to random 16 char string by default.
 	EnableRespawnScreen bool      // Enable respawn screen or tell client to respawn immediately.
 	Brand               string    // Server brand. Is always set to `CNCraft`.
 }
@@ -34,9 +35,11 @@ type logLevels struct {
 	Dispatcher string `yaml:"dispatcher"`
 	Network    string `yaml:"network"`
 	PubSub     string `yaml:"pubsub"`
-	Players    string `yaml:"players"`
-	Windows    string `yaml:"windows"`
 	DB         string `yaml:"db"`
+
+	Players string `yaml:"players"`
+	Windows string `yaml:"windows"`
+	World   string `yaml:"windows"`
 }
 
 // currentConf is an internal singleton of server configuration. It is registered once during server bootstrap.
@@ -65,14 +68,16 @@ func GetDefaultConfig() ServerConf {
 			Dispatcher: "ERROR",
 			Network:    "ERROR",
 			PubSub:     "ERROR",
+			DB:         "ERROR",
 
 			Players: "DEBUG",
-			Windows: "DEBUG",
-			DB:      "ERROR",
+			Windows: "ERROR",
+			World:   "ERROR",
 		},
 		IsCracked:           true,
 		EnableRespawnScreen: true,
 		ServerID:            strings.ToUpper(base64.StdEncoding.EncodeToString([]byte(uuid.New().String())))[:16],
+		WorldID:             uuid.New(),
 		Brand:               "CNCraft",
 	})
 }

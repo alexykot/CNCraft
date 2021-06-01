@@ -9,3 +9,5 @@ const (
 	SectionZ = 16 // Length
 	SectionY = 16 // Height
 )
+
+type BlockArr [SectionY][SectionZ][SectionX]Block

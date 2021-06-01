@@ -6,24 +6,38 @@ import (
 	"github.com/alexykot/cncraft/pkg/protocol/blocks"
 )
 
-type HeightMap struct {
+// SectionRepo - persistence-aware interface for loading and saving sections.
+type SectionRepo interface {
+	// LoadSection - loads section from persistence into memory
+	LoadSection(x, z int64, index uint8) (Section, error)
+
+	// SaveSection - saves section state
+	// DEBT This does not allow for differential updates, will be ineffective to save whole section every time
+	//  a block in the section is updated. Will need to be optimised for diff updates only, eventually.
+	SaveSection(Section) error
+}
+
+type heightMap struct {
 	MotionBlocking []int64 `nbt:"MOTION_BLOCKING"`
 	WorldSurface   []int64 `nbt:"WORLD_SURFACE"` // purpose unknown, left empty
 }
 
 type ChunkID string
 
-// 16*16*255 blocks column
+// Chunk - 16*16*255 blocks column
 type Chunk interface {
 	ID() ChunkID
 
 	X() int64 // block coordinates of the lowest X block in the chunk, NOT the chunk coord (divided by 16 rounded down)
 	Z() int64 // block coordinates of the lowest Z block in the chunk, NOT the chunk coord (divided by 16 rounded down)
 
-	Sections() []Section
-	HeightMap() HeightMap
+	Load(repo SectionRepo) error
+	Unload()
 
-	// supports values /**/x:[0:15] y:[0:255] z: [0:15]
+	Sections() []Section
+	HeightMap() heightMap
+
+	// supports values x:[0:15] y:[0:255] z: [0:15]
 	// GetBlock(x, y, z int) Block
 }
 
@@ -50,18 +64,11 @@ type chunk struct {
 	sections []Section
 }
 
-func NewChunk() Chunk {
-	return &chunk{}
-}
-
-// NewDefaultChunk creates a flatworld hardcoded chunk.
-func NewDefaultChunk(x, z int64) Chunk {
+// NewChunk creates new chunk (not loaded yet)
+func NewChunk(x, z int64) Chunk {
 	return &chunk{
 		x: x,
 		z: z,
-		sections: []Section{
-			NewDefaultSection(0),
-		},
 	}
 }
 
@@ -73,9 +80,50 @@ func (c *chunk) Sections() []Section {
 	return c.sections
 }
 
-func (c *chunk) HeightMap() HeightMap {
+func (c *chunk) Load(repo SectionRepo) error {
+	c.Unload()
+	var err error
+
+	// DEBT make this configurable for supporting taller worlds
+	c.sections = make([]Section, 8, 8)
+
+	if c.sections[0], err = repo.LoadSection(c.x, c.z, 0); err != nil {
+		return fmt.Errorf("failed to load section %d: %w", 0, err)
+	}
+
+	// TODO when all sections are set, even with just Air blocks - something fails on the client.
+	// if c.sections[1], err = repo.LoadSection(c.x, c.z, 1); err != nil {
+	// 	return fmt.Errorf("failed to load section %d: %w", 1, err)
+	// }
+	// if c.sections[2], err = repo.LoadSection(c.x, c.z, 2); err != nil {
+	// 	return fmt.Errorf("failed to load section %d: %w", 2, err)
+	// }
+	// if c.sections[3], err = repo.LoadSection(c.x, c.z, 3); err != nil {
+	// 	return fmt.Errorf("failed to load section %d: %w", 3, err)
+	// }
+	// if c.sections[4], err = repo.LoadSection(c.x, c.z, 4); err != nil {
+	// 	return fmt.Errorf("failed to load section %d: %w", 4, err)
+	// }
+	// if c.sections[5], err = repo.LoadSection(c.x, c.z, 5); err != nil {
+	// 	return fmt.Errorf("failed to load section %d: %w", 5, err)
+	// }
+	// if c.sections[6], err = repo.LoadSection(c.x, c.z, 6); err != nil {
+	// 	return fmt.Errorf("failed to load section %d: %w", 6, err)
+	// }
+	// if c.sections[7], err = repo.LoadSection(c.x, c.z, 7); err != nil {
+	// 	return fmt.Errorf("failed to load section %d: %w", 7, err)
+	// }
+
+	return nil
+}
+
+func (c *chunk) Unload() {
+	c.sections = nil // DEBT is this enough to unload section data from memory 🤔
+}
+
+func (c *chunk) HeightMap() heightMap {
 	heights := c.findHeights()
-	heightMap := HeightMap{
+	heightMap := heightMap{
 		MotionBlocking: c.compactHeights(heights),
 		// WorldSurface purpose is unknown, but in the Notchian packet it's contents is same as of MotionBlocking.
 		WorldSurface: c.compactHeights(heights),

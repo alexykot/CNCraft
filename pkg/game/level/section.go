@@ -7,62 +7,31 @@ import (
 	"github.com/alexykot/cncraft/pkg/protocol/blocks"
 )
 
-// 16*16*16 blocks cubic section, part of the chunk
+// Section - 16*16*16 blocks cubic section, part of the chunk
 type Section interface {
 	buffer.BPush
 
-	// position in the chunk, 0 to 15
+	// Index - position in the chunk, 0 to 15
 	Index() int
 
-	// supports values x:[0:15] y:[0:15] z: [0:15]
+	// GetBlock - supports values x:[0:15] y:[0:15] z: [0:15]
 	GetBlock(x, y, z int) Block
 
-	// supports values x:[0:15] y:[0:15] z: [0:15]
+	// SetBlock - supports values x:[0:15] y:[0:15] z: [0:15]
 	SetBlock(x, y, z int, block Block) error
+}
+
+func NewSection(blocks BlockArr, index uint8) Section {
+	return &section{
+		blocks: blocks,
+		index:  index,
+	}
 }
 
 type section struct {
 	// DEBT will need to store compacted paletted block map and unpack on request to save RAM
-	blocks [16][16][16]Block // x,z,y block coordinates
+	blocks BlockArr // x,z,y block coordinates
 	index  uint8
-}
-
-func NewSection(index uint8) Section {
-	return &section{
-		blocks: [SectionX][SectionZ][SectionY]Block{},
-		index:  index,
-	}
-}
-
-// NewDefaultSection creates a flatworld's lowest section, hardcoded.
-func NewDefaultSection(index uint8) Section {
-	flatSection := &section{
-		blocks: [SectionY][SectionZ][SectionX]Block{},
-		index:  index,
-	}
-
-	for z := 0; z < SectionZ; z++ {
-		for x := 0; x < SectionX; x++ {
-			flatSection.blocks[0][z][x] = NewBlock(blocks.Bedrock)
-			flatSection.blocks[1][z][x] = NewBlock(blocks.Dirt)
-			flatSection.blocks[2][z][x] = NewBlock(blocks.Dirt)
-			flatSection.blocks[3][z][x] = NewBlock(blocks.GrassBlock_SnowyFalse)
-			flatSection.blocks[4][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[5][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[6][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[7][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[8][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[9][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[10][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[11][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[12][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[13][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[14][z][x] = NewBlock(blocks.Air)
-			flatSection.blocks[15][z][x] = NewBlock(blocks.Air)
-		}
-	}
-
-	return flatSection
 }
 
 func (s *section) Index() int { return int(s.index) }

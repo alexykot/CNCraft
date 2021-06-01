@@ -20,8 +20,8 @@ import (
 
 // RegisterEventHandlersState3 registers handlers for envelopes broadcast in the Play connection state.
 //  Play state handlers are entirely asynchronous, so NATS subscriptions need to be created at boot time.
-func RegisterEventHandlersState3(ps nats.PubSub, log *zap.Logger, roster *players.Roster) error {
-	if err := ps.Subscribe(subj.MkPlayerLoading(), handlePlayerLoading(ps, log, roster)); err != nil {
+func RegisterEventHandlersState3(log *zap.Logger, ps nats.PubSub, roster *players.Roster, world *world.World) error {
+	if err := ps.Subscribe(subj.MkPlayerLoading(), handlePlayerLoading(ps, log, roster, world)); err != nil {
 		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
 	}
 
@@ -30,7 +30,7 @@ func RegisterEventHandlersState3(ps nats.PubSub, log *zap.Logger, roster *player
 	return nil
 }
 
-func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster) func(lope *envelope.E) {
+func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster, world *world.World) func(lope *envelope.E) {
 	return func(inLope *envelope.E) {
 		ps := ps
 		log := log
@@ -53,18 +53,17 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 			log.Error("failed add player", zap.Error(err))
 			return
 		}
-		currentWorld := world.GetDefaultWorld()
 		var outLopes []*envelope.E
 
 		cpacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CJoinGame) // Predefined packet is expected to always exist.
 		joinGame := cpacket.(*protocol.CPacketJoinGame)                           // And always be of the correct type.
 
 		joinGame.EntityID = p.PC.ID()
-		joinGame.GameMode = currentWorld.Gamemode
-		joinGame.DimensionCodec = currentWorld.DimensionCodec
-		joinGame.Dimension = currentWorld.Dimension
-		joinGame.IsHardcore = currentWorld.Coreness
-		joinGame.HashedSeed = int64(binary.LittleEndian.Uint64(currentWorld.SeedHash[:]))
+		joinGame.GameMode = world.Gamemode
+		joinGame.DimensionCodec = world.DimensionCodec
+		joinGame.Dimension = world.Dimension
+		joinGame.IsHardcore = world.Coreness
+		joinGame.HashedSeed = int64(binary.LittleEndian.Uint64(world.SeedHash[:]))
 		joinGame.ViewDistance = p.Settings.ViewDistance
 		joinGame.EnableRespawnScreen = control.GetCurrentConfig().EnableRespawnScreen
 		outLopes = append(outLopes, mkCpacketEnvelope(joinGame))
@@ -76,8 +75,8 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CServerDifficulty)
 		difficulty := cpacket.(*protocol.CPacketServerDifficulty)
-		difficulty.Difficulty = currentWorld.Difficulty
-		difficulty.Locked = currentWorld.DifficultyIsLocked
+		difficulty.Difficulty = world.Difficulty
+		difficulty.Locked = world.DifficultyIsLocked
 		outLopes = append(outLopes, mkCpacketEnvelope(difficulty))
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerAbilities)
@@ -98,7 +97,7 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 		// TODO CUnlockRecipes packet is not defined
 
 		// TODO move this to a separate world loader
-		chunksToLoad := currentWorld.Levels[game.Overworld.String()].Chunks()
+		chunksToLoad := world.Levels[game.Overworld.String()].Chunks()
 		for _, chunk := range chunksToLoad {
 			cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CChunkData)
 			chunkData := cpacket.(*protocol.CPacketChunkData)

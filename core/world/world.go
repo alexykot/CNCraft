@@ -2,8 +2,13 @@ package world
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/binary"
+	"fmt"
 	"math/rand"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/level"
@@ -32,9 +37,23 @@ type World struct {
 	Dimension      tags.Dimension
 
 	Levels map[string]level.Level
+
+	repo *SectionRepo
+	log  *zap.Logger
 }
 
-var defaultWorld *World // TODO replace this with actual world loading from persistence
+// NewWorld - creates world from persisted settigns. Does NOT load world data.
+func NewWorld(id uuid.UUID, log *zap.Logger, db *sql.DB) (*World, error) {
+	world := GetDefaultWorld() // TODO load world starting settings from persistence.
+
+	world.log = log
+	world.repo = newRepo(log, db)
+
+	return world, nil
+}
+
+// TODO replace this with actual world loading from persistence
+var defaultWorld *World
 
 func GetDefaultWorld() *World {
 	if defaultWorld == nil {
@@ -53,8 +72,29 @@ func GetDefaultWorld() *World {
 		defaultWorld.SeedHash = sha256.Sum256(defaultWorld.Seed)
 
 		defaultWorld.Levels = make(map[string]level.Level)
-		defaultWorld.Levels[game.Overworld.String()] = level.GetDefaultLevel()
+		defaultWorld.Levels[game.Overworld.String()] = level.NewLevel(game.Overworld.String())
 	}
 
 	return defaultWorld
+}
+
+func (w *World) Load() error {
+	if w.repo == nil {
+		return fmt.Errorf("world section repo not initialised")
+	}
+
+	for name, worldLevel := range w.Levels {
+		w.log.Debug(fmt.Sprintf("loading level %s", name))
+
+		chunks := worldLevel.Chunks()
+		for _, chunk := range chunks {
+			if err := chunk.Load(w.repo); err != nil {
+				return fmt.Errorf("failed to load chunk %s: %w", chunk.ID(), err)
+			}
+		}
+	}
+
+	w.log.Info(fmt.Sprintf("world `%s` loaded", w.Name))
+
+	return nil
 }
