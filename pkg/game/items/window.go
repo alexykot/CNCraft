@@ -33,13 +33,18 @@ type windowMgr struct {
 	lastAction int16
 	isOpen     bool
 	isUpset    bool
-	// DEBT is server crashes while cursor is not empty - item on the cursor will be lost.
+	// DEBT if server crashes while cursor is not empty - item on the cursor will be lost.
 	//  Need to persist cursor contents and find a way to recover it after a crash.
 	//  It is possible to set cursor contents using SetSlot packet.
 	cursor Slot
+
+	dragged    Slot // dragged.IsPresent=true indicates that dragging is in progress
+	dragSlots  []int16
+	dragPlaced map[int16]int16
 }
 
 type clickMode uint8
+type button uint8
 
 const (
 	simpleClick clickMode = 0
@@ -54,38 +59,38 @@ const (
 const slotOutsideWindow = -999
 
 const (
-	leftMouseButton   = 0
-	rightMouseButton  = 1
-	middleMouseButton = 2
+	leftMouseButton   button = 0
+	rightMouseButton  button = 1
+	middleMouseButton button = 2
 
-	kbdKey1 = 0
-	kbdKey2 = 1
-	kbdKey3 = 2
-	kbdKey4 = 3
-	kbdKey5 = 4
-	kbdKey6 = 5
-	kbdKey7 = 6
-	kbdKey8 = 7
-	kbdKey9 = 8
+	kbdKey1 button = 0
+	kbdKey2 button = 1
+	kbdKey3 button = 2
+	kbdKey4 button = 3
+	kbdKey5 button = 4
+	kbdKey6 button = 5
+	kbdKey7 button = 6
+	kbdKey8 button = 7
+	kbdKey9 button = 8
 
-	kbdKeyQ = 0
+	kbdKeyQ button = 0
 
-	startLeftMouseDrag   = 0
-	startRightMouseDrag  = 4
-	startMiddleMouseDrag = 8
-	addLeftDragSlot      = 1
-	addRightDragSlot     = 5
-	addMiddleDragSlot    = 9
-	endLeftMouseDrag     = 2
-	endRightMouseDrag    = 6
-	endMiddleMouseDrag   = 10
+	startLeftMouseDrag   button = 0
+	startRightMouseDrag  button = 4
+	startMiddleMouseDrag button = 8
+	addLeftDragSlot      button = 1
+	addRightDragSlot     button = 5
+	addMiddleDragSlot    button = 9
+	endLeftMouseDrag     button = 2
+	endRightMouseDrag    button = 6
+	endMiddleMouseDrag   button = 10
 )
 
-func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clickedItem Slot) (*Slot, bool, error) {
+func (m *windowMgr) HandleClick(actionID, slotID, mode int16, keyPress uint8, clickedItem Slot) (*Slot, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.log.Debug(fmt.Sprintf("button: %d; slotID: %d; clickedItem: %v", button, slotID, clickedItem), zap.Int16("mode", mode))
+	m.log.Debug(fmt.Sprintf("button: %d; slotID: %d; clickedItem: %v", keyPress, slotID, clickedItem), zap.Int16("mode", mode))
 
 	m.log.Debug(fmt.Sprintf("actionID: %d, lastAction: %d", actionID, m.lastAction))
 
@@ -106,20 +111,27 @@ func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clic
 		return nil, false, fmt.Errorf("window ID %d is not open", m.WindowID)
 	}
 
+	if m.dragged.IsPresent && clickMode(mode) != drag {
+		m.dragged = Slot{}
+		m.dragSlots = nil
+		m.dragPlaced = nil
+		return nil, false, fmt.Errorf("received non-dragging mode %s while drag is active", clickMode(mode).String())
+	}
+
 	var err error
 	var inventoryUpdated bool
 	var droppedItem Slot
 	switch clickMode(mode) {
 	case simpleClick:
-		droppedItem, inventoryUpdated, err = m.handleMode0(slotID, button, clickedItem)
+		droppedItem, inventoryUpdated, err = m.handleMode0(slotID, button(keyPress), clickedItem)
 	case shftClick:
-		inventoryUpdated, err = m.handleMode1(slotID, button, clickedItem)
+		inventoryUpdated, err = m.handleMode1(slotID, button(keyPress), clickedItem)
 	case numberKey:
-		inventoryUpdated, err = m.handleMode2(slotID, button, clickedItem)
+		inventoryUpdated, err = m.handleMode2(slotID, button(keyPress), clickedItem)
 	case drop:
-		droppedItem, inventoryUpdated, err = m.handleMode4(slotID, button, clickedItem)
+		droppedItem, inventoryUpdated, err = m.handleMode4(slotID, button(keyPress), clickedItem)
 	case drag:
-		inventoryUpdated, err = m.handleMode5(slotID, button, clickedItem)
+		inventoryUpdated, err = m.handleMode5(slotID, button(keyPress), clickedItem)
 	case middleClick, doubleClick:
 		return nil, false, fmt.Errorf("mode %s not supported", clickMode(mode).String())
 	default:
@@ -128,6 +140,8 @@ func (m *windowMgr) HandleClick(actionID, slotID, mode int16, button uint8, clic
 
 	if err == nil {
 		m.lastAction = actionID
+	} else {
+		m.log.Debug("click cannot be handled", zap.Error(err))
 	}
 
 	if droppedItem.IsPresent {
@@ -170,7 +184,7 @@ func (m *windowMgr) CloseWindow() Slot {
 	return droppedItem
 }
 
-func (m *windowMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (Slot, bool, error) {
+func (m *windowMgr) handleMode0(slotID int16, button button, clickedItem Slot) (Slot, bool, error) {
 	slotItem := m.clickable.GetSlot(slotID)
 	if !slotEqual(slotItem, clickedItem) {
 		return Slot{}, false, fmt.Errorf("slot contents not equal to clickedItem supplied")
@@ -309,7 +323,7 @@ func (m *windowMgr) handleMode0(slotID int16, button uint8, clickedItem Slot) (S
 	}
 }
 
-func (m *windowMgr) handleMode1(slotID int16, button uint8, clickedItem Slot) (bool, error) {
+func (m *windowMgr) handleMode1(slotID int16, button button, clickedItem Slot) (bool, error) {
 	slotItem := m.clickable.GetSlot(slotID)
 
 	if clickedItem.IsPresent {
@@ -378,7 +392,7 @@ func (m *windowMgr) handleMode1(slotID int16, button uint8, clickedItem Slot) (b
 	}
 }
 
-func (m *windowMgr) handleMode2(slotID int16, button uint8, clickedItem Slot) (bool, error) {
+func (m *windowMgr) handleMode2(slotID int16, button button, clickedItem Slot) (bool, error) {
 	switch button { // Pick up that can.
 	case kbdKey1, kbdKey2, kbdKey3, kbdKey4, kbdKey5, kbdKey6, kbdKey7, kbdKey8, kbdKey9:
 		// Okay, you can go.
@@ -392,7 +406,7 @@ func (m *windowMgr) handleMode2(slotID int16, button uint8, clickedItem Slot) (b
 
 	hotbarRange := m.clickable.GetRange(hotbar)
 	hotbarSlots := hotbarRange.GetSlots()
-	if len(hotbarSlots) != kbdKey9+1 {
+	if len(hotbarSlots) != int(kbdKey9)+1 {
 		return false, fmt.Errorf("unexpected number of hotbar slots")
 	}
 
@@ -407,7 +421,7 @@ func (m *windowMgr) handleMode2(slotID int16, button uint8, clickedItem Slot) (b
 	return true, nil
 }
 
-func (m *windowMgr) handleMode4(slotID int16, button uint8, _ Slot) (Slot, bool, error) {
+func (m *windowMgr) handleMode4(slotID int16, button button, _ Slot) (Slot, bool, error) {
 	if button != kbdKeyQ {
 		return Slot{}, false, fmt.Errorf("button %d not supported for mode 4", button)
 	}
@@ -433,6 +447,98 @@ func (m *windowMgr) handleMode4(slotID int16, button uint8, _ Slot) (Slot, bool,
 	return droppedItem, true, nil
 }
 
-func (m *windowMgr) handleMode5(slotID int16, button uint8, clickedItem Slot) (bool, error) {
-	return false, nil
+func (m *windowMgr) handleMode5(slotID int16, button button, _ Slot) (bool, error) {
+	switch button {
+	case startLeftMouseDrag, startRightMouseDrag:
+		if slotID != slotOutsideWindow {
+			m.dragSlots = nil
+			m.dragged = Slot{}
+			return false, fmt.Errorf("slotID must be -999 to start the drag")
+		}
+
+		if !m.cursor.IsPresent {
+			m.dragSlots = nil
+			m.dragged = Slot{}
+			return false, fmt.Errorf("nothing to drag - cursor is empty")
+		}
+
+		if m.dragged.IsPresent {
+			m.dragSlots = nil
+			m.dragged = Slot{}
+			return false, fmt.Errorf("was already dragging")
+		}
+
+		m.dragged = m.cursor
+		m.dragPlaced = make(map[int16]int16)
+		return false, nil
+
+	case addLeftDragSlot, addRightDragSlot:
+		if !m.dragged.IsPresent || m.dragPlaced == nil {
+			m.dragSlots = nil
+			m.dragged = Slot{}
+			return false, fmt.Errorf("is not dragging")
+		}
+
+		slotItem := m.clickable.GetSlot(slotID)
+		if slotItem.IsPresent && slotItem.ItemID != m.dragged.ItemID {
+			m.dragSlots = nil
+			m.dragged = Slot{}
+			return false, fmt.Errorf("dragging over non-matching item")
+		}
+
+		m.dragSlots = append(m.dragSlots, slotID)
+		var perSlot int16
+		switch button {
+		case addLeftDragSlot:
+			perSlot = int16(math.Floor(float64(m.dragged.ItemCount) / float64(len(m.dragSlots))))
+		case addRightDragSlot:
+			perSlot = 1
+		}
+
+		dragged := m.dragged
+		for _, dragSlotID := range m.dragSlots {
+			if dragged.ItemCount < 1 {
+				continue // nothing to place anymore, all distributed
+			}
+
+			dragSlotItem := m.clickable.GetSlot(dragSlotID)
+			if !dragSlotItem.IsPresent { // empty slot is now slot of this type, with zero count
+				dragSlotItem = m.dragged
+				dragSlotItem.ItemCount = 0
+			}
+
+			// if we have already painted - need to take away what was just added to not double-paint into same slot
+			dragSlotItem.ItemCount = dragSlotItem.ItemCount - m.dragPlaced[dragSlotID]
+
+			// update itemcount with as much as can be distributed into this slot, but no more than stackable
+			oldCount := dragSlotItem.ItemCount
+			dragSlotItem.ItemCount = int16(math.Min(float64(dragSlotItem.ItemCount+perSlot), float64(dragSlotItem.ItemID.MaxStack())))
+
+			// account for how much was painted into this slot
+			m.dragPlaced[dragSlotID] = dragSlotItem.ItemCount - oldCount
+
+			// reduce available to distribute in this painting round
+			dragged.ItemCount = dragged.ItemCount - (dragSlotItem.ItemCount - oldCount)
+			m.clickable.SetSlot(dragSlotID, dragSlotItem) // save paint-over slot
+		}
+
+		m.cursor.ItemCount = dragged.ItemCount
+		return true, nil
+	case endLeftMouseDrag, endRightMouseDrag:
+		var err error
+		if slotID != slotOutsideWindow {
+			err = fmt.Errorf("slotID must be -999 to end the drag")
+		}
+
+		if !m.dragged.IsPresent {
+			err = fmt.Errorf("was not dragging")
+		}
+
+		m.dragSlots = nil
+		m.dragPlaced = nil
+		m.dragged = Slot{}
+		return false, err
+	default:
+		return false, fmt.Errorf("button %d not supported for dragging", button)
+	}
 }

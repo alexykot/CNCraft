@@ -94,7 +94,7 @@ type testCase struct {
 	cursorStart Slot
 
 	slotID      int16
-	button      uint8
+	button      button
 	clickedItem Slot
 
 	invEnd       []testSlot
@@ -102,13 +102,18 @@ type testCase struct {
 	dropped      Slot
 	shouldChange bool
 
-	isBeingDragged bool
+	draggedStart    Slot
+	draggedEnd      Slot
+	dragSlotsStart  []int16
+	dragSlotsEnd    []int16
+	dragPlacedStart map[int16]int16
+	dragPlacedEnd   map[int16]int16
 }
 
 func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 	testCases := []testCase{
 		{
-			name:         "left_click/single_item_pickup",
+			name:         "leftClick/single_item_pickup",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe())},
 			invEnd:       nil,
 			cursorStart:  empty(),
@@ -119,7 +124,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			clickedItem:  pickaxe(),
 		},
 		{
-			name:         "left_click/single_item_putdown_empty_slot",
+			name:         "leftClick/single_item_putdown_empty_slot",
 			invStart:     nil,
 			invEnd:       []testSlot{tSlot(hotbar2, pickaxe())},
 			cursorStart:  pickaxe(),
@@ -131,7 +136,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 		},
 
 		{
-			name:         "left_click/stack_pickup",
+			name:         "leftClick/stack_pickup",
 			invStart:     []testSlot{tSlot(hotbar2, bedrock())},
 			invEnd:       nil,
 			cursorStart:  empty(),
@@ -142,7 +147,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			clickedItem:  bedrock(),
 		},
 		{
-			name:         "left_click/stack_putdown",
+			name:         "leftClick/stack_putdown",
 			invStart:     nil,
 			invEnd:       []testSlot{tSlot(hotbar3, bedrock())},
 			cursorStart:  bedrock(),
@@ -154,7 +159,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 		},
 
 		{
-			name:         "left_click/halfstack_join_putdown",
+			name:         "leftClick/halfstack_join_putdown",
 			invStart:     []testSlot{tSlot(hotbar2, bedrock(20))},
 			invEnd:       []testSlot{tSlot(hotbar2, bedrock(40))},
 			cursorStart:  bedrock(20),
@@ -165,7 +170,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			clickedItem:  bedrock(20),
 		},
 		{
-			name:         "left_click/overstack_join_putdown",
+			name:         "leftClick/overstack_join_putdown",
 			invStart:     []testSlot{tSlot(hotbar2, bedrock(40))},
 			invEnd:       []testSlot{tSlot(hotbar2, bedrock(64))},
 			cursorStart:  bedrock(40),
@@ -176,7 +181,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			clickedItem:  bedrock(40),
 		},
 		{
-			name:         "left_click/replacement_putdown",
+			name:         "leftClick/replacement_putdown",
 			invStart:     []testSlot{tSlot(hotbar2, bedrock(40))},
 			invEnd:       []testSlot{tSlot(hotbar2, pickaxe())},
 			cursorStart:  pickaxe(),
@@ -188,7 +193,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 		},
 
 		{
-			name:         "right_click/single_item_pickup",
+			name:         "rightClick/single_item_pickup",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe())},
 			invEnd:       nil,
 			cursorStart:  empty(),
@@ -199,7 +204,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			clickedItem:  pickaxe(),
 		},
 		{
-			name:         "right_click/single_item_putdown_empty_slot",
+			name:         "rightClick/single_item_putdown_empty_slot",
 			invStart:     nil,
 			invEnd:       []testSlot{tSlot(hotbar2, pickaxe())},
 			cursorStart:  pickaxe(),
@@ -211,7 +216,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 		},
 
 		{
-			name:         "right_click/halfstack_pickup",
+			name:         "rightClick/halfstack_pickup",
 			invStart:     []testSlot{tSlot(hotbar2, bedrock(40))},
 			invEnd:       []testSlot{tSlot(hotbar2, bedrock(20))},
 			cursorStart:  empty(),
@@ -222,7 +227,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			clickedItem:  bedrock(40),
 		},
 		{
-			name:         "left_click/halfstack_putdown",
+			name:         "leftClick/halfstack_putdown",
 			invStart:     []testSlot{tSlot(hotbar2, bedrock(20))},
 			invEnd:       []testSlot{tSlot(hotbar2, bedrock(20)), tSlot(hotbar3, bedrock(20))},
 			cursorStart:  bedrock(20),
@@ -233,7 +238,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "right_click/stackitem_putdown",
+			name:         "rightClick/stackitem_putdown",
 			invStart:     []testSlot{tSlot(hotbar2, bedrock(20))},
 			invEnd:       []testSlot{tSlot(hotbar2, bedrock(20)), tSlot(hotbar3, bedrock(1))},
 			cursorStart:  bedrock(20),
@@ -244,7 +249,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "right_click/stackitem_join_putdown",
+			name:         "rightClick/stackitem_join_putdown",
 			invStart:     []testSlot{tSlot(hotbar2, bedrock(20))},
 			invEnd:       []testSlot{tSlot(hotbar2, bedrock(21))},
 			cursorStart:  bedrock(20),
@@ -255,7 +260,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			clickedItem:  bedrock(20),
 		},
 		{
-			name:         "left_click/outside_window_drop_single_item",
+			name:         "leftClick/outside_window_drop_single_item",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
 			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
 			cursorStart:  pickaxe(),
@@ -267,7 +272,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			dropped:      pickaxe(),
 		},
 		{
-			name:         "right_click/outside_window_drop_single_item",
+			name:         "rightClick/outside_window_drop_single_item",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
 			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
 			cursorStart:  pickaxe(),
@@ -279,7 +284,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			dropped:      pickaxe(),
 		},
 		{
-			name:         "left_click/outside_window_drop_stack_whole",
+			name:         "leftClick/outside_window_drop_stack_whole",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
 			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
 			cursorStart:  bedrock(20),
@@ -291,7 +296,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 			dropped:      bedrock(20),
 		},
 		{
-			name:         "right_click/outside_window_drop_stack_item",
+			name:         "rightClick/outside_window_drop_stack_item",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
 			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, bedrock(20))},
 			cursorStart:  bedrock(20),
@@ -309,7 +314,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode0() {
 func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 	testCases := []testCase{
 		{
-			name:         "left_click/single_item_moveup",
+			name:         "leftClick/single_item_moveup",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(rowTop1, pickaxe())},
 			cursorStart:  empty(),
@@ -320,7 +325,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "left_click/single_item_movedown",
+			name:         "leftClick/single_item_movedown",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe())},
 			invEnd:       []testSlot{tSlot(hotbar1, pickaxe())},
 			cursorStart:  empty(),
@@ -331,7 +336,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "left_click/item_moveup_occupied",
+			name:         "leftClick/item_moveup_occupied",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(rowTop1, pickaxe()), tSlot(rowTop2, pickaxe())},
 			cursorStart:  empty(),
@@ -342,7 +347,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "left_click/item_movedown_occupied",
+			name:         "leftClick/item_movedown_occupied",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, pickaxe())},
 			cursorStart:  empty(),
@@ -353,7 +358,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name: "left_click/item_moveup_row_occupied",
+			name: "leftClick/item_moveup_row_occupied",
 			invStart: []testSlot{
 				tSlot(rowTop1, pickaxe()),
 				tSlot(rowTop2, pickaxe()),
@@ -386,7 +391,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name: "left_click/stack_moveup_multistack_row_mostly_occupied",
+			name: "leftClick/stack_moveup_multistack_row_mostly_occupied",
 			invStart: []testSlot{
 				tSlot(rowTop1, bedrock(63)),
 				tSlot(rowTop2, bedrock(63)),
@@ -419,7 +424,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name: "left_click/stack_moveup_multistack_range_mostly_occupied",
+			name: "leftClick/stack_moveup_multistack_range_mostly_occupied",
 			invStart: []testSlot{
 				tSlot(rowTop1, bedrock(63)),
 				tSlot(rowTop2, bedrock(63)),
@@ -488,7 +493,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "left_click/item_movedown_row_occupied",
+			name:         "leftClick/item_movedown_row_occupied",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, pickaxe())},
 			cursorStart:  empty(),
@@ -499,7 +504,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "left_click/empty_slot_up",
+			name:         "leftClick/empty_slot_up",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			cursorStart:  empty(),
@@ -510,7 +515,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "left_click/empty_slot_down",
+			name:         "leftClick/empty_slot_down",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			cursorStart:  empty(),
@@ -523,7 +528,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 
 		// right click, same behaviour
 		{
-			name:         "right_click/single_item_moveup",
+			name:         "rightClick/single_item_moveup",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(rowTop1, pickaxe())},
 			cursorStart:  empty(),
@@ -534,7 +539,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "right_click/single_item_movedown",
+			name:         "rightClick/single_item_movedown",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe())},
 			invEnd:       []testSlot{tSlot(hotbar1, pickaxe())},
 			cursorStart:  empty(),
@@ -545,7 +550,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "right_click/item_moveup_occupied",
+			name:         "rightClick/item_moveup_occupied",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(rowTop1, pickaxe()), tSlot(rowTop2, pickaxe())},
 			cursorStart:  empty(),
@@ -556,7 +561,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "right_click/item_movedown_occupied",
+			name:         "rightClick/item_movedown_occupied",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, pickaxe())},
 			cursorStart:  empty(),
@@ -567,7 +572,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name: "right_click/item_moveup_row_occupied",
+			name: "rightClick/item_moveup_row_occupied",
 			invStart: []testSlot{
 				tSlot(rowTop1, pickaxe()),
 				tSlot(rowTop2, pickaxe()),
@@ -600,7 +605,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name: "right_click/stack_moveup_multistack_row_mostly_occupied",
+			name: "rightClick/stack_moveup_multistack_row_mostly_occupied",
 			invStart: []testSlot{
 				tSlot(rowTop1, bedrock(63)),
 				tSlot(rowTop2, bedrock(63)),
@@ -633,7 +638,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name: "right_click/stack_moveup_multistack_range_mostly_occupied",
+			name: "rightClick/stack_moveup_multistack_range_mostly_occupied",
 			invStart: []testSlot{
 				tSlot(rowTop1, bedrock(63)),
 				tSlot(rowTop2, bedrock(63)),
@@ -702,7 +707,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "right_click/item_movedown_row_occupied",
+			name:         "rightClick/item_movedown_row_occupied",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar2, pickaxe())},
 			cursorStart:  empty(),
@@ -713,7 +718,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "right_click/empty_slot_up",
+			name:         "rightClick/empty_slot_up",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			cursorStart:  empty(),
@@ -724,7 +729,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "right_click/empty_slot_down",
+			name:         "rightClick/empty_slot_down",
 			invStart:     []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(rowTop1, pickaxe()), tSlot(hotbar1, pickaxe())},
 			cursorStart:  empty(),
@@ -741,7 +746,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode1() {
 func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 	testCases := []testCase{
 		{
-			name:         "number_press/single_item_swap",
+			name:         "single_item_swap",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(rowTop1, showel())},
 			invEnd:       []testSlot{tSlot(hotbar1, showel()), tSlot(rowTop1, pickaxe())},
 			cursorStart:  empty(),
@@ -752,7 +757,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "number_press/empty_slot_swap_to_hotbar",
+			name:         "empty_slot_swap_to_hotbar",
 			invStart:     []testSlot{tSlot(rowTop1, showel())},
 			invEnd:       []testSlot{tSlot(hotbar9, showel())},
 			cursorStart:  empty(),
@@ -763,7 +768,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "number_press/empty_slot_swap_from_hotbar",
+			name:         "empty_slot_swap_from_hotbar",
 			invStart:     []testSlot{tSlot(hotbar3, showel())},
 			invEnd:       []testSlot{tSlot(rowTop1, showel())},
 			cursorStart:  empty(),
@@ -774,7 +779,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "number_press/stack_swap",
+			name:         "stack_swap",
 			invStart:     []testSlot{tSlot(hotbar1, bedrock()), tSlot(rowTop1, showel())},
 			invEnd:       []testSlot{tSlot(hotbar1, showel()), tSlot(rowTop1, bedrock())},
 			cursorStart:  empty(),
@@ -785,7 +790,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "number_press/single_item_swap_in_hotbar",
+			name:         "single_item_swap_in_hotbar",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe()), tSlot(hotbar5, showel())},
 			invEnd:       []testSlot{tSlot(hotbar1, showel()), tSlot(hotbar5, pickaxe())},
 			cursorStart:  empty(),
@@ -796,7 +801,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "number_press/swap_to_empty_in_hotbar",
+			name:         "swap_to_empty_in_hotbar",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(hotbar5, pickaxe())},
 			cursorStart:  empty(),
@@ -807,7 +812,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 			clickedItem:  empty(),
 		},
 		{
-			name:         "number_press/swap_from_empty_in_hotbar",
+			name:         "swap_from_empty_in_hotbar",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{tSlot(hotbar5, pickaxe())},
 			cursorStart:  empty(),
@@ -824,7 +829,7 @@ func (s *clickMgrSuite) TestHandleClick_OkMode2() {
 func (s *clickMgrSuite) TestHandleClick_OkMode4() {
 	testCases := []testCase{
 		{
-			name:         "drop/Q_press",
+			name:         "Q_press",
 			invStart:     []testSlot{tSlot(hotbar1, pickaxe())},
 			invEnd:       []testSlot{},
 			cursorStart:  empty(),
@@ -843,16 +848,749 @@ func (s *clickMgrSuite) TestHandleClick_OkMode4() {
 func (s *clickMgrSuite) TestHandleClick_OkMode5() {
 	testCases := []testCase{
 		{
-			name:         "drag/start_emptyslots",
-			invStart:     []testSlot{},
-			invEnd:       []testSlot{},
-			cursorStart:  bedrock(20),
-			cursorEnd:    empty(),
-			shouldChange: true,
-			button:       startLeftMouseDrag,
-			slotID:       slotOutsideWindow,
-			clickedItem:  empty(),
-			dropped:      empty(),
+			name:            "leftClick/emptyslots_start",
+			invStart:        []testSlot{},
+			invEnd:          []testSlot{},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(20),
+			draggedStart:    empty(),
+			draggedEnd:      bedrock(20),
+			shouldChange:    false,
+			button:          startLeftMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    nil,
+			dragPlacedStart: nil,
+			dragPlacedEnd:   make(map[int16]int16),
+		},
+		{
+			name:            "leftClick/emptyslots_drag_first_slot",
+			invStart:        []testSlot{},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(20))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar1,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    []int16{hotbar1},
+			dragPlacedStart: make(map[int16]int16),
+			dragPlacedEnd:   map[int16]int16{hotbar1: 20},
+		},
+		{
+			name:            "leftClick/emptyslots_drag_second_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(20))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(10)), tSlot(hotbar2, bedrock(10))},
+			cursorStart:     empty(),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar2,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2},
+			dragPlacedStart: map[int16]int16{hotbar1: 20},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 10, hotbar2: 10},
+		},
+		{
+			name:            "leftClick/emptyslots_drag_third_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(10)), tSlot(hotbar2, bedrock(10))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(6)), tSlot(hotbar2, bedrock(6)), tSlot(hotbar3, bedrock(6))},
+			cursorStart:     empty(),
+			cursorEnd:       bedrock(2),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar3,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2, hotbar3},
+			dragPlacedStart: map[int16]int16{hotbar1: 10, hotbar2: 10},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 6, hotbar2: 6, hotbar3: 6},
+		},
+		{
+			name:     "leftClick/emptyslots_drag_fourth_slot",
+			invStart: []testSlot{tSlot(hotbar1, bedrock(6)), tSlot(hotbar2, bedrock(6)), tSlot(hotbar3, bedrock(6))},
+			invEnd: []testSlot{
+				tSlot(hotbar1, bedrock(5)), tSlot(hotbar2, bedrock(5)),
+				tSlot(hotbar3, bedrock(5)), tSlot(hotbar4, bedrock(5))},
+			cursorStart:     bedrock(2),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar4,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2, hotbar3},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2, hotbar3, hotbar4},
+			dragPlacedStart: map[int16]int16{hotbar1: 6, hotbar2: 6, hotbar3: 6},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 5, hotbar2: 5, hotbar3: 5, hotbar4: 5},
+		},
+		{
+			name: "leftClick/emptyslots_end_four_slots",
+			invStart: []testSlot{
+				tSlot(hotbar1, bedrock(5)), tSlot(hotbar2, bedrock(5)),
+				tSlot(hotbar3, bedrock(5)), tSlot(hotbar4, bedrock(5))},
+			invEnd: []testSlot{
+				tSlot(hotbar1, bedrock(5)), tSlot(hotbar2, bedrock(5)),
+				tSlot(hotbar3, bedrock(5)), tSlot(hotbar4, bedrock(5))},
+			cursorStart:     empty(),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      empty(),
+			shouldChange:    false,
+			button:          endLeftMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2, hotbar3, hotbar4},
+			dragSlotsEnd:    nil,
+			dragPlacedStart: map[int16]int16{hotbar1: 5, hotbar2: 5, hotbar3: 5, hotbar4: 5},
+			dragPlacedEnd:   nil,
+		},
+
+		{
+			name:            "leftClick/paint_over_same_start",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(10))},
+			invEnd:          []testSlot{tSlot(hotbar2, bedrock(10))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(20),
+			draggedStart:    empty(),
+			draggedEnd:      bedrock(20),
+			shouldChange:    false,
+			button:          startLeftMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    nil,
+			dragPlacedStart: nil,
+			dragPlacedEnd:   make(map[int16]int16),
+		},
+		{
+			name:            "leftClick/paint_over_same_drag_first_slot",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(10))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(20)), tSlot(hotbar2, bedrock(10))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar1,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    []int16{hotbar1},
+			dragPlacedStart: make(map[int16]int16),
+			dragPlacedEnd:   map[int16]int16{hotbar1: 20},
+		},
+		{
+			name:            "leftClick/paint_over_same_drag_second_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(20)), tSlot(hotbar2, bedrock(10))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(10)), tSlot(hotbar2, bedrock(20))},
+			cursorStart:     empty(),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar2,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2},
+			dragPlacedStart: map[int16]int16{hotbar1: 20},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 10, hotbar2: 10},
+		},
+		{
+			name:            "leftClick/paint_over_same_drag_third_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(10)), tSlot(hotbar2, bedrock(20))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(6)), tSlot(hotbar2, bedrock(16)), tSlot(hotbar3, bedrock(6))},
+			cursorStart:     empty(),
+			cursorEnd:       bedrock(2),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar3,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2, hotbar3},
+			dragPlacedStart: map[int16]int16{hotbar1: 10, hotbar2: 10},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 6, hotbar2: 6, hotbar3: 6},
+		},
+		{
+			name:     "leftClick/paint_over_same_drag_fourth_slot",
+			invStart: []testSlot{tSlot(hotbar1, bedrock(6)), tSlot(hotbar2, bedrock(16)), tSlot(hotbar3, bedrock(6))},
+			invEnd: []testSlot{
+				tSlot(hotbar1, bedrock(5)), tSlot(hotbar2, bedrock(15)),
+				tSlot(hotbar3, bedrock(5)), tSlot(hotbar4, bedrock(5))},
+			cursorStart:     bedrock(2),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar4,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2, hotbar3},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2, hotbar3, hotbar4},
+			dragPlacedStart: map[int16]int16{hotbar1: 6, hotbar2: 6, hotbar3: 6},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 5, hotbar2: 5, hotbar3: 5, hotbar4: 5},
+		},
+		{
+			name: "leftClick/paint_over_same_end_four_slots",
+			invStart: []testSlot{
+				tSlot(hotbar1, bedrock(5)), tSlot(hotbar2, bedrock(15)),
+				tSlot(hotbar3, bedrock(5)), tSlot(hotbar4, bedrock(5))},
+			invEnd: []testSlot{
+				tSlot(hotbar1, bedrock(5)), tSlot(hotbar2, bedrock(15)),
+				tSlot(hotbar3, bedrock(5)), tSlot(hotbar4, bedrock(5))},
+			cursorStart:     empty(),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      empty(),
+			shouldChange:    false,
+			button:          endLeftMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2, hotbar3, hotbar4},
+			dragSlotsEnd:    nil,
+			dragPlacedStart: map[int16]int16{hotbar1: 5, hotbar2: 5, hotbar3: 5, hotbar4: 5},
+			dragPlacedEnd:   nil,
+		},
+
+		{
+			name:            "leftClick/fullstack_start",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(64))},
+			invEnd:          []testSlot{tSlot(hotbar2, bedrock(64))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(20),
+			draggedStart:    empty(),
+			draggedEnd:      bedrock(20),
+			shouldChange:    false,
+			button:          startLeftMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    nil,
+			dragPlacedStart: nil,
+			dragPlacedEnd:   make(map[int16]int16),
+		},
+		{
+			name:            "leftClick/fullstack_drag_first_slot",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(64))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(20)), tSlot(hotbar2, bedrock(64))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar1,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    []int16{hotbar1},
+			dragPlacedStart: make(map[int16]int16),
+			dragPlacedEnd:   map[int16]int16{hotbar1: 20},
+		},
+		{
+			name:            "leftClick/fullstack_drag_second_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(20)), tSlot(hotbar2, bedrock(64))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(10)), tSlot(hotbar2, bedrock(64))},
+			cursorStart:     empty(),
+			cursorEnd:       bedrock(10),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar2,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2},
+			dragPlacedStart: map[int16]int16{hotbar1: 20},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 10, hotbar2: 0},
+		},
+		{
+			name:            "leftClick/fullstack_end_two_slots",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(10)), tSlot(hotbar2, bedrock(64))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(10)), tSlot(hotbar2, bedrock(64))},
+			cursorStart:     bedrock(10),
+			cursorEnd:       bedrock(10),
+			draggedStart:    bedrock(20),
+			draggedEnd:      empty(),
+			shouldChange:    false,
+			button:          endLeftMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2},
+			dragSlotsEnd:    nil,
+			dragPlacedStart: map[int16]int16{hotbar1: 10, hotbar2: 0},
+			dragPlacedEnd:   nil,
+		},
+
+		{
+			name:            "leftClick/nearly_fullstack_start",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(60))},
+			invEnd:          []testSlot{tSlot(hotbar2, bedrock(60))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(20),
+			draggedStart:    empty(),
+			draggedEnd:      bedrock(20),
+			shouldChange:    false,
+			button:          startLeftMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    nil,
+			dragPlacedStart: nil,
+			dragPlacedEnd:   make(map[int16]int16),
+		},
+		{
+			name:            "leftClick/nearly_fullstack_drag_first_slot",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(60))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(20)), tSlot(hotbar2, bedrock(60))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar1,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    []int16{hotbar1},
+			dragPlacedStart: make(map[int16]int16),
+			dragPlacedEnd:   map[int16]int16{hotbar1: 20},
+		},
+		{
+			name:            "leftClick/nearly_fullstack_drag_second_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(20)), tSlot(hotbar2, bedrock(60))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(10)), tSlot(hotbar2, bedrock(64))},
+			cursorStart:     empty(),
+			cursorEnd:       bedrock(6),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addLeftDragSlot,
+			slotID:          hotbar2,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2},
+			dragPlacedStart: map[int16]int16{hotbar1: 20},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 10, hotbar2: 4},
+		},
+		{
+			name:            "leftClick/nearly_fullstack_end_two_slots",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(10)), tSlot(hotbar2, bedrock(64))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(10)), tSlot(hotbar2, bedrock(64))},
+			cursorStart:     bedrock(6),
+			cursorEnd:       bedrock(6),
+			draggedStart:    bedrock(20),
+			draggedEnd:      empty(),
+			shouldChange:    false,
+			button:          endLeftMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2},
+			dragSlotsEnd:    nil,
+			dragPlacedStart: map[int16]int16{hotbar1: 10, hotbar2: 4},
+			dragPlacedEnd:   nil,
+		},
+
+		{
+			name:            "rightClick/emptyslots_start",
+			invStart:        []testSlot{},
+			invEnd:          []testSlot{},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(20),
+			draggedStart:    empty(),
+			draggedEnd:      bedrock(20),
+			shouldChange:    false,
+			button:          startRightMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    nil,
+			dragPlacedStart: nil,
+			dragPlacedEnd:   make(map[int16]int16),
+		},
+		{
+			name:            "rightClick/emptyslots_drag_first_slot",
+			invStart:        []testSlot{},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(19),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar1,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    []int16{hotbar1},
+			dragPlacedStart: make(map[int16]int16),
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1},
+		},
+		{
+			name:            "rightClick/emptyslots_drag_second_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(1))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(1))},
+			cursorStart:     bedrock(19),
+			cursorEnd:       bedrock(18),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar2,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2},
+			dragPlacedStart: map[int16]int16{hotbar1: 1},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1, hotbar2: 1},
+		},
+		{
+			name:            "rightClick/emptyslots_drag_third_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(1))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(1)), tSlot(hotbar3, bedrock(1))},
+			cursorStart:     bedrock(18),
+			cursorEnd:       bedrock(17),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar3,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2, hotbar3},
+			dragPlacedStart: map[int16]int16{hotbar1: 1, hotbar2: 1},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1, hotbar2: 1, hotbar3: 1},
+		},
+		{
+			name:     "rightClick/emptyslots_drag_fourth_slot",
+			invStart: []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(1)), tSlot(hotbar3, bedrock(1))},
+			invEnd: []testSlot{
+				tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(1)),
+				tSlot(hotbar3, bedrock(1)), tSlot(hotbar4, bedrock(1))},
+			cursorStart:     bedrock(17),
+			cursorEnd:       bedrock(16),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar4,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2, hotbar3},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2, hotbar3, hotbar4},
+			dragPlacedStart: map[int16]int16{hotbar1: 1, hotbar2: 1, hotbar3: 1},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1, hotbar2: 1, hotbar3: 1, hotbar4: 1},
+		},
+		{
+			name: "rightClick/emptyslots_end_four_slots",
+			invStart: []testSlot{
+				tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(1)),
+				tSlot(hotbar3, bedrock(1)), tSlot(hotbar4, bedrock(1))},
+			invEnd: []testSlot{
+				tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(1)),
+				tSlot(hotbar3, bedrock(1)), tSlot(hotbar4, bedrock(1))},
+			cursorStart:     empty(),
+			cursorEnd:       empty(),
+			draggedStart:    bedrock(20),
+			draggedEnd:      empty(),
+			shouldChange:    false,
+			button:          endRightMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2, hotbar3, hotbar4},
+			dragSlotsEnd:    nil,
+			dragPlacedStart: map[int16]int16{hotbar1: 1, hotbar2: 1, hotbar3: 1, hotbar4: 1},
+			dragPlacedEnd:   nil,
+		},
+
+		{
+			name:            "rightClick/fullstack_start",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(64))},
+			invEnd:          []testSlot{tSlot(hotbar2, bedrock(64))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(20),
+			draggedStart:    empty(),
+			draggedEnd:      bedrock(20),
+			shouldChange:    false,
+			button:          startRightMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    nil,
+			dragPlacedStart: nil,
+			dragPlacedEnd:   make(map[int16]int16),
+		},
+		{
+			name:            "rightClick/fullstack_drag_first_slot",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(64))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(19),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar1,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    []int16{hotbar1},
+			dragPlacedStart: make(map[int16]int16),
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1},
+		},
+		{
+			name:            "rightClick/fullstack_drag_second_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64))},
+			cursorStart:     bedrock(19),
+			cursorEnd:       bedrock(19),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar2,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2},
+			dragPlacedStart: map[int16]int16{hotbar1: 1},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1, hotbar2: 0},
+		},
+		{
+			name:            "rightClick/fullstack_drag_third_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64)), tSlot(hotbar3, bedrock(1))},
+			cursorStart:     bedrock(19),
+			cursorEnd:       bedrock(18),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar3,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2, hotbar3},
+			dragPlacedStart: map[int16]int16{hotbar1: 1},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1, hotbar2: 0, hotbar3: 1},
+		},
+		{
+			name:            "rightClick/fullstack_end_three_slots",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64)), tSlot(hotbar3, bedrock(1))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64)), tSlot(hotbar3, bedrock(1))},
+			cursorStart:     bedrock(18),
+			cursorEnd:       bedrock(18),
+			draggedStart:    bedrock(20),
+			draggedEnd:      empty(),
+			shouldChange:    false,
+			button:          endRightMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2, hotbar3},
+			dragSlotsEnd:    nil,
+			dragPlacedStart: map[int16]int16{hotbar1: 1, hotbar2: 0, hotbar3: 1},
+			dragPlacedEnd:   nil,
+		},
+
+		{
+			name:            "rightClick/nearly_fullstack_start",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(63))},
+			invEnd:          []testSlot{tSlot(hotbar2, bedrock(63))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(20),
+			draggedStart:    empty(),
+			draggedEnd:      bedrock(20),
+			shouldChange:    false,
+			button:          startRightMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    nil,
+			dragPlacedStart: nil,
+			dragPlacedEnd:   make(map[int16]int16),
+		},
+		{
+			name:            "rightClick/nearly_fullstack_drag_first_slot",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(63))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(63))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(19),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar1,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    []int16{hotbar1},
+			dragPlacedStart: make(map[int16]int16),
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1},
+		},
+		{
+			name:            "rightClick/nearly_fullstack_drag_second_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(63))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64))},
+			cursorStart:     bedrock(19),
+			cursorEnd:       bedrock(18),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar2,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2},
+			dragPlacedStart: map[int16]int16{hotbar1: 1},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1, hotbar2: 1},
+		},
+		{
+			name:            "rightClick/nearly_fullstack_drag_third_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64)), tSlot(hotbar3, bedrock(1))},
+			cursorStart:     bedrock(18),
+			cursorEnd:       bedrock(17),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar3,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2, hotbar3},
+			dragPlacedStart: map[int16]int16{hotbar1: 1, hotbar2: 1},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1, hotbar2: 1, hotbar3: 1},
+		},
+		{
+			name:            "rightClick/nearly_fullstack_end_three_slots",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64)), tSlot(hotbar3, bedrock(1))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(64)), tSlot(hotbar3, bedrock(1))},
+			cursorStart:     bedrock(17),
+			cursorEnd:       bedrock(17),
+			draggedStart:    bedrock(20),
+			draggedEnd:      empty(),
+			shouldChange:    false,
+			button:          endRightMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2, hotbar3},
+			dragSlotsEnd:    nil,
+			dragPlacedStart: map[int16]int16{hotbar1: 1, hotbar2: 1, hotbar3: 1},
+			dragPlacedEnd:   nil,
+		},
+
+		{
+			name:            "rightClick/paint_over_same_start",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(10))},
+			invEnd:          []testSlot{tSlot(hotbar2, bedrock(10))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(20),
+			draggedStart:    empty(),
+			draggedEnd:      bedrock(20),
+			shouldChange:    false,
+			button:          startRightMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    nil,
+			dragPlacedStart: nil,
+			dragPlacedEnd:   make(map[int16]int16),
+		},
+		{
+			name:            "rightClick/paint_over_same_drag_first_slot",
+			invStart:        []testSlot{tSlot(hotbar2, bedrock(10))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(10))},
+			cursorStart:     bedrock(20),
+			cursorEnd:       bedrock(19),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar1,
+			clickedItem:     empty(),
+			dragSlotsStart:  nil,
+			dragSlotsEnd:    []int16{hotbar1},
+			dragPlacedStart: make(map[int16]int16),
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1},
+		},
+		{
+			name:            "rightClick/paint_over_same_drag_second_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(10))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(11))},
+			cursorStart:     bedrock(19),
+			cursorEnd:       bedrock(18),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar2,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2},
+			dragPlacedStart: map[int16]int16{hotbar1: 1},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1, hotbar2: 1},
+		},
+		{
+			name:            "rightClick/paint_over_same_drag_third_slot",
+			invStart:        []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(11))},
+			invEnd:          []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(11)), tSlot(hotbar3, bedrock(1))},
+			cursorStart:     bedrock(18),
+			cursorEnd:       bedrock(17),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar3,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2, hotbar3},
+			dragPlacedStart: map[int16]int16{hotbar1: 1, hotbar2: 1},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1, hotbar2: 1, hotbar3: 1},
+		},
+		{
+			name:     "rightClick/paint_over_same_drag_fourth_slot",
+			invStart: []testSlot{tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(11)), tSlot(hotbar3, bedrock(1))},
+			invEnd: []testSlot{
+				tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(11)),
+				tSlot(hotbar3, bedrock(1)), tSlot(hotbar4, bedrock(1))},
+			cursorStart:     bedrock(17),
+			cursorEnd:       bedrock(16),
+			draggedStart:    bedrock(20),
+			draggedEnd:      bedrock(20),
+			shouldChange:    true,
+			button:          addRightDragSlot,
+			slotID:          hotbar4,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2, hotbar3},
+			dragSlotsEnd:    []int16{hotbar1, hotbar2, hotbar3, hotbar4},
+			dragPlacedStart: map[int16]int16{hotbar1: 1, hotbar2: 1, hotbar3: 1},
+			dragPlacedEnd:   map[int16]int16{hotbar1: 1, hotbar2: 1, hotbar3: 1, hotbar4: 1},
+		},
+		{
+			name: "rightClick/paint_over_same_end_four_slots",
+			invStart: []testSlot{
+				tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(11)),
+				tSlot(hotbar3, bedrock(1)), tSlot(hotbar4, bedrock(1))},
+			invEnd: []testSlot{
+				tSlot(hotbar1, bedrock(1)), tSlot(hotbar2, bedrock(11)),
+				tSlot(hotbar3, bedrock(1)), tSlot(hotbar4, bedrock(1))},
+			cursorStart:     bedrock(16),
+			cursorEnd:       bedrock(16),
+			draggedStart:    bedrock(20),
+			draggedEnd:      empty(),
+			shouldChange:    false,
+			button:          endRightMouseDrag,
+			slotID:          slotOutsideWindow,
+			clickedItem:     empty(),
+			dragSlotsStart:  []int16{hotbar1, hotbar2, hotbar3, hotbar4},
+			dragSlotsEnd:    nil,
+			dragPlacedStart: map[int16]int16{hotbar1: 1, hotbar2: 1, hotbar3: 1, hotbar4: 1},
+			dragPlacedEnd:   nil,
 		},
 	}
 
@@ -865,15 +1603,18 @@ func (s *clickMgrSuite) runTests(mode clickMode, testCases []testCase) {
 		s.Run(test.name, func() {
 			actionID++
 
-			s.i.cursor = test.cursorStart
 			s.i.reset()
+			s.i.cursor = test.cursorStart
+			s.i.dragged = test.draggedStart
+			s.i.dragSlots = test.dragSlotsStart
+			s.i.dragPlaced = test.dragPlacedStart
 			for _, item := range test.invStart {
 				s.i.SetSlot(item.slotID, item.Slot)
 			}
 
-			dropped, hasChanged, err := s.i.HandleClick(actionID, test.slotID, int16(mode), test.button, test.clickedItem)
+			dropped, hasChanged, err := s.i.HandleClick(actionID, test.slotID, int16(mode), uint8(test.button), test.clickedItem)
 			s.Require().NoError(err)
-			s.Equal(test.shouldChange, hasChanged, "inventory has not changed")
+			s.Equal(test.shouldChange, hasChanged, "inventory has (not) changed")
 
 			invCompare(test.invEnd, s.i.ToArray(), s.Require().Equal)
 
@@ -885,6 +1626,10 @@ func (s *clickMgrSuite) runTests(mode clickMode, testCases []testCase) {
 			} else {
 				s.Nil(dropped)
 			}
+
+			s.Equal(test.draggedEnd, s.i.dragged)
+			s.Equal(test.dragSlotsEnd, s.i.dragSlots)
+			s.Equal(test.dragPlacedEnd, s.i.dragPlaced)
 		})
 	}
 }
@@ -898,9 +1643,15 @@ func invCompare(expect []testSlot, actual []Slot, equaliser func(interface{}, in
 	equaliser(len(expectFull), len(actual))
 
 	for i, expectItem := range expectFull {
-		// println(fmt.Sprintf("%d. expected: %v; actual: %v", i, expectItem, actual[i]))
-		equaliser(expectItem.IsPresent, actual[i].IsPresent)
-		equaliser(expectItem.ItemID, actual[i].ItemID)
-		equaliser(expectItem.ItemCount, actual[i].ItemCount)
+		equaliser(expectItem.IsPresent, actual[i].IsPresent, "item %d should be (not) present", i)
+		equaliser(expectItem.ItemID, actual[i].ItemID, "item %d ItemID not matching", i)
+		equaliser(expectItem.ItemCount, actual[i].ItemCount, "item %d ItemCount not matching", i)
+	}
+}
+
+func (i *Inventory) reset() {
+	wipe := make([]Slot, 46, 46)
+	for ii := range wipe {
+		i.SetSlot(int16(ii), Slot{})
 	}
 }

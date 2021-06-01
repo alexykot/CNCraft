@@ -281,6 +281,11 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 				{
 					IsPresent: true,
 					ItemID:    pItems.Bedrock,
+					ItemCount: 64,
+				},
+				{
+					IsPresent: true,
+					ItemID:    pItems.Bedrock,
 					ItemCount: 40,
 				},
 			}
