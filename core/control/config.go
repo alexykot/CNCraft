@@ -8,20 +8,33 @@ import (
 )
 
 type ServerConf struct {
-	DBURL               string `yaml:"db-url"` // URL of the postgres server
-	Network             NetworkConf
-	LogLevels           logLevels `yaml:"log-levels"` // log level settings for various subsystems.
-	IsCracked           bool      `yaml:"is-cracked"` // if True - skip player authentication, connection encryption and compression. Set to False by default.
-	ServerID            string    `yaml:"server-id"`  // ID of the current server. Set to random 16 char string by default.
-	WorldID             uuid.UUID `yaml:"world-id"`   // ID of the current server. Set to random 16 char string by default.
-	EnableRespawnScreen bool      // Enable respawn screen or tell client to respawn immediately.
-	Brand               string    // Server brand. Is always set to `CNCraft`.
+	ServerID  string `yaml:"server-id"` // ID of the current server. Set to random 16 char string by default.
+	Brand     string // Server brand. Is always set to `CNCraft` and cannot be changed.
+	IsCracked bool   `yaml:"is-cracked"` // if True - skip player authentication, connection encryption and compression. Set to False by default.
+
+	World WorldConf `yaml:"world"` // Configuration of the world to load. Only one world per server at a time supported.
+
+	DBURL     string      `yaml:"db-url"` // URL of the postgres server
+	Network   NetworkConf `yaml:"network"`
+	LogLevels logLevels   `yaml:"log-levels"` // log level settings for various subsystems.
+
 }
 
 type NetworkConf struct {
 	Host        string `yaml:"host"` // resolvable hostname/IP to bind to. Set to `localhost` by default.
 	Port        int    `yaml:"port"` // TCP port to serve on. Set to 25566 by default.
 	ZipTreshold int32  // size of packet in bytes from which to start compressing the packets. Cannot be set externally.
+}
+
+type WorldConf struct {
+	// ID of the world to load. Must be a 36-char UUID string. Identifies a world saved in persistence, server will
+	// fail to start if the world with this ID is not found. World must be pre-created separately using migration tools.
+	WorldID uuid.UUID `yaml:"world-id"`
+
+	// World shard size in *chunks*. Will be used as XxZ size of the shard, i.e. will be 10x10 chunks per shard
+	// if set to 10 (default). Min 1, max 64.
+	ShardSize           int  `yaml:"shard-size"`
+	EnableRespawnScreen bool // Enable respawn screen or tell client to respawn immediately.
 }
 
 // One of DEBUG, INFO, WARN, ERROR for each of the items. Set to `INFO` by default.
@@ -40,6 +53,7 @@ type logLevels struct {
 	Players string `yaml:"players"`
 	Windows string `yaml:"windows"`
 	World   string `yaml:"windows"`
+	Sharder string `yaml:"sharder"`
 }
 
 // currentConf is an internal singleton of server configuration. It is registered once during server bootstrap.
@@ -56,6 +70,16 @@ func GetCurrentConfig() ServerConf {
 
 func GetDefaultConfig() ServerConf {
 	return addDefaults(ServerConf{
+		ServerID:  strings.ToUpper(base64.StdEncoding.EncodeToString([]byte(uuid.New().String())))[:16],
+		Brand:     "CNCraft",
+		IsCracked: true,
+
+		World: WorldConf{
+			WorldID:             uuid.New(),
+			ShardSize:           10,
+			EnableRespawnScreen: true,
+		},
+
 		DBURL: "postgresql://postgres:root@127.0.0.1:5432/cncraft?sslmode=disable",
 		Network: NetworkConf{
 			Host:        "0.0.0.0",
@@ -72,17 +96,17 @@ func GetDefaultConfig() ServerConf {
 
 			Players: "DEBUG",
 			Windows: "ERROR",
-			World:   "ERROR",
+			Sharder: "DEBUG",
+			World:   "DEBUG",
 		},
-		IsCracked:           true,
-		EnableRespawnScreen: true,
-		ServerID:            strings.ToUpper(base64.StdEncoding.EncodeToString([]byte(uuid.New().String())))[:16],
-		WorldID:             uuid.New(),
-		Brand:               "CNCraft",
 	})
 }
 
 func addDefaults(conf ServerConf) ServerConf {
+	if conf.World.ShardSize < 1 || conf.World.ShardSize > 64 {
+		conf.World.ShardSize = 10
+	}
+
 	if conf.LogLevels.Baseline == "" {
 		conf.LogLevels.Baseline = "ERROR"
 	}
@@ -98,6 +122,12 @@ func addDefaults(conf ServerConf) ServerConf {
 	}
 	if conf.LogLevels.Windows == "" {
 		conf.LogLevels.Windows = conf.LogLevels.Baseline
+	}
+	if conf.LogLevels.World == "" {
+		conf.LogLevels.World = conf.LogLevels.Baseline
+	}
+	if conf.LogLevels.Sharder == "" {
+		conf.LogLevels.Sharder = conf.LogLevels.Baseline
 	}
 	if conf.LogLevels.DB == "" {
 		conf.LogLevels.DB = conf.LogLevels.Baseline

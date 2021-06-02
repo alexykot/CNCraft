@@ -80,7 +80,7 @@ func (ps *pubsub) startServer() error {
 				message = fmt.Sprintf("nats panicked: %v", r)
 			}
 			// stop the server if NATS exits for any reason
-			ps.control <- control.Command{Signal: control.FAIL, Message: message}
+			ps.control <- control.Command{Signal: control.SERVER_FAIL, Message: message}
 		}()
 		// This needs to be called manually for some reason. Without it NATS will run completely silently.
 		ps.natsd.ConfigureLogger()

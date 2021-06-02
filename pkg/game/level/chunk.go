@@ -2,6 +2,8 @@ package level
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/alexykot/cncraft/pkg/protocol/blocks"
 )
@@ -23,6 +25,26 @@ type heightMap struct {
 }
 
 type ChunkID string
+
+func MkChunkID(x, z int64) ChunkID {
+	return ChunkID(fmt.Sprintf("chunk.%d.%d", x, z))
+}
+
+func XZFromChunkID(ID ChunkID) (x, z int64) {
+	pieces := strings.Split(string(ID), ".")
+	if len(pieces) != 3 {
+		panic(fmt.Sprintf("invalid chunkID `%s`", ID))
+	}
+	xInt, err := strconv.Atoi(pieces[1])
+	if err != nil {
+		panic(fmt.Sprintf("invalid chunkID `%s`", ID))
+	}
+	zInt, err := strconv.Atoi(pieces[2])
+	if err != nil {
+		panic(fmt.Sprintf("invalid chunkID `%s`", ID))
+	}
+	return int64(xInt), int64(zInt)
+}
 
 // Chunk - 16*16*255 blocks column
 type Chunk interface {
@@ -72,7 +94,7 @@ func NewChunk(x, z int64) Chunk {
 	}
 }
 
-func (c *chunk) ID() ChunkID { return ChunkID(fmt.Sprintf("chunk-%d-%d", c.x, c.z)) }
+func (c *chunk) ID() ChunkID { return MkChunkID(c.x, c.z) }
 func (c *chunk) X() int64    { return c.x }
 func (c *chunk) Z() int64    { return c.z }
 

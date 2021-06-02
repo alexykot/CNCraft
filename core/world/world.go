@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/level"
 	"github.com/alexykot/cncraft/pkg/protocol/tags"
@@ -43,7 +43,7 @@ type World struct {
 }
 
 // NewWorld - creates world from persisted settigns. Does NOT load world data.
-func NewWorld(id uuid.UUID, log *zap.Logger, db *sql.DB) (*World, error) {
+func NewWorld(_ control.WorldConf, log *zap.Logger, db *sql.DB) (*World, error) {
 	world := GetDefaultWorld() // TODO load world starting settings from persistence.
 
 	world.log = log

@@ -65,7 +65,7 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 		joinGame.IsHardcore = world.Coreness
 		joinGame.HashedSeed = int64(binary.LittleEndian.Uint64(world.SeedHash[:]))
 		joinGame.ViewDistance = p.Settings.ViewDistance
-		joinGame.EnableRespawnScreen = control.GetCurrentConfig().EnableRespawnScreen
+		joinGame.EnableRespawnScreen = control.GetCurrentConfig().World.EnableRespawnScreen
 		outLopes = append(outLopes, mkCpacketEnvelope(joinGame))
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPluginMessage)

@@ -67,7 +67,7 @@ func (n *Network) startListening(ctx context.Context) error {
 	go func(ctx context.Context) {
 		defer func() {
 			if r := recover(); r != nil { // stop the server if the TCP listener goroutine dies
-				n.control <- control.Command{Signal: control.FAIL, Message: fmt.Sprintf("TCP listener panicked: %v", r)}
+				n.control <- control.Command{Signal: control.SERVER_FAIL, Message: fmt.Sprintf("TCP listener panicked: %v", r)}
 			}
 		}()
 
@@ -81,7 +81,7 @@ func (n *Network) startListening(ctx context.Context) error {
 				if err != nil {
 					n.log.Error("failed to accept a TCP connection",
 						zap.String("host", n.host), zap.Int("port", n.port), zap.Error(err))
-					n.control <- control.Command{Signal: control.FAIL, Message: err.Error()}
+					n.control <- control.Command{Signal: control.SERVER_FAIL, Message: err.Error()}
 					return
 				}
 
@@ -95,7 +95,7 @@ func (n *Network) startListening(ctx context.Context) error {
 			}
 		}
 
-		n.control <- control.Command{Signal: control.FAIL, Message: fmt.Sprintf("TCP listener stopped unexpectedly")}
+		n.control <- control.Command{Signal: control.SERVER_FAIL, Message: fmt.Sprintf("TCP listener stopped unexpectedly")}
 	}(ctx)
 
 	return nil

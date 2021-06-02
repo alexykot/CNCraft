@@ -72,7 +72,7 @@ func (k *KeepAliver) DropDeadConn(connID uuid.UUID) {
 func (k *KeepAliver) tick(ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil { // stop the server if the keepAliver goroutine dies
-			k.control <- control.Command{Signal: control.FAIL, Message: fmt.Sprintf("keepaliver panicked: %v", r)}
+			k.control <- control.Command{Signal: control.SERVER_FAIL, Message: fmt.Sprintf("keepaliver panicked: %v", r)}
 		}
 	}()
 
@@ -94,7 +94,7 @@ func (k *KeepAliver) tick(ctx context.Context) {
 		}
 	}
 
-	k.control <- control.Command{Signal: control.FAIL, Message: fmt.Sprintf("keepAliver stopped unexpectedly")}
+	k.control <- control.Command{Signal: control.SERVER_FAIL, Message: fmt.Sprintf("keepAliver stopped unexpectedly")}
 }
 
 func (k *KeepAliver) pronounceDead(connID uuid.UUID) {

@@ -1,6 +1,8 @@
 package subj
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+)
 
 // *** Connection related subjects ***
 
@@ -44,3 +46,11 @@ func MkPlayerSpatialUpdate() string { return "players.update.spatial" }
 // MkPlayerInventoryUpdate creates a subject name string for announcing player inventory updates.
 //  This is sent every time player inventory changes (including hotbar).
 func MkPlayerInventoryUpdate() string { return "players.update.inventory" }
+
+// *** World related subjects ***
+
+// MkShardEvent creates a subject name string for shard events, i.e. all events that are processed
+// by the event loop of the given shard.
+func MkShardEvent(shardID string) string {
+	return "shard.event." + shardID
+}

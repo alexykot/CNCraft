@@ -3,8 +3,10 @@ package control
 type Signal int
 
 const (
-	STOP Signal = iota
-	FAIL
+	SERVER_STOP Signal = iota
+	SERVER_FAIL
+	SHARD_FAIL
+	SHARD_STOP
 )
 
 type Command struct {

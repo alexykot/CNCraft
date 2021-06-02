@@ -30,7 +30,7 @@ type Server interface {
 	Version() string
 
 	//	Chat() // chat implementation needed
-	// TODO this should be part of chat implementation.
+	// DEBT this should be part of chat implementation.
 	// Broadcast(message string) error
 }
 
@@ -38,16 +38,17 @@ type server struct {
 	control chan control.Command
 	config  control.ServerConf
 
-	signal chan os.Signal
-	db     *sql.DB
+	killSignal chan os.Signal
+	db         *sql.DB
 
 	log *zap.Logger
 	ps  nats.PubSub
 
-	network *network.Network
+	net *network.Network
 
 	players *players.Roster
 	world   *w.World
+	sharder *w.Sharder
 
 	// chat    // chat implementation needed
 }
@@ -77,24 +78,29 @@ func NewServer(conf control.ServerConf) (Server, error) {
 		pubSub, auth.GetAuther(), roster,
 		network.NewKeepAliver(controlChan, pubSub, log.LevelUp(log.Named(rootLog, "aliver"), conf.LogLevels.Dispatcher)))
 
-	net := network.NewNetwork(conf.Network, log.LevelUp(log.Named(rootLog, "network"), conf.LogLevels.Network),
-		controlChan, pubSub, dispatcher)
+	net := network.NewNetwork(conf.Network, log.LevelUp(log.Named(rootLog, "network"), conf.LogLevels.Network), controlChan, pubSub, dispatcher)
 
-	world, err := w.NewWorld(conf.WorldID, log.LevelUp(log.Named(rootLog, "world"), conf.LogLevels.World), database)
+	world, err := w.NewWorld(conf.World, log.LevelUp(log.Named(rootLog, "world"), conf.LogLevels.World), database)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate world: %w", err)
 	}
 
+	sharder := w.NewSharder(conf.World, log.LevelUp(log.Named(rootLog, "sharder"), conf.LogLevels.Sharder), pubSub, controlChan, world)
+
 	return &server{
-		config:  conf,
-		log:     rootLog,
-		ps:      pubSub,
-		control: controlChan,
-		signal:  make(chan os.Signal),
-		network: net,
+		config: conf,
+
+		log: rootLog,
+		db:  database,
+		ps:  pubSub,
+		net: net,
+
+		control:    controlChan,
+		killSignal: make(chan os.Signal),
+
 		players: roster,
 		world:   world,
-		db:      database,
+		sharder: sharder,
 	}, nil
 }
 
@@ -102,7 +108,7 @@ func (s *server) Start() error {
 	go func() {
 		if err := s.startServer(); err != nil {
 			s.log.Error("failed to start the server", zap.Error(err))
-			s.control <- control.Command{Signal: control.FAIL, Message: err.Error()}
+			s.control <- control.Command{Signal: control.SERVER_FAIL, Message: err.Error()}
 		}
 		s.log.Info("server started")
 	}()
@@ -114,7 +120,7 @@ func (s *server) Start() error {
 func (s *server) Stop() error {
 	s.log.Info("stopping server")
 
-	// TODO to stop server node:
+	// DEBT to stop server node:
 	//  - notify players connected to this node that it is stopping and they're about to be disconnected
 	//  - close all open connections
 	//  - stop processing chunks
@@ -133,16 +139,17 @@ func (s *server) Version() string {
 	return "0.0.1-SNAPSHOT"
 }
 
-func (s *server) stopServer(after time.Duration) {
+func (s *server) stopAfter(after time.Duration) {
 	s.log.Warn(fmt.Sprintf("stopping server in %s", after))
-	if after == 0 {
-		s.control <- control.Command{Signal: control.STOP}
-	} else {
-		// TODO schedule shutdown {after} seconds later
-	}
+	go func() {
+		select {
+		case <-time.After(after):
+			s.control <- control.Command{Signal: control.SERVER_STOP}
+		}
+	}()
 }
 
-// TODO use context when starting all subsystems and use cancellation to signal graceful shutdown.
+// DEBT use context when starting all subsystems and use cancellation to signal graceful shutdown.
 func (s *server) startServer() error {
 	rand.Seed(time.Now().UnixNano())
 
@@ -150,25 +157,6 @@ func (s *server) startServer() error {
 
 	if err := s.ps.Start(); err != nil {
 		return fmt.Errorf("failed to start nats: %w", err)
-	}
-
-	// TODO make network not accept connections until bootstrap is fully done.
-	//  Probably use control loop channel to signal READY state.
-	if err := s.network.Start(context.TODO()); err != nil {
-		return fmt.Errorf("failed to start network: %w", err)
-	}
-
-	if err := s.players.RegisterHandlers(); err != nil {
-		return fmt.Errorf("failed to register global player handlers: %w", err)
-	}
-
-	if err := s.world.Load(); err != nil {
-		return fmt.Errorf("failed to load world data: %w", err)
-	}
-
-	if err := handlers.RegisterEventHandlersState3(log.LevelUp(log.Named(s.log, "players"), s.config.LogLevels.Players),
-		s.ps, s.players, s.world); err != nil {
-		return fmt.Errorf("failed to register Play state handlers: %w", err)
 	}
 
 	if err := db.Migrate(s.db); err != nil {
@@ -179,35 +167,58 @@ func (s *server) startServer() error {
 		return fmt.Errorf("failed to register DB state persisting handlers: %w", err)
 	}
 
+	// DEBT make network not accept connections until bootstrap is fully done.
+	//  Probably use control loop channel to signal READY state.
+	if err := s.net.Start(context.TODO()); err != nil {
+		return fmt.Errorf("failed to start network: %w", err)
+	}
+
+	if err := s.world.Load(); err != nil {
+		return fmt.Errorf("failed to load world data: %w", err)
+	}
+
+	s.sharder.Start()
+
+	if err := handlers.RegisterEventHandlersState3(log.LevelUp(log.Named(s.log, "players"), s.config.LogLevels.Players),
+		s.ps, s.players, s.world); err != nil {
+		return fmt.Errorf("failed to register Play state handlers: %w", err)
+	}
+
+	if err := s.players.RegisterHandlers(); err != nil {
+		return fmt.Errorf("failed to register global player handlers: %w", err)
+	}
+
 	return nil
 }
 
 func (s *server) startControlLoop() {
-	signal.Notify(s.signal, os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
+	signal.Notify(s.killSignal, os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
 
 	// select over server commands channel
-	select {
-	case command := <-s.control:
-		switch command.Signal {
-		// stop selecting when stop is received
-		case control.STOP:
-			s.log.Info("received stop command")
-			if err := s.Stop(); err != nil {
-				s.log.Error("received error while stopping server", zap.Error(err))
+	for {
+		select {
+		case command := <-s.control:
+			switch command.Signal {
+			// stop selecting when stop is received
+			case control.SERVER_STOP:
+				s.log.Info("received stop command")
+				if err := s.Stop(); err != nil {
+					s.log.Error("received error while stopping server", zap.Error(err))
+				}
+				return
+			case control.SERVER_FAIL:
+				s.log.Error("internal server error", zap.String("message", command.Message))
+				if err := s.Stop(); err != nil {
+					s.log.Error("received error while stopping server", zap.Error(err))
+				}
+				return
 			}
-			return
-		case control.FAIL:
-			s.log.Error("internal server error", zap.String("message", command.Message))
+		case <-s.killSignal:
+			s.log.Info("received interrupt signal")
 			if err := s.Stop(); err != nil {
 				s.log.Error("received error while stopping server", zap.Error(err))
 			}
 			return
 		}
-	case <-s.signal:
-		s.log.Info("received interrupt signal")
-		if err := s.Stop(); err != nil {
-			s.log.Error("received error while stopping server", zap.Error(err))
-		}
-		return
 	}
 }
