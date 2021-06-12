@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package cncraft;
+
+import "common.proto";
+
+option go_package = "github.com/alexykot/cncraft/pkg/envelope/pb";
+
+
+message ShardEvent {
+    oneof event {
+        PlayerDigging player_digging = 1;
+    }
+}
+
+enum BlockFace {
+    BOTTOM = 0; // -Y
+    TOP = 1; // +Y
+    NORTH = 2; // -Z
+    SOUTH = 3; // +Z
+    WEST = 4; // -X
+    EAST = 5; // +
+}
+
+// Updates position of the player
+message PlayerDigging {
+    enum Action {
+        STARTED_DIGGING = 0;
+        CANCELLED_DIGGING = 1;
+        FINISHED_DIGGING = 2;
+        DROP_ITEM_STACK = 3;
+        DROP_ITEM = 4;
+        SHOOT_ARROW_FINISH_EATING = 5;
+        SWAP_ITEM_IN_HAND = 6;
+    }
+
+    string player_id = 1;
+    Action action = 2;
+    Position pos = 3;
+    BlockFace block_face = 4;
+}

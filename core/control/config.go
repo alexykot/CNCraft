@@ -52,7 +52,7 @@ type logLevels struct {
 
 	Players string `yaml:"players"`
 	Windows string `yaml:"windows"`
-	World   string `yaml:"windows"`
+	World   string `yaml:"world"`
 	Sharder string `yaml:"sharder"`
 }
 

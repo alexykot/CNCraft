@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/alexykot/cncraft/core/world"
+
 	"github.com/alexykot/cncraft/core/handlers"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
@@ -25,22 +27,24 @@ import (
 // DispatcherTransmitter parses and dispatches processing for incoming server bound protocol packets.
 //  Also it collects and transmits outgoing client bound packets and handles disconnections.
 type DispatcherTransmitter struct {
-	log    *zap.Logger
-	ps     nats.PubSub
-	auth   auth.A
-	roster *players.Roster
-	aliver *KeepAliver
+	log     *zap.Logger
+	ps      nats.PubSub
+	auth    auth.A
+	roster  *players.Roster
+	aliver  *KeepAliver
+	sharder *world.Sharder
 
 	connMu map[uuid.UUID]*sync.Mutex
 }
 
-func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *players.Roster, aliver *KeepAliver) *DispatcherTransmitter {
+func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *players.Roster, aliver *KeepAliver, sharder *world.Sharder) *DispatcherTransmitter {
 	return &DispatcherTransmitter{
-		log:    log,
-		ps:     ps,
-		auth:   auth,
-		roster: tally,
-		aliver: aliver,
+		log:     log,
+		ps:      ps,
+		auth:    auth,
+		roster:  tally,
+		aliver:  aliver,
+		sharder: sharder,
 
 		connMu: make(map[uuid.UUID]*sync.Mutex),
 	}
@@ -241,29 +245,38 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	case protocol.SHeldItemChange:
 		err = handlers.HandleSHeldItemChange(d.roster.SetPlayerHeldItem, conn.ID(), sPacket)
 	case protocol.SClickWindow:
-		player, ok := d.roster.GetPlayerByConnID(conn.ID())
+		thisPlayer, ok := d.roster.GetPlayerByConnID(conn.ID())
 		if !ok {
 			err = fmt.Errorf("player %s not found ", conn.ID())
 			break
 		}
-		cPackets, err = handlers.HandleSClickWindow(conn.ID(), player.State.Inventory, d.roster.PlayerInventoryChanged, d.log, sPacket)
-		if len(cPackets) > 0 {
-			d.log.Debug("transmitting window confirmation", zap.Any("windowConfirm", cPackets[0]))
+		var inventoryUpdated bool
+		inventoryUpdated, cPackets, err = handlers.HandleSClickWindow(thisPlayer.State.Inventory, d.log, sPacket)
+		if inventoryUpdated {
+			d.roster.PlayerInventoryChanged(conn.ID())
 		}
+	case protocol.SPlayerDigging:
+		thisPlayer, ok := d.roster.GetPlayerByConnID(conn.ID())
+		if !ok {
+			err = fmt.Errorf("player %s not found ", conn.ID())
+			break
+		}
+
+		err = handlers.HandleSPlayerDigging(d.ps, d.sharder, thisPlayer, sPacket)
 	case protocol.SCloseWindow:
-		player, ok := d.roster.GetPlayerByConnID(conn.ID())
+		thisPlayer, ok := d.roster.GetPlayerByConnID(conn.ID())
 		if !ok {
 			err = fmt.Errorf("player %s not found ", conn.ID())
 			break
 		}
-		err = handlers.HandleSCloseWindow(player, sPacket)
+		err = handlers.HandleSCloseWindow(thisPlayer, sPacket)
 	case protocol.SWindowConfirmation:
-		player, ok := d.roster.GetPlayerByConnID(conn.ID())
+		thisPlayer, ok := d.roster.GetPlayerByConnID(conn.ID())
 		if !ok {
 			err = fmt.Errorf("player %s not found ", conn.ID())
 			break
 		}
-		err = handlers.HandleSWindowConfirmation(player.State.Inventory, sPacket)
+		err = handlers.HandleSWindowConfirmation(thisPlayer.State.Inventory, sPacket)
 	default:
 		return nil
 		// DEBT turn this error back on once all expected packets are handled

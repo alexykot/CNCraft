@@ -13,7 +13,6 @@ import (
 	"github.com/alexykot/cncraft/core/players"
 	"github.com/alexykot/cncraft/core/world"
 	"github.com/alexykot/cncraft/pkg/envelope"
-	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/protocol"
 	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 )
@@ -96,8 +95,8 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 		// TODO CDeclareCommands packet is not defined
 		// TODO CUnlockRecipes packet is not defined
 
-		// TODO move this to a separate world loader
-		chunksToLoad := world.Levels[game.Overworld.String()].Chunks()
+		// DEBT move this to a separate world loader
+		chunksToLoad := world.Dimensions[world.StartDimension].Chunks()
 		for _, chunk := range chunksToLoad {
 			cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CChunkData)
 			chunkData := cpacket.(*protocol.CPacketChunkData)

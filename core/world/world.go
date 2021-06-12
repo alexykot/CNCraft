@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/control"
@@ -36,7 +37,8 @@ type World struct {
 	DimensionCodec tags.DimensionCodec
 	Dimension      tags.Dimension
 
-	Levels map[string]level.Level
+	StartDimension uuid.UUID
+	Dimensions     map[uuid.UUID]level.Dimension
 
 	repo *SectionRepo
 	log  *zap.Logger
@@ -71,8 +73,9 @@ func GetDefaultWorld() *World {
 		binary.LittleEndian.PutUint32(defaultWorld.Seed, rand.Uint32())
 		defaultWorld.SeedHash = sha256.Sum256(defaultWorld.Seed)
 
-		defaultWorld.Levels = make(map[string]level.Level)
-		defaultWorld.Levels[game.Overworld.String()] = level.NewLevel(game.Overworld.String())
+		defaultWorld.StartDimension = uuid.NewSHA1(uuid.UUID{}, []byte(game.Overworld.String()))
+		defaultWorld.Dimensions = make(map[uuid.UUID]level.Dimension)
+		defaultWorld.Dimensions[defaultWorld.StartDimension] = level.NewDimension(game.Overworld.String())
 	}
 
 	return defaultWorld
@@ -83,7 +86,7 @@ func (w *World) Load() error {
 		return fmt.Errorf("world section repo not initialised")
 	}
 
-	for name, worldLevel := range w.Levels {
+	for name, worldLevel := range w.Dimensions {
 		w.log.Debug(fmt.Sprintf("loading level %s", name))
 
 		chunks := worldLevel.Chunks()

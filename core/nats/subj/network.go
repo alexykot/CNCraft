@@ -52,5 +52,5 @@ func MkPlayerInventoryUpdate() string { return "players.update.inventory" }
 // MkShardEvent creates a subject name string for shard events, i.e. all events that are processed
 // by the event loop of the given shard.
 func MkShardEvent(shardID string) string {
-	return "shard.event." + shardID
+	return "world.event." + shardID
 }

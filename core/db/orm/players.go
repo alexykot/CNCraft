@@ -27,6 +27,7 @@ import (
 type Player struct {
 	ID            uuid.UUID   `boil:"id" json:"id" toml:"id" yaml:"id"`
 	ConnID        null.String `boil:"conn_id" json:"conn_id,omitempty" toml:"conn_id" yaml:"conn_id,omitempty"`
+	DimensionID   uuid.UUID   `boil:"dimension_id" json:"dimension_id" toml:"dimension_id" yaml:"dimension_id"`
 	Username      string      `boil:"username" json:"username" toml:"username" yaml:"username"`
 	PositionX     float64     `boil:"position_x" json:"position_x" toml:"position_x" yaml:"position_x"`
 	PositionY     float64     `boil:"position_y" json:"position_y" toml:"position_y" yaml:"position_y"`
@@ -44,6 +45,7 @@ type Player struct {
 var PlayerColumns = struct {
 	ID            string
 	ConnID        string
+	DimensionID   string
 	Username      string
 	PositionX     string
 	PositionY     string
@@ -56,6 +58,7 @@ var PlayerColumns = struct {
 }{
 	ID:            "id",
 	ConnID:        "conn_id",
+	DimensionID:   "dimension_id",
 	Username:      "username",
 	PositionX:     "position_x",
 	PositionY:     "position_y",
@@ -177,6 +180,7 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 var PlayerWhere = struct {
 	ID            whereHelperuuid_UUID
 	ConnID        whereHelpernull_String
+	DimensionID   whereHelperuuid_UUID
 	Username      whereHelperstring
 	PositionX     whereHelperfloat64
 	PositionY     whereHelperfloat64
@@ -189,6 +193,7 @@ var PlayerWhere = struct {
 }{
 	ID:            whereHelperuuid_UUID{field: "\"cncraft\".\"players\".\"id\""},
 	ConnID:        whereHelpernull_String{field: "\"cncraft\".\"players\".\"conn_id\""},
+	DimensionID:   whereHelperuuid_UUID{field: "\"cncraft\".\"players\".\"dimension_id\""},
 	Username:      whereHelperstring{field: "\"cncraft\".\"players\".\"username\""},
 	PositionX:     whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_x\""},
 	PositionY:     whereHelperfloat64{field: "\"cncraft\".\"players\".\"position_y\""},
@@ -221,8 +226,8 @@ func (*playerR) NewStruct() *playerR {
 type playerL struct{}
 
 var (
-	playerAllColumns            = []string{"id", "conn_id", "username", "position_x", "position_y", "position_z", "yaw", "pitch", "on_ground", "current_hotbar", "created_at"}
-	playerColumnsWithoutDefault = []string{"id", "conn_id", "username", "position_x", "position_y", "position_z", "yaw", "pitch", "created_at"}
+	playerAllColumns            = []string{"id", "conn_id", "dimension_id", "username", "position_x", "position_y", "position_z", "yaw", "pitch", "on_ground", "current_hotbar", "created_at"}
+	playerColumnsWithoutDefault = []string{"id", "conn_id", "dimension_id", "username", "position_x", "position_y", "position_z", "yaw", "pitch", "created_at"}
 	playerColumnsWithDefault    = []string{"on_ground", "current_hotbar"}
 	playerPrimaryKeyColumns     = []string{"id"}
 )

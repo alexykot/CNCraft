@@ -80,6 +80,7 @@ func createSPacketsMap() map[PacketType]func() SPacket {
 		SWindowConfirmation: func() SPacket { return &SPacketWindowConfirmation{} },
 
 		SPlayerMovement:       func() SPacket { return &SPacketPlayerMovement{} },
+		SPlayerDigging:        func() SPacket { return &SPacketPlayerDigging{} },
 		SPlayerPosition:       func() SPacket { return &SPacketPlayerPosition{} },
 		SPlayerPosAndRotation: func() SPacket { return &SPacketPlayerPosAndRotation{} },
 		SPlayerRotation:       func() SPacket { return &SPacketPlayerRotation{} },

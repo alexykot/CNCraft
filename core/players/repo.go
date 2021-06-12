@@ -11,6 +11,8 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"go.uber.org/zap"
 
+	"github.com/alexykot/cncraft/pkg/game"
+
 	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
 
 	"github.com/alexykot/cncraft/core/db/orm"
@@ -57,7 +59,6 @@ func (r *repo) InitPlayer(username string, connID uuid.UUID) (p *Player, isNew b
 	return p, isNew, nil
 }
 
-// TODO this needs to be replaced with proper spawn point and starting conditions.
 func (r *repo) createNewPlayer(username string, connID uuid.UUID) *Player {
 	inventory := items.NewInventory(r.windowLog)
 
@@ -73,6 +74,8 @@ func (r *repo) createNewPlayer(username string, connID uuid.UUID) *Player {
 		},
 		Abilities: &player.Abilities{},
 		State: &player.State{
+			// DEBT this needs to be replaced with proper spawn point and starting conditions.
+			Dimension: uuid.NewSHA1(uuid.UUID{}, []byte(game.Overworld.String())),
 			Inventory: inventory,
 			Location: data.Location{
 				PositionF: data.PositionF{
@@ -113,6 +116,7 @@ func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, username string, con
 		},
 		Abilities: &player.Abilities{},
 		State: &player.State{
+			Dimension: dbPlayer.DimensionID,
 			Inventory: inventory,
 			Location: data.Location{
 				PositionF: data.PositionF{

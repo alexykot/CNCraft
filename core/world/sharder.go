@@ -2,8 +2,12 @@ package world
 
 import (
 	"fmt"
+	"math"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/alexykot/cncraft/pkg/game/data"
 
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
@@ -12,20 +16,21 @@ import (
 
 type Sharder struct {
 	control      chan control.Command
-	shardStarter chan startShard
+	shardStarter chan startMessage
 	log          *zap.Logger
 	ps           nats.PubSub
 
+	world      *World
 	shardSizeX int64
 	shardSizeZ int64
-	world      *World
 	shards     map[ShardID]*Shard
 	isStopping bool
 }
 
+// ShardID is formatted as `shard.<levelName>.<lowestX>.<lowestZ>`, e.g. `shard.Overworld.0.-160`.
 type ShardID string
 
-type startShard struct {
+type startMessage struct {
 	id     ShardID
 	chunks []level.ChunkID
 }
@@ -33,7 +38,7 @@ type startShard struct {
 func NewSharder(conf control.WorldConf, log *zap.Logger, ps nats.PubSub, control chan control.Command, world *World) *Sharder {
 	return &Sharder{
 		control:      control,
-		shardStarter: make(chan startShard),
+		shardStarter: make(chan startMessage),
 		log:          log,
 		ps:           ps,
 		shardSizeX:   int64(conf.ShardSize),
@@ -46,6 +51,38 @@ func NewSharder(conf control.WorldConf, log *zap.Logger, ps nats.PubSub, control
 func (sh Sharder) Start() {
 	go sh.dispatchSharderLoop()
 	sh.log.Info("sharder started")
+}
+
+func (sh Sharder) FindShardID(dimID uuid.UUID, coords *data.PositionI) (ShardID, bool) {
+	dim, ok := sh.world.Dimensions[dimID]
+	if !ok {
+		return "", false
+	}
+
+	dimEdges := dim.Edges()
+	if dimEdges.PositiveX < coords.X {
+		return "", false
+	}
+	if dimEdges.PositiveZ < coords.Z {
+		return "", false
+	}
+	if dimEdges.NegativeX < coords.X {
+		return "", false
+	}
+	if dimEdges.NegativeZ < coords.Z {
+		return "", false
+	}
+
+	lowestX := int64(math.Floor(float64(coords.X) / float64(sh.shardSizeX)))
+	lowestZ := int64(math.Floor(float64(coords.Z) / float64(sh.shardSizeZ)))
+
+	id := MkShardIDFromCoords(dim.Name(), lowestX, lowestZ)
+	if _, ok := sh.shards[id]; !ok {
+		sh.log.Error("cound not find shard for valid coordinates", zap.String("shardID", string(id)), zap.Any("coords", coords))
+		return "", false
+	}
+
+	return id, true
 }
 
 func (sh Sharder) dispatchSharderLoop() {
@@ -113,7 +150,7 @@ func (sh Sharder) bootstrapShards() {
 	}()
 
 	var shardCount int
-	for _, worldLevel := range sh.world.Levels {
+	for _, worldLevel := range sh.world.Dimensions {
 		levelEdges := worldLevel.Edges()
 		sh.log.Debug("bootstrapping shards", zap.String("level", worldLevel.Name()), zap.Any("edges", levelEdges))
 
@@ -127,7 +164,7 @@ func (sh Sharder) bootstrapShards() {
 					shardEdgeStartZ,
 					shardEdgeStartX+sh.shardSizeX*level.ChunkX,
 					shardEdgeStartZ+sh.shardSizeZ*level.ChunkZ)
-				sh.shardStarter <- startShard{
+				sh.shardStarter <- startMessage{
 					id:     mkShardIDFromChunks(worldLevel.Name(), shardChunks),
 					chunks: shardChunks,
 				}
@@ -146,7 +183,7 @@ func (sh Sharder) bootstrapShards() {
 					shardEdgeStartZ-sh.shardSizeZ*level.ChunkZ,
 					shardEdgeStartX+sh.shardSizeX*level.ChunkX,
 					shardEdgeStartZ)
-				sh.shardStarter <- startShard{
+				sh.shardStarter <- startMessage{
 					id:     mkShardIDFromChunks(worldLevel.Name(), shardChunks),
 					chunks: shardChunks,
 				}
@@ -165,7 +202,7 @@ func (sh Sharder) bootstrapShards() {
 					shardEdgeStartZ,
 					shardEdgeStartX,
 					shardEdgeStartZ+sh.shardSizeZ*level.ChunkZ)
-				sh.shardStarter <- startShard{
+				sh.shardStarter <- startMessage{
 					id:     mkShardIDFromChunks(worldLevel.Name(), shardChunks),
 					chunks: shardChunks,
 				}
@@ -184,7 +221,7 @@ func (sh Sharder) bootstrapShards() {
 					shardEdgeStartZ-sh.shardSizeZ*level.ChunkZ,
 					shardEdgeStartZ,
 					shardEdgeStartX)
-				sh.shardStarter <- startShard{
+				sh.shardStarter <- startMessage{
 					id:     mkShardIDFromChunks(worldLevel.Name(), shardChunks),
 					chunks: shardChunks,
 				}

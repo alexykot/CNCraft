@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -19,11 +20,12 @@ type Shard struct {
 	id     ShardID
 	log    *zap.Logger
 	chunks []level.ChunkID
+
+	mu     *sync.Mutex
+	events []*envelope.E
 }
 
 // TODO next:
-//  - make shard event queue
-//  - decide on event generic structure to allow for multiple event types
 //  - make shard router in sharder, by event coords and level reference
 //  - handle sample incoming packet (e.g. StartMining) and put it into event queue for correct shard
 //  - process sample incoming event (e.g. StartMining) and dispatch async response to correct client
@@ -33,10 +35,11 @@ func newShard(log *zap.Logger, id ShardID, chunks []level.ChunkID) *Shard {
 		id:     id,
 		log:    log.With(zap.String("shard", string(id))),
 		chunks: chunks,
+		mu:     &sync.Mutex{},
 	}
 }
 
-func (s Shard) dispatch(ps nats.PubSub, controller chan control.Command, restarter chan startShard) {
+func (s *Shard) dispatch(ps nats.PubSub, controller chan control.Command, restarter chan startMessage) {
 	if len(s.chunks) < 1 {
 		return // not starting a shard without any chunks
 	}
@@ -55,7 +58,7 @@ func (s Shard) dispatch(ps nats.PubSub, controller chan control.Command, restart
 			s.log.Error("shard event loop crashed", zap.Any("panic", r))
 		}
 
-		restarter <- startShard{ // make sure the shard is restarted whenever it fails for any reason
+		restarter <- startMessage{ // make sure the shard is restarted whenever it fails for any reason
 			id:     s.id,
 			chunks: s.chunks,
 		}
@@ -64,13 +67,16 @@ func (s Shard) dispatch(ps nats.PubSub, controller chan control.Command, restart
 	s.runEventLoop(controller)
 }
 
-func (s Shard) handleIncomingEvent() func(lope *envelope.E) {
+func (s *Shard) handleIncomingEvent() func(lope *envelope.E) {
 	return func(lope *envelope.E) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
+		s.events = append(s.events, lope)
 	}
 }
 
-func (s Shard) runEventLoop(controller chan control.Command) {
+func (s *Shard) runEventLoop(controller chan control.Command) {
 	ticker := time.NewTicker(tickSpeed)
 
 	s.log.Info("starting event loop")
@@ -84,12 +90,35 @@ func (s Shard) runEventLoop(controller chan control.Command) {
 			}
 
 		case <-ticker.C:
+			tickEvents := s.copyEvents()
+
+			for range tickEvents {
+
+			}
+
 			// TODO event loop goes here
 		}
 	}
 }
 
-func mkShardIDFromChunks(levelName string, shardChunks []level.ChunkID) ShardID {
+func (s *Shard) copyEvents() []*envelope.E {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if len(s.events) == 0 {
+		return nil
+	}
+
+	eventsCopy := make([]*envelope.E, len(s.events), len(s.events))
+	for i, event := range s.events {
+		eventsCopy[i] = event
+	}
+	s.events = nil
+
+	return eventsCopy
+}
+
+func mkShardIDFromChunks(dimName string, shardChunks []level.ChunkID) ShardID {
 	var leastX, leastZ int64
 	for _, chunkID := range shardChunks {
 		x, z := level.XZFromChunkID(chunkID)
@@ -101,9 +130,9 @@ func mkShardIDFromChunks(levelName string, shardChunks []level.ChunkID) ShardID 
 		}
 	}
 
-	return MkShardIDFromCoords(levelName, leastX, leastZ)
+	return MkShardIDFromCoords(dimName, leastX, leastZ)
 }
 
-func MkShardIDFromCoords(levelName string, x, z int64) ShardID {
-	return ShardID(fmt.Sprintf("shard.%s.%d.%d", levelName, x, z))
+func MkShardIDFromCoords(dimName string, x, z int64) ShardID {
+	return ShardID(fmt.Sprintf("shard.%s.%d.%d", dimName, x, z))
 }

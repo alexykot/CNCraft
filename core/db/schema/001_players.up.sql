@@ -5,8 +5,8 @@ CREATE TABLE cncraft.players
 (
     id             UUID                        NOT NULL,
     conn_id        UUID                        NULL,
+    dimension_id   UUID                        NOT NULL,
     username       VARCHAR(128)                NOT NULL,
-
     position_x     DOUBLE PRECISION            NOT NULL,
     position_y     DOUBLE PRECISION            NOT NULL,
     position_z     DOUBLE PRECISION            NOT NULL,

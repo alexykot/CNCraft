@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package cncraft;
+
+import "common.proto";
+
+option go_package = "github.com/alexykot/cncraft/pkg/envelope/pb";
+
+message CPacket {
+    bytes bytes = 1;
+    int32 packet_type = 2;
+}
+
+message SPacket {
+    bytes bytes = 1;
+    ConnState state = 2;
+}
+
+message CloseConn {
+    string conn_id = 1;
+    ConnState state = 2;
+}
+
+// A player is about to join, but not spawned yet.
+message PlayerLoading {
+    string conn_id = 1;
+    string profile_id = 2;
+    string username = 3;
+    // TODO also publish skin data
+}
+
+// A new player joined for the first time.
+message NewPlayerJoined {
+    string player_id = 1;
+    string conn_id = 2;
+    string profile_id = 3;
+    string username = 4;
+    Position pos = 5;
+}
+
+// A player has fully joined and spawned.
+message PlayerJoined {
+    string player_id = 1;
+    string conn_id = 2;
+}
+
+// A player has left and disconnected.
+message PlayerLeft {
+    string player_id = 1;
+}
+
+// Updates position of the player
+message PlayerSpatialUpdate {
+    string player_id = 1;
+    Position pos = 2;
+    Rotation rot = 3;
+    bool on_ground = 4;
+}
+
+// Updates player inventory state
+message PlayerInventoryUpdate {
+    string player_id = 1;
+    int32 current_hotbar = 2;
+    repeated InventoryItem inventory = 3;
+}

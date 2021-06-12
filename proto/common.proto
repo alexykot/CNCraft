@@ -1,77 +1,15 @@
 syntax = "proto3";
 
-package grpc.health.v1;
-
-//import "validate/validate.proto";
+package cncraft;
 
 option go_package = "github.com/alexykot/cncraft/pkg/envelope/pb";
+
 
 enum ConnState {
     HANDSHAKE = 0;
     STATUS = 1;
     LOGIN = 2;
     PLAY = 3;
-}
-
-message Envelope {
-    map<string, string> meta = 1;
-
-    oneof message {
-        CPacket cpacket = 2;
-        SPacket spacket = 3;
-        CloseConn close_conn = 4;
-
-        PlayerLoading player_loading = 5;
-        NewPlayerJoined new_player = 6;
-        PlayerJoined player_joined = 7;
-        PlayerLeft player_left = 8;
-
-        PlayerSpatialUpdate player_spatial = 9;
-        PlayerInventoryUpdate player_inventory = 10;
-    }
-}
-
-message CPacket {
-    bytes bytes = 1;
-    int32 packet_type = 2;
-}
-
-message SPacket {
-    bytes bytes = 1;
-    ConnState state = 2;
-}
-
-message CloseConn {
-    string conn_id = 1;
-    ConnState state = 2;
-}
-
-// A player is about to join, but not spawned yet.
-message PlayerLoading {
-    string conn_id = 1;
-    string profile_id = 2;
-    string username = 3;
-    // TODO also publish skin data
-}
-
-// A new player joined for the first time.
-message NewPlayerJoined {
-    string player_id = 1;
-    string conn_id = 2;
-    string profile_id = 3;
-    string username = 4;
-    Position pos = 5;
-}
-
-// A player has fully joined and spawned.
-message PlayerJoined {
-    string player_id = 1;
-    string conn_id = 2;
-}
-
-// A player has left and disconnected.
-message PlayerLeft {
-    string player_id = 1;
 }
 
 message Position {
@@ -85,23 +23,8 @@ message Rotation {
     float pitch = 2;
 }
 
-// Updates position of the player
-message PlayerSpatialUpdate {
-    string player_id = 1;
-    Position pos = 2;
-    Rotation rot = 3;
-    bool on_ground = 4;
-}
-
 message InventoryItem {
     int32 slot_id = 1;
     int32 item_id = 2;
     int32 item_count = 3;
-}
-
-// Updates player inventory state
-message PlayerInventoryUpdate {
-    string player_id = 1;
-    int32 current_hotbar = 2;
-    repeated InventoryItem inventory = 3;
 }

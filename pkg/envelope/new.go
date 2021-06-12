@@ -80,3 +80,13 @@ func NewPlayerJoined(newPlayer *pb.NewPlayerJoined) *E {
 		},
 	}
 }
+
+func PlayerDigging(digging *pb.PlayerDigging) *E {
+	return &E{
+		Envelope: pb.Envelope{
+			ShardEvent: &pb.ShardEvent{
+				Event: &pb.ShardEvent_PlayerDigging{PlayerDigging: digging},
+			},
+		},
+	}
+}

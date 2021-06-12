@@ -443,11 +443,20 @@ func (p *SPacketPlayerAbilities) Pull(reader *buffer.Buffer) error {
 	return nil // DEBT actually check for errors
 }
 
-type SPacketPlayerDigging struct{}
+type SPacketPlayerDigging struct {
+	Status   int32
+	Position *data.PositionI
+	Face     byte
+}
 
 func (p *SPacketPlayerDigging) ProtocolID() ProtocolPacketID { return protocolSPlayerDigging }
 func (p *SPacketPlayerDigging) Type() PacketType             { return SPlayerDigging }
-func (p *SPacketPlayerDigging) Pull(reader *buffer.Buffer)   { panic("packet not implemented") }
+func (p *SPacketPlayerDigging) Pull(reader *buffer.Buffer) error {
+	p.Status = reader.PullVarInt()
+	p.Position.Pull(reader)
+	p.Face = reader.PullByte()
+	return nil
+}
 
 type SPacketEntityAction struct {
 	EntityID, ActionID, JumpBoost int32

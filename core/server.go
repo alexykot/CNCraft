@@ -74,18 +74,22 @@ func NewServer(conf control.ServerConf) (Server, error) {
 		log.LevelUp(log.Named(rootLog, "windows"), conf.LogLevels.Players),
 		pubSub, database)
 
-	dispatcher := network.NewDispatcher(log.LevelUp(log.Named(rootLog, "dispatcher"), conf.LogLevels.Dispatcher),
-		pubSub, auth.GetAuther(), roster,
-		network.NewKeepAliver(controlChan, pubSub, log.LevelUp(log.Named(rootLog, "aliver"), conf.LogLevels.Dispatcher)))
-
-	net := network.NewNetwork(conf.Network, log.LevelUp(log.Named(rootLog, "network"), conf.LogLevels.Network), controlChan, pubSub, dispatcher)
-
 	world, err := w.NewWorld(conf.World, log.LevelUp(log.Named(rootLog, "world"), conf.LogLevels.World), database)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate world: %w", err)
 	}
 
 	sharder := w.NewSharder(conf.World, log.LevelUp(log.Named(rootLog, "sharder"), conf.LogLevels.Sharder), pubSub, controlChan, world)
+
+	dispatcher := network.NewDispatcher(
+		log.LevelUp(log.Named(rootLog, "dispatcher"), conf.LogLevels.Dispatcher),
+		pubSub, auth.GetAuther(),
+		roster,
+		network.NewKeepAliver(controlChan, pubSub, log.LevelUp(log.Named(rootLog, "aliver"), conf.LogLevels.Dispatcher)),
+		sharder,
+	)
+
+	net := network.NewNetwork(conf.Network, log.LevelUp(log.Named(rootLog, "network"), conf.LogLevels.Network), controlChan, pubSub, dispatcher)
 
 	return &server{
 		config: conf,

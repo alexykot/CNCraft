@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package cncraft;
+
+//import "validate/validate.proto";
+//import "google/protobuf/empty.proto";
+import "shard_events.proto";
+import "messages.proto";
+
+option go_package = "github.com/alexykot/cncraft/pkg/envelope/pb";
+
+message Envelope {
+    map<string, string> meta = 1;
+
+    ShardEvent shard_event = 2;
+
+    oneof message {
+        CPacket cpacket = 3;
+        SPacket spacket = 4;
+        CloseConn close_conn = 5;
+
+        PlayerLoading player_loading = 6;
+        NewPlayerJoined new_player = 7;
+        PlayerJoined player_joined = 8;
+        PlayerLeft player_left = 9;
+
+        PlayerSpatialUpdate player_spatial = 10;
+        PlayerInventoryUpdate player_inventory = 11;
+    }
+}

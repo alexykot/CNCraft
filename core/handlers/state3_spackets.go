@@ -6,10 +6,15 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/alexykot/cncraft/pkg/game/items"
+	"github.com/alexykot/cncraft/pkg/envelope"
+	"github.com/alexykot/cncraft/pkg/envelope/pb"
 
+	"github.com/alexykot/cncraft/core/nats"
+	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/core/players"
+	"github.com/alexykot/cncraft/core/world"
 	"github.com/alexykot/cncraft/pkg/game/data"
+	"github.com/alexykot/cncraft/pkg/game/items"
 	"github.com/alexykot/cncraft/pkg/protocol"
 	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 )
@@ -88,11 +93,10 @@ func HandleSHeldItemChange(heldItemSetter func(connID uuid.UUID, heldItem uint8)
 	return nil
 }
 
-func HandleSClickWindow(connID uuid.UUID, inventory *items.Inventory,
-	inventoryUpdater func(uuid.UUID), log *zap.Logger, sPacket protocol.SPacket) ([]protocol.CPacket, error) {
+func HandleSClickWindow(inventory *items.Inventory, log *zap.Logger, sPacket protocol.SPacket) (bool, []protocol.CPacket, error) {
 	windowClick, ok := sPacket.(*protocol.SPacketClickWindow)
 	if !ok {
-		return nil, fmt.Errorf("received packet is not a clickWindow: %v", sPacket)
+		return false, nil, fmt.Errorf("received packet is not a clickWindow: %v", sPacket)
 	}
 
 	cPacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CWindowConfirmation) // Predefined packet is expected to always exist.
@@ -102,13 +106,16 @@ func HandleSClickWindow(connID uuid.UUID, inventory *items.Inventory,
 	windowConfirm.Accepted = true
 
 	var cPackets []protocol.CPacket
+	var isInventoryUpdated bool
 
 	switch windowClick.WindowID {
 	case items.InventoryWindow:
-		droppedItem, isInventoryUpdated, err := inventory.HandleClick(
+		var err error
+		var droppedItem *items.Slot
+		droppedItem, isInventoryUpdated, err = inventory.HandleClick(
 			windowClick.ActionID, windowClick.SlotID, windowClick.Mode, windowClick.Button, windowClick.ClickedItem)
 		if err != nil {
-			log.Warn("invalid window click received", zap.Error(err), zap.String("conn", connID.String()))
+			log.Warn("invalid window click received", zap.Error(err))
 			windowConfirm.Accepted = false
 
 			cpacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CWindowItems)
@@ -128,19 +135,15 @@ func HandleSClickWindow(connID uuid.UUID, inventory *items.Inventory,
 			break
 		}
 
-		if isInventoryUpdated {
-			inventoryUpdater(connID)
-		}
-
 		if droppedItem != nil {
 			// TODO handle dropped item
 		}
 		cPackets = append(cPackets, windowConfirm)
 	default:
-		return nil, fmt.Errorf("window ID %d is not implemented", windowClick.WindowID)
+		return false, nil, fmt.Errorf("window ID %d is not implemented", windowClick.WindowID)
 	}
 
-	return cPackets, nil
+	return isInventoryUpdated, cPackets, nil
 }
 
 func HandleSCloseWindow(player *players.Player, sPacket protocol.SPacket) error {
@@ -191,6 +194,36 @@ func HandleSEntityAction(sPacket protocol.SPacket) error {
 func HandleSAnimation(sPacket protocol.SPacket) error {
 	if _, ok := sPacket.(*protocol.SPacketAnimation); !ok {
 		return fmt.Errorf("received packet is not Animation: %v", sPacket)
+	}
+
+	return nil
+}
+
+func HandleSPlayerDigging(ps nats.PubSub, sharder *world.Sharder, player *players.Player, sPacket protocol.SPacket) error {
+	dig, ok := sPacket.(*protocol.SPacketPlayerDigging)
+	if !ok {
+		return fmt.Errorf("received packet is not a heldItemChange: %v", sPacket)
+	}
+
+	// DEBT this should check player position and ensure dig position is legal
+	shardID, ok := sharder.FindShardID(player.State.Dimension, dig.Position)
+	if !ok {
+		return fmt.Errorf("could not find shard for coords provided: x%d z%d", dig.Position.X, dig.Position.Z)
+	}
+
+	lope := envelope.PlayerDigging(&pb.PlayerDigging{
+		PlayerId: player.ConnID.String(),
+		Action:   pb.PlayerDigging_Action(dig.Status),
+		Pos: &pb.Position{
+			X: float64(dig.Position.X),
+			Y: float64(dig.Position.Y),
+			Z: float64(dig.Position.Z),
+		},
+		BlockFace: pb.BlockFace(dig.Face),
+	})
+
+	if err := ps.Publish(subj.MkShardEvent(string(shardID)), lope); err != nil {
+		return fmt.Errorf("failed to publish shard PlayerDigging event: %w", err)
 	}
 
 	return nil

@@ -19,6 +19,9 @@ function gen_go_proto_validate() {
 
 mkdir -p ${REPO_ROOT}tmp/
 gen_go_proto "common.proto"
+gen_go_proto "messages.proto"
+gen_go_proto "shard_events.proto"
+gen_go_proto "envelope.proto"
 
 cp -rf ${REPO_ROOT}tmp/github.com/alexykot/cncraft/* ${REPO_ROOT}
 rm -rf ${REPO_ROOT}tmp
