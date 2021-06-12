@@ -7,10 +7,9 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/alexykot/cncraft/pkg/game/data"
-
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
+	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/level"
 )
 

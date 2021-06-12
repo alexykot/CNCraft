@@ -220,6 +220,86 @@ func (*Envelope_PlayerSpatial) isEnvelope_Message() {}
 
 func (*Envelope_PlayerInventory) isEnvelope_Message() {}
 
+type SampleMessage struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Types that are assignable to TestOneof:
+	//	*SampleMessage_Name
+	//	*SampleMessage_SubMessage
+	TestOneof isSampleMessage_TestOneof `protobuf_oneof:"test_oneof"`
+}
+
+func (x *SampleMessage) Reset() {
+	*x = SampleMessage{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_envelope_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SampleMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SampleMessage) ProtoMessage() {}
+
+func (x *SampleMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_envelope_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SampleMessage.ProtoReflect.Descriptor instead.
+func (*SampleMessage) Descriptor() ([]byte, []int) {
+	return file_envelope_proto_rawDescGZIP(), []int{1}
+}
+
+func (m *SampleMessage) GetTestOneof() isSampleMessage_TestOneof {
+	if m != nil {
+		return m.TestOneof
+	}
+	return nil
+}
+
+func (x *SampleMessage) GetName() string {
+	if x, ok := x.GetTestOneof().(*SampleMessage_Name); ok {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SampleMessage) GetSubMessage() string {
+	if x, ok := x.GetTestOneof().(*SampleMessage_SubMessage); ok {
+		return x.SubMessage
+	}
+	return ""
+}
+
+type isSampleMessage_TestOneof interface {
+	isSampleMessage_TestOneof()
+}
+
+type SampleMessage_Name struct {
+	Name string `protobuf:"bytes,4,opt,name=name,proto3,oneof"`
+}
+
+type SampleMessage_SubMessage struct {
+	SubMessage string `protobuf:"bytes,9,opt,name=sub_message,json=subMessage,proto3,oneof"`
+}
+
+func (*SampleMessage_Name) isSampleMessage_TestOneof() {}
+
+func (*SampleMessage_SubMessage) isSampleMessage_TestOneof() {}
+
 var File_envelope_proto protoreflect.FileDescriptor
 
 var file_envelope_proto_rawDesc = []byte{
@@ -271,11 +351,16 @@ var file_envelope_proto_rawDesc = []byte{
 	0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01,
 	0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
 	0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38,
-	0x01, 0x42, 0x09, 0x0a, 0x07, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x42, 0x2d, 0x5a, 0x2b,
-	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x61, 0x6c, 0x65, 0x78, 0x79,
-	0x6b, 0x6f, 0x74, 0x2f, 0x63, 0x6e, 0x63, 0x72, 0x61, 0x66, 0x74, 0x2f, 0x70, 0x6b, 0x67, 0x2f,
-	0x65, 0x6e, 0x76, 0x65, 0x6c, 0x6f, 0x70, 0x65, 0x2f, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0x01, 0x42, 0x09, 0x0a, 0x07, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x56, 0x0a, 0x0d,
+	0x53, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x14, 0x0a,
+	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x04, 0x6e,
+	0x61, 0x6d, 0x65, 0x12, 0x21, 0x0a, 0x0b, 0x73, 0x75, 0x62, 0x5f, 0x6d, 0x65, 0x73, 0x73, 0x61,
+	0x67, 0x65, 0x18, 0x09, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x0a, 0x73, 0x75, 0x62, 0x4d,
+	0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x42, 0x0c, 0x0a, 0x0a, 0x74, 0x65, 0x73, 0x74, 0x5f, 0x6f,
+	0x6e, 0x65, 0x6f, 0x66, 0x42, 0x2d, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
+	0x6f, 0x6d, 0x2f, 0x61, 0x6c, 0x65, 0x78, 0x79, 0x6b, 0x6f, 0x74, 0x2f, 0x63, 0x6e, 0x63, 0x72,
+	0x61, 0x66, 0x74, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x65, 0x6e, 0x76, 0x65, 0x6c, 0x6f, 0x70, 0x65,
+	0x2f, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -290,33 +375,34 @@ func file_envelope_proto_rawDescGZIP() []byte {
 	return file_envelope_proto_rawDescData
 }
 
-var file_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_envelope_proto_goTypes = []interface{}{
 	(*Envelope)(nil),              // 0: cncraft.Envelope
-	nil,                           // 1: cncraft.Envelope.MetaEntry
-	(*ShardEvent)(nil),            // 2: cncraft.ShardEvent
-	(*CPacket)(nil),               // 3: cncraft.CPacket
-	(*SPacket)(nil),               // 4: cncraft.SPacket
-	(*CloseConn)(nil),             // 5: cncraft.CloseConn
-	(*PlayerLoading)(nil),         // 6: cncraft.PlayerLoading
-	(*NewPlayerJoined)(nil),       // 7: cncraft.NewPlayerJoined
-	(*PlayerJoined)(nil),          // 8: cncraft.PlayerJoined
-	(*PlayerLeft)(nil),            // 9: cncraft.PlayerLeft
-	(*PlayerSpatialUpdate)(nil),   // 10: cncraft.PlayerSpatialUpdate
-	(*PlayerInventoryUpdate)(nil), // 11: cncraft.PlayerInventoryUpdate
+	(*SampleMessage)(nil),         // 1: cncraft.SampleMessage
+	nil,                           // 2: cncraft.Envelope.MetaEntry
+	(*ShardEvent)(nil),            // 3: cncraft.ShardEvent
+	(*CPacket)(nil),               // 4: cncraft.CPacket
+	(*SPacket)(nil),               // 5: cncraft.SPacket
+	(*CloseConn)(nil),             // 6: cncraft.CloseConn
+	(*PlayerLoading)(nil),         // 7: cncraft.PlayerLoading
+	(*NewPlayerJoined)(nil),       // 8: cncraft.NewPlayerJoined
+	(*PlayerJoined)(nil),          // 9: cncraft.PlayerJoined
+	(*PlayerLeft)(nil),            // 10: cncraft.PlayerLeft
+	(*PlayerSpatialUpdate)(nil),   // 11: cncraft.PlayerSpatialUpdate
+	(*PlayerInventoryUpdate)(nil), // 12: cncraft.PlayerInventoryUpdate
 }
 var file_envelope_proto_depIdxs = []int32{
-	1,  // 0: cncraft.Envelope.meta:type_name -> cncraft.Envelope.MetaEntry
-	2,  // 1: cncraft.Envelope.shard_event:type_name -> cncraft.ShardEvent
-	3,  // 2: cncraft.Envelope.cpacket:type_name -> cncraft.CPacket
-	4,  // 3: cncraft.Envelope.spacket:type_name -> cncraft.SPacket
-	5,  // 4: cncraft.Envelope.close_conn:type_name -> cncraft.CloseConn
-	6,  // 5: cncraft.Envelope.player_loading:type_name -> cncraft.PlayerLoading
-	7,  // 6: cncraft.Envelope.new_player:type_name -> cncraft.NewPlayerJoined
-	8,  // 7: cncraft.Envelope.player_joined:type_name -> cncraft.PlayerJoined
-	9,  // 8: cncraft.Envelope.player_left:type_name -> cncraft.PlayerLeft
-	10, // 9: cncraft.Envelope.player_spatial:type_name -> cncraft.PlayerSpatialUpdate
-	11, // 10: cncraft.Envelope.player_inventory:type_name -> cncraft.PlayerInventoryUpdate
+	2,  // 0: cncraft.Envelope.meta:type_name -> cncraft.Envelope.MetaEntry
+	3,  // 1: cncraft.Envelope.shard_event:type_name -> cncraft.ShardEvent
+	4,  // 2: cncraft.Envelope.cpacket:type_name -> cncraft.CPacket
+	5,  // 3: cncraft.Envelope.spacket:type_name -> cncraft.SPacket
+	6,  // 4: cncraft.Envelope.close_conn:type_name -> cncraft.CloseConn
+	7,  // 5: cncraft.Envelope.player_loading:type_name -> cncraft.PlayerLoading
+	8,  // 6: cncraft.Envelope.new_player:type_name -> cncraft.NewPlayerJoined
+	9,  // 7: cncraft.Envelope.player_joined:type_name -> cncraft.PlayerJoined
+	10, // 8: cncraft.Envelope.player_left:type_name -> cncraft.PlayerLeft
+	11, // 9: cncraft.Envelope.player_spatial:type_name -> cncraft.PlayerSpatialUpdate
+	12, // 10: cncraft.Envelope.player_inventory:type_name -> cncraft.PlayerInventoryUpdate
 	11, // [11:11] is the sub-list for method output_type
 	11, // [11:11] is the sub-list for method input_type
 	11, // [11:11] is the sub-list for extension type_name
@@ -344,6 +430,18 @@ func file_envelope_proto_init() {
 				return nil
 			}
 		}
+		file_envelope_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SampleMessage); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_envelope_proto_msgTypes[0].OneofWrappers = []interface{}{
 		(*Envelope_Cpacket)(nil),
@@ -356,13 +454,17 @@ func file_envelope_proto_init() {
 		(*Envelope_PlayerSpatial)(nil),
 		(*Envelope_PlayerInventory)(nil),
 	}
+	file_envelope_proto_msgTypes[1].OneofWrappers = []interface{}{
+		(*SampleMessage_Name)(nil),
+		(*SampleMessage_SubMessage)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_envelope_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

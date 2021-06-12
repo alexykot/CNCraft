@@ -2,19 +2,17 @@
 
 PROTO_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 REPO_ROOT=${PROTO_ROOT}/../
-GO_PROTO_PLUGIN="go_out"
 
 function gen_go_proto() {
-    protoc --${GO_PROTO_PLUGIN}=plugins=grpc:./tmp/ \
-        -I${PROTO_ROOT} \
-        $1
+    protoc  -I${PROTO_ROOT} $1 \
+        --go_out=plugins=grpc:./tmp/ \
+        --oneofmapper_out=./tmp/
 }
 
 function gen_go_proto_validate() {
-    protoc --${GO_PROTO_PLUGIN}=plugins=grpc:./tmp/ \
-        -I${PROTO_ROOT} \
-        --validate_out="lang=go:./tmp/" \
-        $1
+    protoc -I${PROTO_ROOT} $1 \
+        --go_out=plugins=grpc:./tmp/ \
+        --validate_out="lang=go:./tmp/"
 }
 
 mkdir -p ${REPO_ROOT}tmp/

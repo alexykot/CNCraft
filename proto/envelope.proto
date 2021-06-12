@@ -28,3 +28,10 @@ message Envelope {
         PlayerInventoryUpdate player_inventory = 11;
     }
 }
+
+message SampleMessage {
+    oneof test_oneof {
+        string name = 4;
+        string sub_message = 9;
+    }
+}

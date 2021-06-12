@@ -2,9 +2,16 @@
 
 package game
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type Difficulty byte
+
+type Tick int64
+
+const TickSpeed = time.Millisecond * 50
 
 const (
 	Peaceful Difficulty = iota

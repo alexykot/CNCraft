@@ -10,11 +10,12 @@ import (
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
+	"github.com/alexykot/cncraft/core/world/handlers"
 	"github.com/alexykot/cncraft/pkg/envelope"
+	"github.com/alexykot/cncraft/pkg/envelope/pb"
+	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/level"
 )
-
-const tickSpeed = time.Millisecond * 200
 
 type Shard struct {
 	id     ShardID
@@ -23,20 +24,38 @@ type Shard struct {
 
 	mu     *sync.Mutex
 	events []*envelope.E
+
+	tickHandlers  []handlers.TickHandler
+	eventHandlers map[pb.OneOfEvent][]handlers.EventHandler
 }
 
 // TODO next:
-//  - make shard router in sharder, by event coords and level reference
 //  - handle sample incoming packet (e.g. StartMining) and put it into event queue for correct shard
 //  - process sample incoming event (e.g. StartMining) and dispatch async response to correct client
+//  - create and register individual instances of world event and tick handlers for every instantiated shard
+//  - consider separating shard dispatch from the shard instantiation
 
 func newShard(log *zap.Logger, id ShardID, chunks []level.ChunkID) *Shard {
-	return &Shard{
-		id:     id,
-		log:    log.With(zap.String("shard", string(id))),
-		chunks: chunks,
-		mu:     &sync.Mutex{},
+	shard := &Shard{
+		id:            id,
+		log:           log.With(zap.String("shard", string(id))),
+		chunks:        chunks,
+		mu:            &sync.Mutex{},
+		eventHandlers: make(map[pb.OneOfEvent][]handlers.EventHandler),
 	}
+
+	worldProcessors := handlers.Get()
+	for _, proc := range worldProcessors {
+		handlerMap := proc.GetEventHandlers()
+		for eventType, evHandlers := range handlerMap {
+			shard.eventHandlers[eventType] = append(shard.eventHandlers[eventType], evHandlers...)
+		}
+
+		tickHandlers := proc.GetTickHandlers()
+		shard.tickHandlers = append(shard.tickHandlers, tickHandlers...)
+	}
+
+	return shard
 }
 
 func (s *Shard) dispatch(ps nats.PubSub, controller chan control.Command, restarter chan startMessage) {
@@ -77,7 +96,7 @@ func (s *Shard) handleIncomingEvent() func(lope *envelope.E) {
 }
 
 func (s *Shard) runEventLoop(controller chan control.Command) {
-	ticker := time.NewTicker(tickSpeed)
+	ticker := time.NewTicker(game.TickSpeed)
 
 	s.log.Info("starting event loop")
 	for {
@@ -89,14 +108,13 @@ func (s *Shard) runEventLoop(controller chan control.Command) {
 				return
 			}
 
-		case <-ticker.C:
-			tickEvents := s.copyEvents()
+		case tickTime := <-ticker.C:
+			// Round to milliseconds maybe?
+			tick := game.Tick(tickTime.UnixNano())
 
-			for range tickEvents {
-
+			if err := s.handleTick(tick, s.copyEvents()); err != nil {
+				s.log.Error("failed to handle tick events", zap.String("shard", string(s.id)), zap.Error(err))
 			}
-
-			// TODO event loop goes here
 		}
 	}
 }
@@ -135,4 +153,11 @@ func mkShardIDFromChunks(dimName string, shardChunks []level.ChunkID) ShardID {
 
 func MkShardIDFromCoords(dimName string, x, z int64) ShardID {
 	return ShardID(fmt.Sprintf("shard.%s.%d.%d", dimName, x, z))
+}
+
+func (s *Shard) handleTick(tick game.Tick, tickEvents []*envelope.E) error {
+	for range tickEvents {
+
+	}
+	return nil
 }

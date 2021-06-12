@@ -5,9 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	pBlocks "github.com/alexykot/cncraft/pkg/protocol/blocks"
-
 	"github.com/alexykot/cncraft/pkg/game/level"
+	pBlocks "github.com/alexykot/cncraft/pkg/protocol/blocks"
 )
 
 // SectionRepo loads sections from persistence and handles saving world block updates back into persistence
