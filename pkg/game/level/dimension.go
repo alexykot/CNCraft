@@ -4,13 +4,13 @@ type Dimension interface {
 	Name() string
 
 	Chunks() map[ChunkID]Chunk
-	GetChunk(ChunkID) Chunk
+	GetChunk(ChunkID) (Chunk, bool)
 
-	Edges() edges
+	Edges() Edges
 	//	GetBlock(x, y, z int) Block
 }
 
-type edges struct {
+type Edges struct {
 	NegativeX int64
 	NegativeZ int64
 	PositiveX int64
@@ -21,7 +21,7 @@ type dimension struct {
 	name   string
 	chunks map[ChunkID]Chunk
 
-	boundaries edges
+	boundaries Edges
 }
 
 var defaultDim *dimension
@@ -33,13 +33,16 @@ func NewDimension(name string) Dimension {
 
 func (d *dimension) Name() string              { return d.name }
 func (d *dimension) Chunks() map[ChunkID]Chunk { return d.chunks }
-func (d *dimension) GetChunk(id ChunkID) Chunk { return d.chunks[id] }
-func (d *dimension) Edges() edges              { return d.boundaries }
+func (d *dimension) GetChunk(id ChunkID) (Chunk, bool) {
+	chunk, ok := d.chunks[id]
+	return chunk, ok
+}
+func (d *dimension) Edges() Edges { return d.boundaries }
 
 func getDefaultDimension(name string) Dimension {
 	chunks := map[ChunkID]Chunk{}
-	for x := -48; x <= 48; x = x + 16 {
-		for z := -48; z <= 48; z = z + 16 {
+	for x := -64; x <= 48; x = x + 16 {
+		for z := -64; z <= 48; z = z + 16 {
 			chunk := NewChunk(int64(x), int64(z))
 			chunks[chunk.ID()] = chunk
 		}

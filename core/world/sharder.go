@@ -3,56 +3,67 @@ package world
 import (
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
+	"github.com/alexykot/cncraft/core/players"
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/level"
 )
 
 type Sharder struct {
+	sync.Mutex
+
 	control      chan control.Command
 	shardStarter chan startMessage
 	log          *zap.Logger
 	ps           nats.PubSub
 
+	roster     *players.Roster
 	world      *World
 	shardSizeX int64
 	shardSizeZ int64
-	shards     map[ShardID]*Shard
+	shards     map[ShardID]*shard
 	isStopping bool
 }
 
 // ShardID is formatted as `shard.<levelName>.<lowestX>.<lowestZ>`, e.g. `shard.Overworld.0.-160`.
 type ShardID string
 
-type startMessage struct {
-	id     ShardID
-	chunks []level.ChunkID
+func (sid ShardID) String() string {
+	return string(sid)
 }
 
-func NewSharder(conf control.WorldConf, log *zap.Logger, ps nats.PubSub, control chan control.Command, world *World) *Sharder {
+type startMessage struct {
+	id          ShardID
+	dimensionID uuid.UUID
+	chunkIDs    []level.ChunkID
+}
+
+func NewSharder(conf control.WorldConf, log *zap.Logger, ps nats.PubSub, control chan control.Command, world *World, roster *players.Roster) *Sharder {
 	return &Sharder{
 		control:      control,
 		shardStarter: make(chan startMessage),
 		log:          log,
 		ps:           ps,
+		roster:       roster,
 		shardSizeX:   int64(conf.ShardSize),
 		shardSizeZ:   int64(conf.ShardSize),
 		world:        world,
-		shards:       make(map[ShardID]*Shard),
+		shards:       make(map[ShardID]*shard),
 	}
 }
 
-func (sh Sharder) Start() {
+func (sh *Sharder) Start() {
 	go sh.dispatchSharderLoop()
 	sh.log.Info("sharder started")
 }
 
-func (sh Sharder) FindShardID(dimID uuid.UUID, coords *data.PositionI) (ShardID, bool) {
+func (sh *Sharder) FindShardID(dimID uuid.UUID, coords *data.PositionI) (ShardID, bool) {
 	dim, ok := sh.world.Dimensions[dimID]
 	if !ok {
 		return "", false
@@ -77,21 +88,23 @@ func (sh Sharder) FindShardID(dimID uuid.UUID, coords *data.PositionI) (ShardID,
 
 	id := MkShardIDFromCoords(dim.Name(), lowestX, lowestZ)
 	if _, ok := sh.shards[id]; !ok {
-		sh.log.Error("cound not find shard for valid coordinates", zap.String("shardID", string(id)), zap.Any("coords", coords))
+		sh.log.Error("couldn't find shard for valid coordinates", zap.String("shardID", string(id)), zap.Any("coords", coords))
 		return "", false
 	}
 
 	return id, true
 }
 
-func (sh Sharder) dispatchSharderLoop() {
+func (sh *Sharder) dispatchSharderLoop() {
 	defer func() {
-		message := "sharder stopped unexpectedly"
-		if r := recover(); r != nil {
-			message = fmt.Sprintf("sharder panicked: %v", r)
+		if !sh.isStopping {
+			message := "sharder stopped unexpectedly"
+			if r := recover(); r != nil {
+				message = fmt.Sprintf("sharder panicked: %v", r)
+			}
+			// stop the server if Sharder exits for any reason
+			sh.control <- control.Command{Signal: control.SERVER_FAIL, Message: message}
 		}
-		// stop the server if Sharder exits for any reason
-		sh.control <- control.Command{Signal: control.SERVER_FAIL, Message: message}
 	}()
 
 	go sh.bootstrapShards()
@@ -101,15 +114,17 @@ func (sh Sharder) dispatchSharderLoop() {
 		case command := <-sh.control:
 			switch command.Signal {
 			case control.SHARD_FAIL:
+				sh.log.Error("shard failed, signalling server failure", zap.String("message", command.Message))
 				sh.control <- control.Command{ // signalling critical failure
 					Signal:  control.SERVER_FAIL,
 					Message: fmt.Sprintf("failed to start a shard: %s", command.Message),
 				}
-				sh.log.Info("shard failed, signalling server failure", zap.String("message", command.Message))
-			case control.SERVER_STOP:
+			case control.SERVER_STOP, control.SERVER_FAIL:
+				sh.Lock()
 				sh.isStopping = true
 				if len(sh.shards) == 0 { // stop the loop if all shards are already stopped
-					sh.log.Info("stopping sharder")
+					sh.log.Info("no shards left, stopping sharder")
+					sh.Unlock()
 					return
 				} else { // otherwise command shards to stop
 					sh.control <- control.Command{ // signalling shards to stop
@@ -118,27 +133,42 @@ func (sh Sharder) dispatchSharderLoop() {
 					}
 					sh.log.Info("signalling shards to stop")
 				}
+				sh.Unlock()
 			}
 		case shardStarter := <-sh.shardStarter:
+			sh.Lock()
 			_, ok := sh.shards[shardStarter.id]
 			if !ok {
-				sh.shards[shardStarter.id] = newShard(sh.log, shardStarter.id, shardStarter.chunks)
+				var err error
+				sh.shards[shardStarter.id], err = newShard(sh.log, sh.ps, shardStarter.id, shardStarter.dimensionID, shardStarter.chunkIDs)
+				if err != nil {
+					sh.log.Error("failed to instantiate shard, signalling shard failure", zap.Error(err))
+					sh.control <- control.Command{ // signalling critical failure
+						Signal:  control.SHARD_FAIL,
+						Message: fmt.Sprintf("failed to start a shard: %s", err.Error()),
+					}
+					sh.Unlock()
+					continue
+				}
 			}
 			if sh.isStopping {
 				delete(sh.shards, shardStarter.id)
 				if len(sh.shards) == 0 {
-					sh.log.Info("stopping sharder")
-					return // all shards are now removed and the loop can stop
+					sh.log.Info("no shards left, stopping sharder")
+					sh.Unlock()
+					return // all shards are now removed and the sharder loop can stop
 				}
 			} else {
-				sh.log.Debug("starting shard", zap.String("id", string(shardStarter.id)), zap.Int("chunks", len(shardStarter.chunks)))
-				go sh.shards[shardStarter.id].dispatch(sh.ps, sh.control, sh.shardStarter)
+				sh.log.Debug("starting shard", zap.String("id", string(shardStarter.id)), zap.Int("chunks", len(shardStarter.chunkIDs)))
+
+				go sh.shards[shardStarter.id].dispatch(sh.roster, sh.control, sh.shardStarter, sh.world)
 			}
+			sh.Unlock()
 		}
 	}
 }
 
-func (sh Sharder) bootstrapShards() {
+func (sh *Sharder) bootstrapShards() {
 	defer func() {
 		if r := recover(); r != nil {
 			sh.control <- control.Command{
@@ -149,88 +179,15 @@ func (sh Sharder) bootstrapShards() {
 	}()
 
 	var shardCount int
-	for _, worldLevel := range sh.world.Dimensions {
-		levelEdges := worldLevel.Edges()
-		sh.log.Debug("bootstrapping shards", zap.String("level", worldLevel.Name()), zap.Any("edges", levelEdges))
-
-		// starting from 0.0 coords - cover all four quadrants of the map.
-		// This assumes 0.0 coords is actually within the boundaries of the map. It can be on the edge though.
-		var shardEdgeStartX, shardEdgeStartZ int64
-		for shardEdgeStartX < levelEdges.PositiveX {
-			for shardEdgeStartZ < levelEdges.PositiveZ {
-				shardChunks := splitAreaChunks(
-					shardEdgeStartX,
-					shardEdgeStartZ,
-					shardEdgeStartX+sh.shardSizeX*level.ChunkX,
-					shardEdgeStartZ+sh.shardSizeZ*level.ChunkZ)
-				sh.shardStarter <- startMessage{
-					id:     mkShardIDFromChunks(worldLevel.Name(), shardChunks),
-					chunks: shardChunks,
-				}
-				shardEdgeStartZ += sh.shardSizeZ * level.ChunkZ
-				shardCount++
-			}
-			shardEdgeStartX += sh.shardSizeX * level.ChunkX
-		}
-
-		shardEdgeStartX = 0
-		shardEdgeStartZ = 0
-		for shardEdgeStartX < levelEdges.PositiveX {
-			for shardEdgeStartZ > levelEdges.NegativeZ {
-				shardChunks := splitAreaChunks(
-					shardEdgeStartX,
-					shardEdgeStartZ-sh.shardSizeZ*level.ChunkZ,
-					shardEdgeStartX+sh.shardSizeX*level.ChunkX,
-					shardEdgeStartZ)
-				sh.shardStarter <- startMessage{
-					id:     mkShardIDFromChunks(worldLevel.Name(), shardChunks),
-					chunks: shardChunks,
-				}
-				shardEdgeStartZ -= sh.shardSizeZ * level.ChunkZ
-				shardCount++
-			}
-			shardEdgeStartX += sh.shardSizeX * level.ChunkX
-		}
-
-		shardEdgeStartX = 0
-		shardEdgeStartZ = 0
-		for shardEdgeStartX > levelEdges.NegativeX {
-			for shardEdgeStartZ < levelEdges.PositiveZ {
-				shardChunks := splitAreaChunks(
-					shardEdgeStartX-sh.shardSizeX*level.ChunkX,
-					shardEdgeStartZ,
-					shardEdgeStartX,
-					shardEdgeStartZ+sh.shardSizeZ*level.ChunkZ)
-				sh.shardStarter <- startMessage{
-					id:     mkShardIDFromChunks(worldLevel.Name(), shardChunks),
-					chunks: shardChunks,
-				}
-				shardEdgeStartZ += sh.shardSizeZ * level.ChunkZ
-				shardCount++
-			}
-			shardEdgeStartX -= sh.shardSizeX * level.ChunkX
-		}
-
-		shardEdgeStartX = 0
-		shardEdgeStartZ = 0
-		for shardEdgeStartX > levelEdges.NegativeX {
-			for shardEdgeStartZ > levelEdges.NegativeZ {
-				shardChunks := splitAreaChunks(
-					shardEdgeStartX-sh.shardSizeX*level.ChunkX,
-					shardEdgeStartZ-sh.shardSizeZ*level.ChunkZ,
-					shardEdgeStartZ,
-					shardEdgeStartX)
-				sh.shardStarter <- startMessage{
-					id:     mkShardIDFromChunks(worldLevel.Name(), shardChunks),
-					chunks: shardChunks,
-				}
-				shardEdgeStartZ -= sh.shardSizeZ * level.ChunkZ
-				shardCount++
-			}
-			shardEdgeStartX -= sh.shardSizeX * level.ChunkX
+	for id, dimension := range sh.world.Dimensions {
+		sh.log.Debug("bootstrapping shards", zap.String("level", dimension.Name()), zap.Any("edges", dimension.Edges()))
+		shardStarts := splitDimShards(id, dimension.Name(), dimension.Edges(), sh.shardSizeX, sh.shardSizeZ)
+		for _, start := range shardStarts {
+			sh.shardStarter <- start
+			shardCount++
 		}
 	}
-	sh.log.Info(fmt.Sprintf("%d shards bootstrapped", shardCount))
+	sh.log.Info(fmt.Sprintf("%d shards started in %d dimensions", shardCount, len(sh.world.Dimensions)))
 }
 
 // Split an area defined by given bottom left and top right points into chunks and return list of chunk IDs.
@@ -244,4 +201,91 @@ func splitAreaChunks(lowerX, lowerZ, higherX, higherZ int64) []level.ChunkID {
 		lowerX += level.ChunkX
 	}
 	return chunkIDs
+}
+
+func splitDimShards(dimID uuid.UUID, dimName string, edges level.Edges, shardX, shardZ int64) map[ShardID]startMessage {
+	var shardStarts = make(map[ShardID]startMessage)
+
+	// starting from 0.0 coords - cover all four quadrants of the map.
+	// This assumes 0.0 coords is actually within the boundaries of the map. It can be on the edge though.
+	var shardEdgeStartX, shardEdgeStartZ int64
+	for shardEdgeStartX < edges.PositiveX {
+		for shardEdgeStartZ < edges.PositiveZ {
+			shardChunks := splitAreaChunks(
+				shardEdgeStartX,
+				shardEdgeStartZ,
+				shardEdgeStartX+shardX*level.ChunkX,
+				shardEdgeStartZ+shardZ*level.ChunkZ)
+			shardID := mkShardIDFromChunks(dimName, shardChunks)
+			shardStarts[shardID] = startMessage{
+				id:          shardID,
+				dimensionID: dimID,
+				chunkIDs:    shardChunks,
+			}
+			shardEdgeStartZ += shardZ * level.ChunkZ
+		}
+		shardEdgeStartX += shardX * level.ChunkX
+	}
+
+	shardEdgeStartX = 0
+	shardEdgeStartZ = 0
+	for shardEdgeStartX < edges.PositiveX {
+		for shardEdgeStartZ > edges.NegativeZ {
+			shardChunks := splitAreaChunks(
+				shardEdgeStartX,
+				shardEdgeStartZ-shardZ*level.ChunkZ,
+				shardEdgeStartX+shardX*level.ChunkX,
+				shardEdgeStartZ)
+			shardID := mkShardIDFromChunks(dimName, shardChunks)
+			shardStarts[shardID] = startMessage{
+				id:          shardID,
+				dimensionID: dimID,
+				chunkIDs:    shardChunks,
+			}
+			shardEdgeStartZ -= shardZ * level.ChunkZ
+		}
+		shardEdgeStartX += shardX * level.ChunkX
+	}
+
+	shardEdgeStartX = 0
+	shardEdgeStartZ = 0
+	for shardEdgeStartX > edges.NegativeX {
+		for shardEdgeStartZ < edges.PositiveZ {
+			shardChunks := splitAreaChunks(
+				shardEdgeStartX-shardX*level.ChunkX,
+				shardEdgeStartZ,
+				shardEdgeStartX,
+				shardEdgeStartZ+shardZ*level.ChunkZ)
+			shardID := mkShardIDFromChunks(dimName, shardChunks)
+			shardStarts[shardID] = startMessage{
+				id:          shardID,
+				dimensionID: dimID,
+				chunkIDs:    shardChunks,
+			}
+			shardEdgeStartZ += shardZ * level.ChunkZ
+		}
+		shardEdgeStartX -= shardX * level.ChunkX
+	}
+
+	shardEdgeStartX = 0
+	shardEdgeStartZ = 0
+	for shardEdgeStartX > edges.NegativeX {
+		for shardEdgeStartZ > edges.NegativeZ {
+			shardChunks := splitAreaChunks(
+				shardEdgeStartX-shardX*level.ChunkX,
+				shardEdgeStartZ-shardZ*level.ChunkZ,
+				shardEdgeStartZ,
+				shardEdgeStartX)
+			shardID := mkShardIDFromChunks(dimName, shardChunks)
+			shardStarts[shardID] = startMessage{
+				id:          shardID,
+				dimensionID: dimID,
+				chunkIDs:    shardChunks,
+			}
+			shardEdgeStartZ -= shardZ * level.ChunkZ
+		}
+		shardEdgeStartX -= shardX * level.ChunkX
+	}
+
+	return shardStarts
 }

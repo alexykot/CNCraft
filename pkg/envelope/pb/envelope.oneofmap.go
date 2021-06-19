@@ -16,10 +16,3 @@ const (
 	Message_PlayerSpatial   OneOfMessage = "PlayerSpatial"
 	Message_PlayerInventory OneOfMessage = "PlayerInventory"
 )
-
-type OneOfTestOneof string
-
-const (
-	TestOneof_Name       OneOfTestOneof = "Name"
-	TestOneof_SubMessage OneOfTestOneof = "SubMessage"
-)

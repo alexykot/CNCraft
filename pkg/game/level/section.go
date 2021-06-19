@@ -15,10 +15,10 @@ type Section interface {
 	Index() int
 
 	// GetBlock - supports values x:[0:15] y:[0:15] z: [0:15]
-	GetBlock(x, y, z int) Block
+	GetBlock(x, y, z int64) Block
 
 	// SetBlock - supports values x:[0:15] y:[0:15] z: [0:15]
-	SetBlock(x, y, z int, block Block) error
+	SetBlock(x, y, z int64, block Block) error
 }
 
 func NewSection(blocks BlockArr, index uint8) Section {
@@ -36,7 +36,7 @@ type section struct {
 
 func (s *section) Index() int { return int(s.index) }
 
-func (s *section) GetBlock(x, y, z int) Block {
+func (s *section) GetBlock(x, y, z int64) Block {
 	if x < 0 || x > SectionX-1 || y < 0 || y > SectionX-1 || z < 0 || z > SectionZ-1 {
 		return nil
 	}
@@ -44,7 +44,7 @@ func (s *section) GetBlock(x, y, z int) Block {
 	return s.blocks[x][z][y]
 }
 
-func (s *section) SetBlock(x, y, z int, b Block) error {
+func (s *section) SetBlock(x, y, z int64, b Block) error {
 	if x < 0 || x > SectionX-1 || y < 0 || y > SectionY-1 || z < 0 || z > SectionZ-1 {
 		return fmt.Errorf("block coords x,y,z: %d,%d,%d out of range", x, y, z)
 	}

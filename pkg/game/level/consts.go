@@ -1,9 +1,9 @@
 package level
 
 const (
-	ChunkX = 16  // Width
-	ChunkZ = 16  // Length
-	ChunkY = 256 // Height
+	// Chunk height is not constant by design
+	ChunkX = 16 // Width
+	ChunkZ = 16 // Length
 
 	SectionX = 16 // Width
 	SectionZ = 16 // Length

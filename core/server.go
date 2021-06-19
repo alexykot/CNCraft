@@ -79,7 +79,7 @@ func NewServer(conf control.ServerConf) (Server, error) {
 		return nil, fmt.Errorf("could not instantiate world: %w", err)
 	}
 
-	sharder := w.NewSharder(conf.World, log.LevelUp(log.Named(rootLog, "sharder"), conf.LogLevels.Sharder), pubSub, controlChan, world)
+	sharder := w.NewSharder(conf.World, log.LevelUp(log.Named(rootLog, "sharder"), conf.LogLevels.Sharder), pubSub, controlChan, world, roster)
 
 	dispatcher := network.NewDispatcher(
 		log.LevelUp(log.Named(rootLog, "dispatcher"), conf.LogLevels.Dispatcher),
@@ -124,16 +124,22 @@ func (s *server) Start() error {
 func (s *server) Stop() error {
 	s.log.Info("stopping server")
 
-	// DEBT to stop server node:
-	//  - notify players connected to this node that it is stopping and they're about to be disconnected
-	//  - close all open connections
-	//  - stop processing chunks
-	//  - flush all chunk state to DB and unload all chunks
-	//  - notify other nodes to reallocate unloaded chunks
-	//  - leave the cluster group
-	//  - stop NATS node
-	//  - close all goroutines
-	//  - exit server
+	// DEBT
+	//  To implement stopping the server:
+	//    - register all stoppable processes on start
+	//    - signal all stoppables to stop
+	//    - block in a loop until all stoppable processes have indeed stopped
+	//    - have a breaker deadline timeout in case a stoppable is stuck indefinitely
+	//  While stopping the server node do this:
+	//    - notify players connected to this node that it is stopping and they're about to be disconnected
+	//    - close all open connections
+	//    - stop processing chunks
+	//    - flush all chunk state to DB and unload all chunks
+	//    - notify other nodes that chunks are unloaded
+	//    - leave the cluster group
+	//    - stop NATS node
+	//    - close all goroutines
+	//    - exit server
 
 	s.log.Info("server stopped")
 	return nil
@@ -153,9 +159,18 @@ func (s *server) stopAfter(after time.Duration) {
 	}()
 }
 
-// DEBT use context when starting all subsystems and use cancellation to signal graceful shutdown.
+// DEBT maybe use context when starting all subsystems and use cancellation to signal graceful shutdown.
 func (s *server) startServer() error {
 	rand.Seed(time.Now().UnixNano())
+
+	// DEBT when starting server:
+	//  - register all startable server objects
+	//  - separate object starting sequence and readiness signal
+	//  - retrieve readiness from every startable objects
+	//  - signal overall readiness to all objects when ready
+	//  - only accept network connections when everything is ready
+	//  - use control loop channel to signal READY states
+	//  - have a breaker timeout in case some startable object is stuck and cannot start in time
 
 	control.RegisterCurrentConfig(s.config)
 
@@ -167,12 +182,10 @@ func (s *server) startServer() error {
 		return fmt.Errorf("failed to migrate the database schema: %w", err)
 	}
 
-	if err := db.RegisterDBRecorders(s.ps, s.db); err != nil {
+	if err := db.RegisterStateRecorders(s.ps, s.db); err != nil {
 		return fmt.Errorf("failed to register DB state persisting handlers: %w", err)
 	}
 
-	// DEBT make network not accept connections until bootstrap is fully done.
-	//  Probably use control loop channel to signal READY state.
 	if err := s.net.Start(context.TODO()); err != nil {
 		return fmt.Errorf("failed to start network: %w", err)
 	}

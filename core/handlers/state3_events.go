@@ -59,8 +59,8 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 
 		joinGame.EntityID = p.PC.ID()
 		joinGame.GameMode = world.Gamemode
-		joinGame.DimensionCodec = world.DimensionCodec
-		joinGame.Dimension = world.Dimension
+		joinGame.DimensionCodec = world.NBTDimensionCodec
+		joinGame.Dimension = world.NBTDimension
 		joinGame.IsHardcore = world.Coreness
 		joinGame.HashedSeed = int64(binary.LittleEndian.Uint64(world.SeedHash[:]))
 		joinGame.ViewDistance = p.Settings.ViewDistance

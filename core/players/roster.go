@@ -33,6 +33,15 @@ func NewRoster(log, windowLog *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
 
 		// DEBT this is a single point of synchronisation for all currently connected players. This will break
 		//  down in multi-node cluster setup, and cluster-global synchronisation will be needed instead.
+		//
+		//  On GetPlayer calls rosters of different nodes in the cluster will need to synchronously request player
+		//  state from the node where the given player is connected. This ideally should be done via
+		//  request-response facility inside NATS, but this will need further research.
+		//
+		//  On player inventory updates (e.g. on PlayerInventoryChanged when player picks up something from the ground)
+		//  the local roster will need to transmit async updates via player-specific channels to the remote roster
+		//  that tracks that player. Remote roster will receive the update, update local memory state and transmit
+		//  update for the persistent state.
 		players: make(map[uuid.UUID]*Player),
 	}
 }

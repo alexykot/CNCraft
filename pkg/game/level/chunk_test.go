@@ -76,3 +76,66 @@ func getDefaultChunk() *chunk {
 
 	return &chunk{sections: []Section{s}}
 }
+
+func TestGetLocalXZ(t *testing.T) {
+	type testCase struct {
+		provideGlobal int64
+		expectLocal   int64
+	}
+
+	cases := []testCase{
+		{provideGlobal: 0, expectLocal: 0},
+		{provideGlobal: 15, expectLocal: 15},
+		{provideGlobal: 16, expectLocal: 0},
+		{provideGlobal: 32, expectLocal: 0},
+		{provideGlobal: 34, expectLocal: 2},
+		{provideGlobal: 37, expectLocal: 5},
+		{provideGlobal: 159, expectLocal: 15},
+		{provideGlobal: 160, expectLocal: 0},
+		{provideGlobal: -15, expectLocal: 1},
+		{provideGlobal: -16, expectLocal: 0},
+		{provideGlobal: -17, expectLocal: 15},
+		{provideGlobal: -31, expectLocal: 1},
+		{provideGlobal: -32, expectLocal: 0},
+		{provideGlobal: -34, expectLocal: 14},
+		{provideGlobal: -37, expectLocal: 11},
+		{provideGlobal: -160, expectLocal: 0},
+		{provideGlobal: -161, expectLocal: 15},
+	}
+
+	for _, test := range cases {
+		assert.Equal(t, test.expectLocal, getLocalXZ(test.provideGlobal))
+	}
+}
+
+func TestGetChunkXZ(t *testing.T) {
+	type testCase struct {
+		provideBlock int64
+		expectChunk  int64
+	}
+
+	cases := []testCase{
+		{provideBlock: 0, expectChunk: 0},
+		{provideBlock: 15, expectChunk: 0},
+		{provideBlock: 16, expectChunk: 16},
+		{provideBlock: 32, expectChunk: 32},
+		{provideBlock: 34, expectChunk: 32},
+		{provideBlock: 37, expectChunk: 32},
+		{provideBlock: 159, expectChunk: 144},
+		{provideBlock: 160, expectChunk: 160},
+		{provideBlock: -1, expectChunk: -16},
+		{provideBlock: -15, expectChunk: -16},
+		{provideBlock: -16, expectChunk: -16},
+		{provideBlock: -17, expectChunk: -32},
+		{provideBlock: -31, expectChunk: -32},
+		{provideBlock: -32, expectChunk: -32},
+		{provideBlock: -34, expectChunk: -48},
+		{provideBlock: -37, expectChunk: -48},
+		{provideBlock: -160, expectChunk: -160},
+		{provideBlock: -161, expectChunk: -176},
+	}
+
+	for _, test := range cases {
+		assert.Equal(t, test.expectChunk, getChunkXZ(test.provideBlock))
+	}
+}

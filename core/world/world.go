@@ -32,10 +32,10 @@ type World struct {
 	Difficulty         game.Difficulty
 	DifficultyIsLocked bool
 
-	// TODO not clear where this should be saved and come from.
+	// TODO not clear where this should be saved and come from. And what it does.
 	//  Maybe it should be hardcoded as server defaults and not saved with the world at all.
-	DimensionCodec tags.DimensionCodec
-	Dimension      tags.Dimension
+	NBTDimensionCodec tags.DimensionCodec
+	NBTDimension      tags.Dimension
 
 	StartDimension uuid.UUID
 	Dimensions     map[uuid.UUID]level.Dimension
@@ -67,8 +67,8 @@ func GetDefaultWorld() *World {
 			Difficulty:         game.Peaceful,
 			DifficultyIsLocked: true,
 			Seed:               make([]byte, 4, 4),
-			DimensionCodec:     vanillaDimentionsCodec,
-			Dimension:          vanillaDimentionsCodec.Dimensions.RegistryEntries[0].Element,
+			NBTDimensionCodec:  vanillaDimentionsCodec,
+			NBTDimension:       vanillaDimentionsCodec.Dimensions.RegistryEntries[0].Element,
 		}
 		binary.LittleEndian.PutUint32(defaultWorld.Seed, rand.Uint32())
 		defaultWorld.SeedHash = sha256.Sum256(defaultWorld.Seed)
@@ -86,10 +86,10 @@ func (w *World) Load() error {
 		return fmt.Errorf("world section repo not initialised")
 	}
 
-	for name, worldLevel := range w.Dimensions {
+	for name, worldDim := range w.Dimensions {
 		w.log.Debug(fmt.Sprintf("loading level %s", name))
 
-		chunks := worldLevel.Chunks()
+		chunks := worldDim.Chunks()
 		for _, chunk := range chunks {
 			if err := chunk.Load(w.repo); err != nil {
 				return fmt.Errorf("failed to load chunk %s: %w", chunk.ID(), err)
@@ -100,4 +100,17 @@ func (w *World) Load() error {
 	w.log.Info(fmt.Sprintf("world `%s` loaded", w.Name))
 
 	return nil
+}
+
+func (w *World) getChunk(dimensionID uuid.UUID, chunkID level.ChunkID) (level.Chunk, error) {
+	dim, ok := w.Dimensions[dimensionID]
+	if !ok {
+		return nil, fmt.Errorf("dimension %s not found", dimensionID.String())
+	}
+
+	chunk, ok := dim.GetChunk(chunkID)
+	if !ok {
+		return nil, fmt.Errorf("chunk %s not found", chunkID.String())
+	}
+	return chunk, nil
 }

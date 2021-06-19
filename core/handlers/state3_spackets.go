@@ -208,7 +208,7 @@ func HandleSPlayerDigging(ps nats.PubSub, sharder *world.Sharder, player *player
 	// DEBT this should check player position and ensure dig position is legal
 	shardID, ok := sharder.FindShardID(player.State.Dimension, dig.Position)
 	if !ok {
-		return fmt.Errorf("could not find shard for coords provided: x%d z%d", dig.Position.X, dig.Position.Z)
+		return fmt.Errorf("could not find shard for coords provided: x.%d z.%d", dig.Position.X, dig.Position.Z)
 	}
 
 	lope := envelope.PlayerDigging(&pb.PlayerDigging{

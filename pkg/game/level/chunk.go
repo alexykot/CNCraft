@@ -2,11 +2,15 @@ package level
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
 	"github.com/alexykot/cncraft/pkg/protocol/blocks"
 )
+
+// DEBT make this configurable for supporting taller worlds
+const sectionsPerChunk = 8
 
 // SectionRepo - persistence-aware interface for loading and saving sections.
 type SectionRepo interface {
@@ -25,6 +29,10 @@ type heightMap struct {
 }
 
 type ChunkID string
+
+func (c ChunkID) String() string {
+	return string(c)
+}
 
 func MkChunkID(x, z int64) ChunkID {
 	return ChunkID(fmt.Sprintf("chunk.%d.%d", x, z))
@@ -59,8 +67,17 @@ type Chunk interface {
 	Sections() []Section
 	HeightMap() heightMap
 
-	// supports values x:[0:15] y:[0:255] z: [0:15]
-	// GetBlock(x, y, z int) Block
+	// GetBlock - supports values x.[0:15] y.[0:255] z.[0:15]
+	GetBlock(x, y, z int64) (Block, error)
+
+	// SetBlock - supports values x.[0:15] y.[0:255] z.[0:15]
+	SetBlock(x, y, z int64, block Block) error
+
+	// GetGlobalBlock - supports any x.y.z values, but validates if the coords belong to this chunk, errors out if not.
+	GetGlobalBlock(x, y, z int64) (Block, error)
+
+	// SetGlobalBlock - supports any x.y.z values, but validates if the coords belong to this chunk, errors out if not.
+	SetGlobalBlock(x, y, z int64, block Block) error
 }
 
 // DEBT no performance considerations applied here yet. Likely will have to be redesigned for RAM/CPU efficiency.
@@ -88,10 +105,7 @@ type chunk struct {
 
 // NewChunk creates new chunk (not loaded yet)
 func NewChunk(x, z int64) Chunk {
-	return &chunk{
-		x: x,
-		z: z,
-	}
+	return &chunk{x: x, z: z}
 }
 
 func (c *chunk) ID() ChunkID { return MkChunkID(c.x, c.z) }
@@ -106,8 +120,7 @@ func (c *chunk) Load(repo SectionRepo) error {
 	c.Unload()
 	var err error
 
-	// DEBT make this configurable for supporting taller worlds
-	c.sections = make([]Section, 8, 8)
+	c.sections = make([]Section, sectionsPerChunk, sectionsPerChunk)
 
 	if c.sections[0], err = repo.LoadSection(c.x, c.z, 0); err != nil {
 		return fmt.Errorf("failed to load section %d: %w", 0, err)
@@ -153,13 +166,54 @@ func (c *chunk) HeightMap() heightMap {
 	return heightMap
 }
 
+func (c *chunk) GetBlock(x, y, z int64) (Block, error) {
+	sectionIndex := int(math.Floor(float64(y / sectionsPerChunk)))
+	if len(c.sections) < sectionIndex {
+		return nil, fmt.Errorf("block coord y.%d out of range", y)
+	}
+
+	sectionY := y % sectionsPerChunk
+	sectionBlock := c.sections[sectionIndex].GetBlock(x, sectionY, z)
+	if sectionBlock == nil {
+		return nil, fmt.Errorf("failed to find block in chunk %s, section %d at coords x.%d y.%d z.%d",
+			string(c.ID()), sectionIndex, x, sectionY, z)
+	}
+	return sectionBlock, nil
+}
+
+func (c *chunk) SetBlock(x, y, z int64, block Block) error {
+	return nil
+}
+
+func (c *chunk) GetGlobalBlock(x, y, z int64) (Block, error) {
+	if c.x != getChunkXZ(x) {
+		return nil, fmt.Errorf("coord x.%d is outside of chunk %s", x, c.ID())
+	}
+	if c.z != getChunkXZ(z) {
+		return nil, fmt.Errorf("coord z.%d is outside of chunk %s", x, c.ID())
+	}
+
+	return c.GetBlock(getLocalXZ(x), y, getLocalXZ(z))
+}
+
+func (c *chunk) SetGlobalBlock(x, y, z int64, block Block) error {
+	if c.x != getChunkXZ(x) {
+		return fmt.Errorf("coord x.%d is outside of chunk %s", x, c.ID())
+	}
+	if c.z != getChunkXZ(z) {
+		return fmt.Errorf("coord z.%d is outside of chunk %s", x, c.ID())
+	}
+
+	return c.SetBlock(getLocalXZ(x), y, getLocalXZ(z), block)
+}
+
 func (c *chunk) findHeights() [ChunkX][ChunkZ]uint8 {
-	var sectionIndex int
+	var sectionIndex int64
 
 	// find the topmost non-empty section to start from
 	for index, chunkSection := range c.sections {
 		if chunkSection != nil {
-			sectionIndex = index
+			sectionIndex = int64(index)
 		}
 	}
 
@@ -169,14 +223,14 @@ func (c *chunk) findHeights() [ChunkX][ChunkZ]uint8 {
 	// walk through sections down
 	for ; sectionIndex >= 0; sectionIndex-- {
 		// walk every column in the section
-		for x := 0; x < ChunkX; x++ {
-			for z := 0; z < ChunkZ; z++ {
+		for x := int64(0); x < ChunkX; x++ {
+			for z := int64(0); z < ChunkZ; z++ {
 				if heights[x][z] != 0 { // skip if the given column already has a height
 					continue
 				}
 
 				// scan column top-down and look for non-air blocks
-				for y := SectionY; y > 0; y-- {
+				for y := int64(SectionY); y > 0; y-- {
 					sectionBlock := c.sections[sectionIndex].GetBlock(x, y-1, z)
 					// DEBT check for solid block rather than non-air, start at https://minecraft.gamepedia.com/Solid_block
 					if sectionBlock.ID() != blocks.Air {
@@ -225,8 +279,32 @@ func (c *chunk) compactHeights(heights [ChunkX][ChunkZ]uint8) []int64 {
 	}
 
 	res := make([]int64, 37, 37)
-	for i, _ := range uRes {
+	for i := range uRes {
 		res[i] = int64(uRes[i])
 	}
 	return res
+}
+
+// getLocalXZ - take global positive or negative x or z coord, return always positive chunk-local coord
+func getLocalXZ(xz int64) int64 {
+	if xz == 0 {
+		return 0
+	}
+
+	return int64(math.Abs(float64(getChunkXZ(xz) - xz)))
+}
+
+// getChunkXZ - take global positive or negative x or z block coord,
+// return positive or negative chunk.X or chunk.Z coord that block is contained in.
+// This assumes ChunkX == ChunkZ.
+func getChunkXZ(xz int64) int64 {
+	if ChunkX != ChunkZ {
+		panic("only square chunks supported")
+	}
+
+	if xz == 0 {
+		return 0
+	}
+
+	return int64(math.Floor(float64(xz)/ChunkX)) * ChunkX
 }

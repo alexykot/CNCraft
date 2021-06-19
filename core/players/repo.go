@@ -11,15 +11,13 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"go.uber.org/zap"
 
-	"github.com/alexykot/cncraft/pkg/game"
-
-	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
-
 	"github.com/alexykot/cncraft/core/db/orm"
+	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/entities"
 	"github.com/alexykot/cncraft/pkg/game/items"
 	"github.com/alexykot/cncraft/pkg/game/player"
+	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
 )
 
 // repo is a player repository, it implements handling the persistent storage of player data.

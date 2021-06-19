@@ -54,3 +54,10 @@ func MkPlayerInventoryUpdate() string { return "players.update.inventory" }
 func MkShardEvent(shardID string) string {
 	return "world.event." + shardID
 }
+
+// DEBT There will be a need for global transmission channel as well, to broadcast world state updates, chat messages etc.
+//  This will likely be done via separate broadcasting channel, and it will need to be handled by the broadcaster,
+//  a new component in the network subsystem. Broadcaster of every node will unicast messages to every player connected
+//  to that node. Eventually the broadcaster will become more clever and select a subset of players that actually need
+//  the message (e.g. only those subscribed to relevant chat channels, or close enough to the updated chunk).
+// func MkConnBroadcast() string { return "conn.broadcast" }

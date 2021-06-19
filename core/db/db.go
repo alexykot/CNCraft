@@ -65,8 +65,8 @@ func Migrate(db *sql.DB) error {
 	return nil
 }
 
-// RegisterDBRecorders registers all async handlers needed for saving persistent state of the system.
-func RegisterDBRecorders(ps nats.PubSub, db *sql.DB) error {
+// RegisterStateRecorders registers all async handlers needed for saving persistent state of the system.
+func RegisterStateRecorders(ps nats.PubSub, db *sql.DB) error {
 	if err := recorders.RegisterPlayerStateHandlers(ps, dbLogger, db); err != nil {
 		return fmt.Errorf("failed to register player state handlers: %w", err)
 	}
