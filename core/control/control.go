@@ -1,15 +1,36 @@
 package control
 
-type Signal int
+type signal int
 
 const (
-	SERVER_STOP Signal = iota
+	COMPONENT signal = iota
+
 	SERVER_FAIL
-	SHARD_FAIL
-	SHARD_STOP
+)
+
+type Component string
+
+const (
+	PUBSUB  Component = "pubsub"
+	NETWORK Component = "network"
+	WORLD   Component = "world"
+	SHARDER Component = "sharder"
+	ROSTER  Component = "roster"
+	DB      Component = "db"
+)
+
+type ComponentState int
+
+const (
+	STARTING ComponentState = iota
+	READY
+	FAILED
+	STOPPED
 )
 
 type Command struct {
-	Signal  Signal
-	Message string
+	Signal    signal
+	Component Component
+	State     ComponentState
+	Message   string
 }

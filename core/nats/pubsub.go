@@ -13,6 +13,7 @@
 package nats
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -50,7 +51,7 @@ func NewNats() *natsd.Server {
 	return natsd.New(opts)
 }
 
-func NewPubSub(log *zap.Logger, nats *natsd.Server, control chan control.Command) PubSub {
+func NewPubSub(_ context.Context, log *zap.Logger, nats *natsd.Server, control chan control.Command) PubSub {
 	return &pubsub{
 		natsd:   nats,
 		control: control,

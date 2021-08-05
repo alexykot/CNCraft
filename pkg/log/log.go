@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -16,7 +17,7 @@ var longestShortNameLength int
 
 const rootLoggerName = "CNC"
 
-func GetRootLogger(level string) (*zap.Logger, error) {
+func GetRootLogger(_ context.Context, level string) (*zap.Logger, error) {
 	var err error
 	var log *zap.Logger
 

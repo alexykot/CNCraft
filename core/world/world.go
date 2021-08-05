@@ -1,6 +1,7 @@
 package world
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/binary"
@@ -45,7 +46,7 @@ type World struct {
 }
 
 // NewWorld - creates world from persisted settigns. Does NOT load world data.
-func NewWorld(_ control.WorldConf, log *zap.Logger, db *sql.DB) (*World, error) {
+func NewWorld(_ context.Context, _ control.WorldConf, log *zap.Logger, db *sql.DB) (*World, error) {
 	world := GetDefaultWorld() // TODO load world starting settings from persistence.
 
 	world.log = log

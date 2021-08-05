@@ -1,6 +1,7 @@
 package world
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sync"
@@ -18,8 +19,10 @@ import (
 type Sharder struct {
 	sync.Mutex
 
+	ctx context.Context
+
 	control      chan control.Command
-	shardStarter chan startMessage
+	shardControl chan startMessage
 	log          *zap.Logger
 	ps           nats.PubSub
 
@@ -42,12 +45,14 @@ type startMessage struct {
 	id          ShardID
 	dimensionID uuid.UUID
 	chunkIDs    []level.ChunkID
+	err         error
 }
 
-func NewSharder(conf control.WorldConf, log *zap.Logger, ps nats.PubSub, control chan control.Command, world *World, roster *players.Roster) *Sharder {
+func NewSharder(ctx context.Context, conf control.WorldConf, log *zap.Logger, ps nats.PubSub, control chan control.Command, world *World, roster *players.Roster) *Sharder {
 	return &Sharder{
+		ctx:          ctx,
 		control:      control,
-		shardStarter: make(chan startMessage),
+		shardControl: make(chan startMessage),
 		log:          log,
 		ps:           ps,
 		roster:       roster,
@@ -96,14 +101,15 @@ func (sh *Sharder) FindShardID(dimID uuid.UUID, coords *data.PositionI) (ShardID
 }
 
 func (sh *Sharder) dispatchSharderLoop() {
+	sh.signal(control.STARTING, "")
+
 	defer func() {
 		if !sh.isStopping {
-			message := "sharder stopped unexpectedly"
+			msg := "sharder stopped unexpectedly"
 			if r := recover(); r != nil {
-				message = fmt.Sprintf("sharder panicked: %v", r)
+				msg = fmt.Sprintf("sharder crashed: %v", r)
 			}
-			// stop the server if Sharder exits for any reason
-			sh.control <- control.Command{Signal: control.SERVER_FAIL, Message: message}
+			sh.signal(control.FAILED, msg)
 		}
 	}()
 
@@ -111,58 +117,46 @@ func (sh *Sharder) dispatchSharderLoop() {
 
 	for {
 		select {
-		case command := <-sh.control:
-			switch command.Signal {
-			case control.SHARD_FAIL:
-				sh.log.Error("shard failed, signalling server failure", zap.String("message", command.Message))
-				sh.control <- control.Command{ // signalling critical failure
-					Signal:  control.SERVER_FAIL,
-					Message: fmt.Sprintf("failed to start a shard: %s", command.Message),
-				}
-			case control.SERVER_STOP, control.SERVER_FAIL:
-				sh.Lock()
-				sh.isStopping = true
-				if len(sh.shards) == 0 { // stop the loop if all shards are already stopped
-					sh.log.Info("no shards left, stopping sharder")
-					sh.Unlock()
-					return
-				} else { // otherwise command shards to stop
-					sh.control <- control.Command{ // signalling shards to stop
-						Signal:  control.SHARD_STOP,
-						Message: "stop all shards",
-					}
-					sh.log.Info("signalling shards to stop")
-				}
-				sh.Unlock()
-			}
-		case shardStarter := <-sh.shardStarter:
+		case <-sh.ctx.Done():
 			sh.Lock()
-			_, ok := sh.shards[shardStarter.id]
-			if !ok {
+			sh.isStopping = true
+
+			sh.log.Info("server context closed, sharder shutdown sequence initiated")
+			for {
+				select { // DEBT maybe have a failsafe timeout for waiting shards to stop
+				// If shutdown initiated - all shards will close on context cancellation, and will report over
+				// the shardControl channel. Once all shards have reported and have been deleted - stop the loop,
+				// signal to global control and exit sharder.
+				case shardStartMsg := <-sh.shardControl:
+					delete(sh.shards, shardStartMsg.id)
+					if len(sh.shards) == 0 {
+						sh.log.Info("no shards left, stopping sharder")
+						sh.signal(control.STOPPED, "")
+						sh.Unlock()
+						return // all shards are now removed and the sharder loop can stop
+					}
+				}
+			}
+		case shardStartMsg := <-sh.shardControl:
+			sh.Lock()
+			if _, ok := sh.shards[shardStartMsg.id]; !ok {
 				var err error
-				sh.shards[shardStarter.id], err = newShard(sh.log, sh.ps, shardStarter.id, shardStarter.dimensionID, shardStarter.chunkIDs)
+				sh.shards[shardStartMsg.id], err = newShard(sh.log, sh.ps, shardStartMsg.id, shardStartMsg.dimensionID, shardStartMsg.chunkIDs)
 				if err != nil {
 					sh.log.Error("failed to instantiate shard, signalling shard failure", zap.Error(err))
-					sh.control <- control.Command{ // signalling critical failure
-						Signal:  control.SHARD_FAIL,
-						Message: fmt.Sprintf("failed to start a shard: %s", err.Error()),
-					}
+					sh.signal(control.FAILED, fmt.Errorf("failed to start shard %s: %w", shardStartMsg.id, err).Error())
 					sh.Unlock()
 					continue
 				}
 			}
-			if sh.isStopping {
-				delete(sh.shards, shardStarter.id)
-				if len(sh.shards) == 0 {
-					sh.log.Info("no shards left, stopping sharder")
-					sh.Unlock()
-					return // all shards are now removed and the sharder loop can stop
-				}
-			} else {
-				sh.log.Debug("starting shard", zap.String("id", string(shardStarter.id)), zap.Int("chunks", len(shardStarter.chunkIDs)))
 
-				go sh.shards[shardStarter.id].dispatch(sh.roster, sh.control, sh.shardStarter, sh.world)
+			sh.log.Debug("starting shard", zap.String("id", string(shardStartMsg.id)), zap.Int("chunks", len(shardStartMsg.chunkIDs)))
+
+			if err := sh.shards[shardStartMsg.id].dispatch(sh.ctx, sh.roster, sh.shardControl, sh.world); err != nil {
+				sh.log.Error("failed to restart shard, signalling shard failure", zap.Error(err))
+				sh.signal(control.FAILED, fmt.Errorf("failed to restart shard %s: %w", shardStartMsg.id, err).Error())
 			}
+
 			sh.Unlock()
 		}
 	}
@@ -171,10 +165,8 @@ func (sh *Sharder) dispatchSharderLoop() {
 func (sh *Sharder) bootstrapShards() {
 	defer func() {
 		if r := recover(); r != nil {
-			sh.control <- control.Command{
-				Signal:  control.SERVER_FAIL,
-				Message: fmt.Sprintf("sharder bootstrap panicked: %v", r),
-			}
+			sh.log.Error("failed to bootstrap sharder", zap.Any("panic", r))
+			sh.signal(control.FAILED, fmt.Errorf("sharder bootstrap panicked: %v", r).Error())
 		}
 	}()
 
@@ -183,10 +175,11 @@ func (sh *Sharder) bootstrapShards() {
 		sh.log.Debug("bootstrapping shards", zap.String("level", dimension.Name()), zap.Any("edges", dimension.Edges()))
 		shardStarts := splitDimShards(id, dimension.Name(), dimension.Edges(), sh.shardSizeX, sh.shardSizeZ)
 		for _, start := range shardStarts {
-			sh.shardStarter <- start
+			sh.shardControl <- start
 			shardCount++
 		}
 	}
+	sh.signal(control.READY, "")
 	sh.log.Info(fmt.Sprintf("%d shards started in %d dimensions", shardCount, len(sh.world.Dimensions)))
 }
 
@@ -288,4 +281,13 @@ func splitDimShards(dimID uuid.UUID, dimName string, edges level.Edges, shardX, 
 	}
 
 	return shardStarts
+}
+
+func (sh *Sharder) signal(state control.ComponentState, msg string) {
+	sh.control <- control.Command{
+		Signal:    control.COMPONENT,
+		Component: control.SHARDER,
+		State:     state,
+		Message:   msg,
+	}
 }

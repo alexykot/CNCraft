@@ -25,7 +25,7 @@ type Network struct {
 	control chan control.Command
 }
 
-func NewNetwork(conf control.NetworkConf, log *zap.Logger, report chan control.Command, bus nats.PubSub, disp *DispatcherTransmitter) *Network {
+func NewNetwork(_ context.Context, conf control.NetworkConf, log *zap.Logger, report chan control.Command, bus nats.PubSub, disp *DispatcherTransmitter) *Network {
 	return &Network{
 		host:       conf.Host,
 		port:       conf.Port,

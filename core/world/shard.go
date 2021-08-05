@@ -1,6 +1,7 @@
 package world
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -8,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/core/players"
@@ -49,39 +49,17 @@ func newShard(log *zap.Logger, ps nats.PubSub, id ShardID, dimID uuid.UUID, chun
 	}, nil
 }
 
-func (s *shard) dispatch(roster *players.Roster, controller chan control.Command, restarter chan startMessage, world *World) {
+func (s *shard) dispatch(ctx context.Context, roster *players.Roster, failSignaller chan startMessage, world *World) error {
 	if err := s.initiateHandlers(s.chunkIDs, world, roster); err != nil {
-		controller <- control.Command{
-			Signal:  control.SHARD_FAIL,
-			Message: fmt.Errorf("failed to instantiate world processors: %w", err).Error(),
-		}
-		return
+		return fmt.Errorf("failed to instantiate world processors: %w", err)
 	}
 
 	if err := s.ps.Subscribe(subj.MkShardEvent(string(s.id)), s.incomingEventHandler); err != nil {
-		controller <- control.Command{
-			Signal:  control.SHARD_FAIL,
-			Message: fmt.Errorf("failed to register shard events handler: %w", err).Error(),
-		}
-		return
+		return fmt.Errorf("failed to register shard events handler: %w", err)
 	}
 
-	defer func() {
-		s.ps.Unsubscribe(subj.MkShardEvent(string(s.id))) // remove old subscription
-		if r := recover(); r != nil {
-			s.log.Error("shard event loop crashed", zap.Any("panic", r))
-		}
-
-		// Make sure the shard restart attempted whenever it fails for any reason.
-		// If the server is stopping - sharder will ignore this and not restart the shard.
-		restarter <- startMessage{
-			id:          s.id,
-			dimensionID: s.dimID,
-			chunkIDs:    s.chunkIDs,
-		}
-	}()
-
-	s.runEventLoop(controller)
+	go s.runEventLoop(ctx, failSignaller)
+	return nil
 }
 
 func (s *shard) incomingEventHandler(lope *envelope.E) {
@@ -96,24 +74,38 @@ func (s *shard) incomingEventHandler(lope *envelope.E) {
 	s.events = append(s.events, lope)
 }
 
-func (s *shard) runEventLoop(controller chan control.Command) {
+func (s *shard) runEventLoop(ctx context.Context, failSignaller chan startMessage) {
+	var err error
+	defer func() {
+		s.ps.Unsubscribe(subj.MkShardEvent(string(s.id))) // remove obsolete subscription
+		if r := recover(); r != nil {
+			err = fmt.Errorf("shard event loop crashed: %v", r)
+		}
+
+		// Make sure the shard restart attempted whenever it fails for any reason.
+		// If the server is stopping - sharder will ignore this and not restart the shard.
+		failSignaller <- startMessage{
+			id:          s.id,
+			dimensionID: s.dimID,
+			chunkIDs:    s.chunkIDs,
+			err:         err,
+		}
+	}()
+
 	ticker := time.NewTicker(game.TickSpeed)
 
-	// s.log.Debug("starting event loop")
+	s.log.Debug("starting event loop")
 	for {
 		select {
-		case command := <-controller:
-			switch command.Signal {
-			case control.SHARD_STOP:
-				s.log.Info("stopping shard")
-				return
-			}
-
+		case <-ctx.Done():
+			s.log.Info("stopping shard")
+			return // trigger defer and make it return a message, error should be nil
 		case tickTime := <-ticker.C:
 			tick := game.Tick(tickTime.UnixNano()) // Round to milliseconds maybe?
 
-			if err := s.handleTick(tick, s.cutEvents()); err != nil {
-				s.log.Error("failed to handle tick events", zap.Error(err))
+			if err = s.handleTick(tick, s.cutEvents()); err != nil {
+				err = fmt.Errorf("failed to handle tick events: %w", err)
+				return // trigger defer and make it return a message with error attached
 			}
 		}
 	}
@@ -157,12 +149,11 @@ func (s *shard) handleTick(tick game.Tick, tickEvents []*envelope.E) error {
 	for name, tickHandler := range s.tickHandlers {
 		userOutLopes, err := tickHandler(tick)
 		if err != nil {
-			s.log.Error("failed to handle tick in handler",
-				zap.Int("tick", int(tick)), zap.String("handler", name), zap.Error(err))
+			return fmt.Errorf("failed to handle tick in handler `%s` of shard `%s`: %w", name, s.id, err)
 		}
 		for userId, outLopes := range userOutLopes {
 			if err := s.ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
-				s.log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))
+				return fmt.Errorf("failed to publish conn.transmit message for conn `%s`, shard `%s`: %w", userId, s.id, err)
 			}
 		}
 	}
@@ -173,12 +164,12 @@ func (s *shard) handleTick(tick game.Tick, tickEvents []*envelope.E) error {
 			for name, eventHandler := range s.eventHandlers[pb.Event_PlayerDigging] {
 				userOutLopes, err := eventHandler(tick, event)
 				if err != nil {
-					s.log.Error("failed to handle tick event in handler", zap.Int("tick", int(tick)),
-						zap.Any("event", event.ShardEvent), zap.String("handler", name), zap.Error(err))
+					return fmt.Errorf("failed to handle tick event `%s` in handler `%s` of shard `%s`: %w",
+						pb.Event_PlayerDigging, name, s.id, err)
 				}
 				for userId, outLopes := range userOutLopes {
 					if err := s.ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
-						s.log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))
+						return fmt.Errorf("failed to publish conn.transmit message for conn `%s`, shard `%s`: %w", userId, s.id, err)
 					}
 				}
 			}

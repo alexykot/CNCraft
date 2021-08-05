@@ -3,10 +3,12 @@ package core
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -35,6 +37,11 @@ type Server interface {
 }
 
 type server struct {
+	ctx        context.Context
+	cancelFunc context.CancelFunc
+
+	reg map[control.Component]control.ComponentState // component state registry
+
 	control chan control.Command
 	config  control.ServerConf
 
@@ -55,33 +62,37 @@ type server struct {
 
 // NewServer wires up and provides new server instance.
 func NewServer(conf control.ServerConf) (Server, error) {
-	rootLog, err := log.GetRootLogger(conf.LogLevels.Baseline)
+	serverCtx, cancel := context.WithCancel(context.Background())
+	controlChan := make(chan control.Command)
+
+	rootLog, err := log.GetRootLogger(serverCtx, conf.LogLevels.Baseline)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("could not instantiate root logger: %w", err)
 	}
 
-	controlChan := make(chan control.Command)
-
-	pubSub := nats.NewPubSub(log.LevelUp(log.Named(rootLog, "pubsub"), conf.LogLevels.PubSub), nats.NewNats(), controlChan)
+	pubSub := nats.NewPubSub(serverCtx, log.LevelUp(log.Named(rootLog, "pubsub"), conf.LogLevels.PubSub), nats.NewNats(), controlChan)
 
 	database, err := db.New(conf.DBURL, conf.LogLevels.DB == "DEBUG", log.LevelUp(log.Named(rootLog, "DB"), conf.LogLevels.DB))
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("could not instantiate DB: %w", err)
 	}
 
-	roster := players.NewRoster(
+	roster := players.NewRoster(serverCtx,
 		log.LevelUp(log.Named(rootLog, "players"), conf.LogLevels.Players),
 		log.LevelUp(log.Named(rootLog, "windows"), conf.LogLevels.Players),
 		pubSub, database)
 
-	world, err := w.NewWorld(conf.World, log.LevelUp(log.Named(rootLog, "world"), conf.LogLevels.World), database)
+	world, err := w.NewWorld(serverCtx, conf.World, log.LevelUp(log.Named(rootLog, "world"), conf.LogLevels.World), database)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("could not instantiate world: %w", err)
 	}
 
-	sharder := w.NewSharder(conf.World, log.LevelUp(log.Named(rootLog, "sharder"), conf.LogLevels.Sharder), pubSub, controlChan, world, roster)
+	sharder := w.NewSharder(serverCtx, conf.World, log.LevelUp(log.Named(rootLog, "sharder"), conf.LogLevels.Sharder), pubSub, controlChan, world, roster)
 
-	dispatcher := network.NewDispatcher(
+	dispatcher := network.NewDispatcher(serverCtx,
 		log.LevelUp(log.Named(rootLog, "dispatcher"), conf.LogLevels.Dispatcher),
 		pubSub, auth.GetAuther(),
 		roster,
@@ -89,9 +100,14 @@ func NewServer(conf control.ServerConf) (Server, error) {
 		sharder,
 	)
 
-	net := network.NewNetwork(conf.Network, log.LevelUp(log.Named(rootLog, "network"), conf.LogLevels.Network), controlChan, pubSub, dispatcher)
+	net := network.NewNetwork(serverCtx, conf.Network, log.LevelUp(log.Named(rootLog, "network"), conf.LogLevels.Network), controlChan, pubSub, dispatcher)
 
 	return &server{
+		ctx:        serverCtx,
+		cancelFunc: cancel,
+
+		reg: make(map[control.Component]control.ComponentState),
+
 		config: conf,
 
 		log: rootLog,
@@ -121,8 +137,50 @@ func (s *server) Start() error {
 	return nil
 }
 
+// shutdown will unconditionally kill the server and exit the process.
+func (s *server) shutdown(failed bool) {
+	var code int
+	if failed {
+		code = 1
+	}
+
+	if err := s.Stop(); err != nil {
+		s.log.Error("received error while stopping server", zap.Error(err))
+		code = 1
+	}
+
+	os.Exit(code)
+}
+
 func (s *server) Stop() error {
+	const serverStopTimeout = time.Second * 5
 	s.log.Info("stopping server")
+
+	s.cancelFunc()
+
+	var stopTimeout = time.NewTimer(serverStopTimeout)
+	var stopTicker = time.NewTicker(time.Millisecond * 100)
+
+	for {
+		select {
+		case <-stopTimeout.C:
+			s.log.Error("reached server stop timeout", zap.Any("regState", s.reg))
+			return errors.New("reached server stop timeout")
+		case <-stopTicker.C:
+			var stillWaiting bool // still waiting for some components to stop
+			for _, state := range s.reg {
+				if state != control.STOPPED && state != control.FAILED {
+					stillWaiting = true
+					break
+				}
+			}
+
+			if !stillWaiting {
+				s.log.Info("server stopped")
+				return nil
+			}
+		}
+	}
 
 	// DEBT
 	//  To implement stopping the server:
@@ -141,25 +199,12 @@ func (s *server) Stop() error {
 	//    - close all goroutines
 	//    - exit server
 
-	s.log.Info("server stopped")
-	return nil
 }
 
 func (s *server) Version() string {
 	return "0.0.1-SNAPSHOT"
 }
 
-func (s *server) stopAfter(after time.Duration) {
-	s.log.Warn(fmt.Sprintf("stopping server in %s", after))
-	go func() {
-		select {
-		case <-time.After(after):
-			s.control <- control.Command{Signal: control.SERVER_STOP}
-		}
-	}()
-}
-
-// DEBT maybe use context when starting all subsystems and use cancellation to signal graceful shutdown.
 func (s *server) startServer() error {
 	rand.Seed(time.Now().UnixNano())
 
@@ -211,31 +256,38 @@ func (s *server) startServer() error {
 func (s *server) startControlLoop() {
 	signal.Notify(s.killSignal, os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
 
-	// select over server commands channel
+	var mu sync.Mutex
+
 	for {
-		select {
+		select { // select over server commands channel
 		case command := <-s.control:
 			switch command.Signal {
-			// stop selecting when stop is received
-			case control.SERVER_STOP:
-				s.log.Info("received stop command")
-				if err := s.Stop(); err != nil {
-					s.log.Error("received error while stopping server", zap.Error(err))
+			case control.COMPONENT:
+				mu.Lock()
+				// These transitions of the state machine are allowed:
+				// <no state>       => <any state>
+				// control.STARTING => control.READY, control.STOPPED, control.FAILED
+				// control.READY    => control.STOPPED, control.FAILED
+				// Any other state transitions are assumed to be a result race condition
+				// inside the component and will be ignored.
+				// On receiving a control.FAILED message - server shutdown will be initiated.
+				if state, ok := s.reg[command.Component]; !ok {
+					s.reg[command.Component] = command.State
+				} else if state == control.STARTING {
+					s.reg[command.Component] = command.State
+				} else if state == control.READY && command.State != control.STARTING {
+					s.reg[command.Component] = command.State
 				}
-				return
-			case control.SERVER_FAIL:
-				s.log.Error("internal server error", zap.String("message", command.Message))
-				if err := s.Stop(); err != nil {
-					s.log.Error("received error while stopping server", zap.Error(err))
+				mu.Unlock()
+
+				if command.State == control.FAILED {
+					s.log.Error("component failed", zap.String("comp", string(command.Component)), zap.String("component", command.Message))
+					go s.shutdown(true)
 				}
-				return
 			}
 		case <-s.killSignal:
 			s.log.Info("received interrupt signal")
-			if err := s.Stop(); err != nil {
-				s.log.Error("received error while stopping server", zap.Error(err))
-			}
-			return
+			go s.shutdown(false)
 		}
 	}
 }

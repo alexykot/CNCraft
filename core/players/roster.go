@@ -1,6 +1,7 @@
 package players
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"sync"
@@ -25,7 +26,7 @@ type Roster struct {
 	players map[uuid.UUID]*Player
 }
 
-func NewRoster(log, windowLog *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
+func NewRoster(_ context.Context, log, windowLog *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
 	return &Roster{
 		log:  log,
 		ps:   ps,

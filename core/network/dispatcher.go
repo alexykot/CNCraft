@@ -37,7 +37,7 @@ type DispatcherTransmitter struct {
 	connMu map[uuid.UUID]*sync.Mutex
 }
 
-func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *players.Roster, aliver *KeepAliver, sharder *world.Sharder) *DispatcherTransmitter {
+func NewDispatcher(_ context.Context, log *zap.Logger, ps nats.PubSub, auth auth.A, tally *players.Roster, aliver *KeepAliver, sharder *world.Sharder) *DispatcherTransmitter {
 	return &DispatcherTransmitter{
 		log:     log,
 		ps:      ps,
