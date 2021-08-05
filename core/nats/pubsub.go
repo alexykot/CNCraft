@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	natsd "github.com/nats-io/nats-server/server"
+	natsd "github.com/nats-io/nats-server/v2/server"
 	natsc "github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
