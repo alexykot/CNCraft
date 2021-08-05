@@ -26,16 +26,18 @@ import (
 	"github.com/alexykot/cncraft/pkg/envelope"
 )
 
+// DEBT probably should have and propagate a global bootstrap timeout across whole server
 const natsStartTimeout = 500 * time.Millisecond
 
 type PubSub interface {
-	Start() error
+	Start()
 	Publish(subj string, messages ...*envelope.E) error
 	Subscribe(subj string, handleFunc func(message *envelope.E)) error
 	Unsubscribe(subj string)
 }
 
 type pubsub struct {
+	ctx     context.Context
 	subs    map[string][]*natsc.Subscription
 	natsd   *natsd.Server
 	client  *natsc.Conn
@@ -51,8 +53,9 @@ func NewNats() *natsd.Server {
 	return natsd.New(opts)
 }
 
-func NewPubSub(_ context.Context, log *zap.Logger, nats *natsd.Server, control chan control.Command) PubSub {
+func NewPubSub(ctx context.Context, log *zap.Logger, nats *natsd.Server, control chan control.Command) PubSub {
 	return &pubsub{
+		ctx:     ctx,
 		natsd:   nats,
 		control: control,
 		log:     log,
@@ -60,37 +63,42 @@ func NewPubSub(_ context.Context, log *zap.Logger, nats *natsd.Server, control c
 	}
 }
 
-func (ps *pubsub) Start() error {
+func (ps *pubsub) Start() {
+	ps.signal(control.STARTING, nil)
+
 	if err := ps.startServer(); err != nil {
-		return fmt.Errorf("failed to start NATS server: %w", err)
+		ps.signal(control.FAILED, fmt.Errorf("failed to start NATS server: %w", err)) // signal NATS has failed
+		return
 	}
 
 	if err := ps.startClient(); err != nil {
-		return fmt.Errorf("failed to start NATS client: %w", err)
+		ps.signal(control.FAILED, fmt.Errorf("failed to start NATS client: %w", err)) // signal NATS has failed
+		return
 	}
 
+	ps.signal(control.READY, nil)
 	ps.log.Info("pubsub started")
-	return nil
 }
 
 func (ps *pubsub) startServer() error {
+	go ps.handleContextCancel() // make sure NATS shutdown is called whenever context is cancelled
+
 	go func() {
 		defer func() {
-			message := "nats stopped unexpectedly"
 			if r := recover(); r != nil {
-				message = fmt.Sprintf("nats panicked: %v", r)
+				ps.signal(control.FAILED, fmt.Errorf("nats panicked: %v", r)) // signal NATS has failed
 			}
-			// stop the server if NATS exits for any reason
-			ps.control <- control.Command{Signal: control.SERVER_FAIL, Message: message}
 		}()
 		// This needs to be called manually for some reason. Without it NATS will run completely silently.
 		ps.natsd.ConfigureLogger()
+
 		ps.natsd.Start()
 	}()
 
 	// This will block until NATS server is ready for client connections,
 	// or until provided timeout runs out, whichever comes earlier.
 	if ok := ps.natsd.ReadyForConnections(natsStartTimeout); !ok {
+		ps.natsd.Shutdown()
 		return errors.New("failed to start NATS server within the timeout")
 	}
 
@@ -158,5 +166,25 @@ func (ps *pubsub) makeHandler(handleFunc func(*envelope.E)) natsc.MsgHandler {
 		}
 
 		handleFunc(lope)
+	}
+}
+
+func (ps *pubsub) handleContextCancel() {
+	for {
+		select {
+		case <-ps.ctx.Done():
+			ps.signal(control.STOPPED, nil)
+			ps.natsd.Shutdown()
+			return
+		}
+	}
+}
+
+func (ps *pubsub) signal(state control.ComponentState, err error) {
+	ps.control <- control.Command{
+		Signal:    control.COMPONENT,
+		Component: control.PUBSUB,
+		State:     state,
+		Err:       err,
 	}
 }

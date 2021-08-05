@@ -643,7 +643,7 @@ func TestSplitDimShards(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			shardStarts := splitDimShards(dimID, dimName, test.edges, test.shardSize, test.shardSize)
+			shardStarts := splitDimensionShards(dimID, dimName, test.edges, test.shardSize, test.shardSize)
 			assert.Equal(t, len(test.expectShardStarts), len(shardStarts))
 			for shardID, expectStartMess := range test.expectShardStarts {
 				startMess, ok := shardStarts[shardID]

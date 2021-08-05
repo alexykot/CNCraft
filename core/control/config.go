@@ -76,7 +76,7 @@ func GetDefaultConfig() ServerConf {
 
 		World: WorldConf{
 			WorldID:             uuid.New(),
-			ShardSize:           2,
+			ShardSize:           3,
 			EnableRespawnScreen: true,
 		},
 

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/envelope"
@@ -18,19 +19,23 @@ import (
 
 // Roster holds the map of all players logged into this server.
 type Roster struct {
-	log  *zap.Logger
-	ps   nats.PubSub
-	mu   sync.Mutex
-	repo *repo
+	ctx     context.Context
+	control chan control.Command
+	log     *zap.Logger
+	ps      nats.PubSub
+	mu      sync.Mutex
+	repo    *repo
 
 	players map[uuid.UUID]*Player
 }
 
-func NewRoster(_ context.Context, log, windowLog *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
+func NewRoster(ctx context.Context, ctrlChan chan control.Command, log, windowLog *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
 	return &Roster{
-		log:  log,
-		ps:   ps,
-		repo: newRepo(db, windowLog),
+		ctx:     ctx,
+		control: ctrlChan,
+		log:     log,
+		ps:      ps,
+		repo:    newRepo(db, windowLog),
 
 		// DEBT this is a single point of synchronisation for all currently connected players. This will break
 		//  down in multi-node cluster setup, and cluster-global synchronisation will be needed instead.
@@ -150,17 +155,23 @@ func (r *Roster) PlayerInventoryChanged(connID uuid.UUID) {
 }
 
 // RegisterHandlers creates subscriptions to all relevant global subjects.
-func (r *Roster) RegisterHandlers() error {
+func (r *Roster) RegisterHandlers() {
+	// DEBT When cluster mode will be developed - this will also need to start a context watching goroutine
+	//  and unsubscribe from the player channels.
+	//
+	// For now Roster does not signal readiness as it is ready as soon as it's started, and has nothing to stop.
+
 	if err := r.ps.Subscribe(subj.MkPlayerJoined(), r.playerJoinedHandler); err != nil {
-		return fmt.Errorf("failed to subscribe for joining users: %w", err)
+		r.signal(control.FAILED, fmt.Errorf("failed to start roster: failed to subscribe for joining users: %w", err))
+		return
 	}
 
 	if err := r.ps.Subscribe(subj.MkPlayerLeft(), r.playerLeftHandler); err != nil {
-		return fmt.Errorf("failed to subscribe for leaving users: %w", err)
+		r.signal(control.FAILED, fmt.Errorf("failed to start roster: failed to subscribe for leaving users: %w", err))
+		return
 	}
 
 	r.log.Info("global player handlers registered")
-	return nil
 }
 
 func (r *Roster) publishNewPlayerJoined(p *Player) {
@@ -231,5 +242,14 @@ func (r *Roster) publishPlayerInventoryUpdate(p *Player) {
 
 	if err := r.ps.Publish(subj.MkPlayerInventoryUpdate(), envelope.PlayerInventoryUpdate(update)); err != nil {
 		r.log.Error("failed to publish inventory update", zap.Error(err))
+	}
+}
+
+func (r *Roster) signal(state control.ComponentState, err error) {
+	r.control <- control.Command{
+		Signal:    control.COMPONENT,
+		Component: control.ROSTER,
+		State:     state,
+		Err:       err,
 	}
 }

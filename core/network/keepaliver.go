@@ -43,6 +43,7 @@ func NewKeepAliver(control chan control.Command, ps nats.PubSub, log *zap.Logger
 
 func (k *KeepAliver) Start(ctx context.Context) {
 	go k.tick(ctx)
+	k.signal(control.READY, nil)
 }
 
 func (k *KeepAliver) AddAliveConn(connID uuid.UUID) {
@@ -71,8 +72,8 @@ func (k *KeepAliver) DropDeadConn(connID uuid.UUID) {
 
 func (k *KeepAliver) tick(ctx context.Context) {
 	defer func() {
-		if r := recover(); r != nil { // stop the server if the keepAliver goroutine dies
-			k.control <- control.Command{Signal: control.SERVER_FAIL, Message: fmt.Sprintf("keepaliver panicked: %v", r)}
+		if r := recover(); r != nil {
+			k.signal(control.FAILED, fmt.Errorf("keepaliver panicked: %v", r))
 		}
 	}()
 
@@ -80,7 +81,7 @@ func (k *KeepAliver) tick(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			k.log.Info("keepAliver stopped")
+			k.signal(control.STOPPED, nil)
 			return
 		case nowTime := <-aliveTicker.C:
 			nowTimeNix := nowTime.Unix()
@@ -93,8 +94,6 @@ func (k *KeepAliver) tick(ctx context.Context) {
 			}
 		}
 	}
-
-	k.control <- control.Command{Signal: control.SERVER_FAIL, Message: fmt.Sprintf("keepAliver stopped unexpectedly")}
 }
 
 func (k *KeepAliver) pronounceDead(connID uuid.UUID) {
@@ -105,6 +104,7 @@ func (k *KeepAliver) pronounceDead(connID uuid.UUID) {
 
 	if err := k.ps.Publish(subj.MkConnClose(), lope); err != nil {
 		k.log.Error("failed to publish CloseConn", zap.Error(err), zap.String("conn", connID.String()))
+		return
 	}
 	k.log.Debug("connection pronounced dead", zap.String("conn", connID.String()))
 }
@@ -135,5 +135,14 @@ func (k *KeepAliver) transmitKeepAlive(connID uuid.UUID, timeNow time.Time) {
 
 	if err := k.ps.Publish(subj.MkConnTransmit(connID), lope); err != nil {
 		k.log.Error("failed to publish conn keepalive CPacket", zap.Error(err), zap.String("conn", connID.String()))
+	}
+}
+
+func (k *KeepAliver) signal(state control.ComponentState, err error) {
+	k.control <- control.Command{
+		Signal:    control.COMPONENT,
+		Component: control.KEEPALIVER,
+		State:     state,
+		Err:       err,
 	}
 }

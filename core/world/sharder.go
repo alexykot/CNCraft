@@ -2,6 +2,7 @@ package world
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -101,15 +102,15 @@ func (sh *Sharder) FindShardID(dimID uuid.UUID, coords *data.PositionI) (ShardID
 }
 
 func (sh *Sharder) dispatchSharderLoop() {
-	sh.signal(control.STARTING, "")
+	sh.signal(control.STARTING, nil)
 
 	defer func() {
 		if !sh.isStopping {
-			msg := "sharder stopped unexpectedly"
+			err := errors.New("sharder stopped unexpectedly")
 			if r := recover(); r != nil {
-				msg = fmt.Sprintf("sharder crashed: %v", r)
+				err = fmt.Errorf("sharder crashed: %v", r)
 			}
-			sh.signal(control.FAILED, msg)
+			sh.signal(control.FAILED, err)
 		}
 	}()
 
@@ -131,7 +132,7 @@ func (sh *Sharder) dispatchSharderLoop() {
 					delete(sh.shards, shardStartMsg.id)
 					if len(sh.shards) == 0 {
 						sh.log.Info("no shards left, stopping sharder")
-						sh.signal(control.STOPPED, "")
+						sh.signal(control.STOPPED, nil)
 						sh.Unlock()
 						return // all shards are now removed and the sharder loop can stop
 					}
@@ -144,7 +145,7 @@ func (sh *Sharder) dispatchSharderLoop() {
 				sh.shards[shardStartMsg.id], err = newShard(sh.log, sh.ps, shardStartMsg.id, shardStartMsg.dimensionID, shardStartMsg.chunkIDs)
 				if err != nil {
 					sh.log.Error("failed to instantiate shard, signalling shard failure", zap.Error(err))
-					sh.signal(control.FAILED, fmt.Errorf("failed to start shard %s: %w", shardStartMsg.id, err).Error())
+					sh.signal(control.FAILED, fmt.Errorf("failed to start shard %s: %w", shardStartMsg.id, err))
 					sh.Unlock()
 					continue
 				}
@@ -154,7 +155,7 @@ func (sh *Sharder) dispatchSharderLoop() {
 
 			if err := sh.shards[shardStartMsg.id].dispatch(sh.ctx, sh.roster, sh.shardControl, sh.world); err != nil {
 				sh.log.Error("failed to restart shard, signalling shard failure", zap.Error(err))
-				sh.signal(control.FAILED, fmt.Errorf("failed to restart shard %s: %w", shardStartMsg.id, err).Error())
+				sh.signal(control.FAILED, fmt.Errorf("failed to restart shard %s: %w", shardStartMsg.id, err))
 			}
 
 			sh.Unlock()
@@ -166,20 +167,20 @@ func (sh *Sharder) bootstrapShards() {
 	defer func() {
 		if r := recover(); r != nil {
 			sh.log.Error("failed to bootstrap sharder", zap.Any("panic", r))
-			sh.signal(control.FAILED, fmt.Errorf("sharder bootstrap panicked: %v", r).Error())
+			sh.signal(control.FAILED, fmt.Errorf("sharder bootstrap panicked: %v", r))
 		}
 	}()
 
 	var shardCount int
 	for id, dimension := range sh.world.Dimensions {
 		sh.log.Debug("bootstrapping shards", zap.String("level", dimension.Name()), zap.Any("edges", dimension.Edges()))
-		shardStarts := splitDimShards(id, dimension.Name(), dimension.Edges(), sh.shardSizeX, sh.shardSizeZ)
+		shardStarts := splitDimensionShards(id, dimension.Name(), dimension.Edges(), sh.shardSizeX, sh.shardSizeZ)
 		for _, start := range shardStarts {
 			sh.shardControl <- start
 			shardCount++
 		}
 	}
-	sh.signal(control.READY, "")
+	sh.signal(control.READY, nil)
 	sh.log.Info(fmt.Sprintf("%d shards started in %d dimensions", shardCount, len(sh.world.Dimensions)))
 }
 
@@ -196,7 +197,8 @@ func splitAreaChunks(lowerX, lowerZ, higherX, higherZ int64) []level.ChunkID {
 	return chunkIDs
 }
 
-func splitDimShards(dimID uuid.UUID, dimName string, edges level.Edges, shardX, shardZ int64) map[ShardID]startMessage {
+// DEBT This function has a bug and doesn't split correctly for world edges -48,-48,48,48 and shard size 2x2.
+func splitDimensionShards(dimID uuid.UUID, dimName string, edges level.Edges, shardX, shardZ int64) map[ShardID]startMessage {
 	var shardStarts = make(map[ShardID]startMessage)
 
 	// starting from 0.0 coords - cover all four quadrants of the map.
@@ -283,11 +285,11 @@ func splitDimShards(dimID uuid.UUID, dimName string, edges level.Edges, shardX, 
 	return shardStarts
 }
 
-func (sh *Sharder) signal(state control.ComponentState, msg string) {
+func (sh *Sharder) signal(state control.ComponentState, err error) {
 	sh.control <- control.Command{
 		Signal:    control.COMPONENT,
 		Component: control.SHARDER,
 		State:     state,
-		Message:   msg,
+		Err:       err,
 	}
 }

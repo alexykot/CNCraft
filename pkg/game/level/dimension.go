@@ -40,15 +40,15 @@ func (d *dimension) GetChunk(id ChunkID) (Chunk, bool) {
 func (d *dimension) Edges() Edges { return d.boundaries }
 
 func getDefaultDimension(name string) Dimension {
-	chunks := map[ChunkID]Chunk{}
-	for x := -64; x <= 48; x = x + 16 {
-		for z := -64; z <= 48; z = z + 16 {
-			chunk := NewChunk(int64(x), int64(z))
-			chunks[chunk.ID()] = chunk
-		}
-	}
-
 	if defaultDim == nil {
+		chunks := map[ChunkID]Chunk{}
+		for x := -48; x <= 48; x = x + 16 {
+			for z := -48; z <= 48; z = z + 16 {
+				chunk := NewChunk(int64(x), int64(z))
+				chunks[chunk.ID()] = chunk
+			}
+		}
+
 		defaultDim = &dimension{
 			name:   name,
 			chunks: chunks,

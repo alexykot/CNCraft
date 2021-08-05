@@ -41,14 +41,16 @@ type World struct {
 	StartDimension uuid.UUID
 	Dimensions     map[uuid.UUID]level.Dimension
 
+	ctx  context.Context
 	repo *SectionRepo
 	log  *zap.Logger
 }
 
 // NewWorld - creates world from persisted settigns. Does NOT load world data.
-func NewWorld(_ context.Context, _ control.WorldConf, log *zap.Logger, db *sql.DB) (*World, error) {
+func NewWorld(ctx context.Context, _ control.WorldConf, log *zap.Logger, db *sql.DB) (*World, error) {
 	world := GetDefaultWorld() // TODO load world starting settings from persistence.
 
+	world.ctx = ctx
 	world.log = log
 	world.repo = newRepo(log, db)
 
@@ -82,25 +84,28 @@ func GetDefaultWorld() *World {
 	return defaultWorld
 }
 
-func (w *World) Load() error {
-	if w.repo == nil {
-		return fmt.Errorf("world section repo not initialised")
-	}
-
+func (w *World) Load(ctrlChan chan control.Command) {
 	for name, worldDim := range w.Dimensions {
 		w.log.Debug(fmt.Sprintf("loading level %s", name))
 
 		chunks := worldDim.Chunks()
 		for _, chunk := range chunks {
 			if err := chunk.Load(w.repo); err != nil {
-				return fmt.Errorf("failed to load chunk %s: %w", chunk.ID(), err)
+				// World does not have any async loops, so does not need to signal readiness, it's ready as soon
+				// as it's loaded, and has no internal components that would need to be stopped.
+				// But it can fail while loading and that needs to be signalled.
+				ctrlChan <- control.Command{
+					Signal:    control.COMPONENT,
+					Component: control.WORLD,
+					State:     control.FAILED,
+					Err:       fmt.Errorf("failed to load world: failed to load chunk %s: %w", chunk.ID(), err),
+				}
+				return
 			}
 		}
 	}
 
 	w.log.Info(fmt.Sprintf("world `%s` loaded", w.Name))
-
-	return nil
 }
 
 func (w *World) getChunk(dimensionID uuid.UUID, chunkID level.ChunkID) (level.Chunk, error) {

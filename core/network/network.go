@@ -17,40 +17,41 @@ type Network struct {
 	host string
 	port int
 
-	dispatcher *DispatcherTransmitter
-
 	log *zap.Logger
+	ctx context.Context
+
+	dispatcher *DispatcherTransmitter
 
 	ps      nats.PubSub
 	control chan control.Command
 }
 
-func NewNetwork(_ context.Context, conf control.NetworkConf, log *zap.Logger, report chan control.Command, bus nats.PubSub, disp *DispatcherTransmitter) *Network {
+func NewNetwork(ctx context.Context, conf control.NetworkConf, log *zap.Logger, ctrlChan chan control.Command, bus nats.PubSub, disp *DispatcherTransmitter) *Network {
 	return &Network{
+		ctx:        ctx,
 		host:       conf.Host,
 		port:       conf.Port,
 		dispatcher: disp,
-		control:    report,
+		control:    ctrlChan,
 		log:        log,
 		ps:         bus,
 	}
 }
 
-func (n *Network) Start(ctx context.Context) error {
-	if err := n.startListening(ctx); err != nil {
-		return fmt.Errorf("failed to start listening on %s:%d: %w", n.host, n.port, err)
-	}
-	n.log.Info("started TCP listener", zap.String("host", n.host), zap.Int("port", n.port))
+func (n *Network) Start() {
+	n.signal(control.STARTING, nil)
 
-	if err := n.dispatcher.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start dispatcher: %w", err)
+	if err := n.startListening(n.ctx); err != nil {
+		n.signal(control.FAILED, fmt.Errorf("failed to start network: failed to start listening on %s:%d: %w", n.host, n.port, err))
+		return
 	}
 
-	return nil
-}
+	if err := n.dispatcher.Start(n.ctx); err != nil {
+		n.signal(control.FAILED, fmt.Errorf("failed to start network: failed to start dispatcher: %w", err))
+		return
+	}
 
-func (n *Network) Stop() {
-	// TODO gracefully close all connections here
+	n.signal(control.READY, nil)
 }
 
 func (n *Network) startListening(ctx context.Context) error {
@@ -64,39 +65,53 @@ func (n *Network) startListening(ctx context.Context) error {
 		return fmt.Errorf("failed to bind TCP: %w", err)
 	}
 
-	go func(ctx context.Context) {
+	// Context cancellation will signal server stopping and needs to be handled correctly.
+	// Context cancellation cannot be handled in the infinite for{} loop of the tcpListener because
+	// tcpListener.AcceptTCP() will block indefinitely until a new connection will appear, so will not allow
+	// to handle context.Done() signal timely.
+	go func() {
 		defer func() {
 			if r := recover(); r != nil { // stop the server if the TCP listener goroutine dies
-				n.control <- control.Command{Signal: control.SERVER_FAIL, Message: fmt.Sprintf("TCP listener panicked: %v", r)}
+				n.signal(control.FAILED, fmt.Errorf("TCP listener panicked: %v", r))
+			}
+		}()
+
+		select {
+		case <-ctx.Done():
+			if err := tcpListener.Close(); err != nil {
+				n.signal(control.FAILED, err)
+				return
+			}
+			n.log.Info("TCP listener closed")
+			n.signal(control.STOPPED, nil)
+		}
+	}()
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil { // stop the server if the TCP listener goroutine dies
+				n.signal(control.FAILED, fmt.Errorf("TCP listener panicked: %v", r))
 			}
 		}()
 
 		for {
-			select {
-			case <-ctx.Done():
-				n.log.Info("TCP listener closing")
+			conn, err := tcpListener.AcceptTCP() // this blocking call will wait until some connections will appear on the wire
+			if err != nil {
+				n.signal(control.FAILED, fmt.Errorf("failed to accept a TCP connection on %s:%d: %w", n.host, n.port, err))
 				return
-			default:
-				conn, err := tcpListener.AcceptTCP()
-				if err != nil {
-					n.log.Error("failed to accept a TCP connection",
-						zap.String("host", n.host), zap.Int("port", n.port), zap.Error(err))
-					n.control <- control.Command{Signal: control.SERVER_FAIL, Message: err.Error()}
-					return
-				}
-
-				n.log.Debug("received TCP connection",
-					zap.String("from", conn.RemoteAddr().String()), zap.Any("conn", conn))
-
-				_ = conn.SetNoDelay(true)
-				_ = conn.SetKeepAlive(true)
-
-				go n.handleNewConnection(ctx, NewConnection(conn))
 			}
-		}
 
-		n.control <- control.Command{Signal: control.SERVER_FAIL, Message: fmt.Sprintf("TCP listener stopped unexpectedly")}
-	}(ctx)
+			n.log.Debug("received TCP connection",
+				zap.String("from", conn.RemoteAddr().String()), zap.Any("conn", conn))
+
+			_ = conn.SetNoDelay(true)
+			_ = conn.SetKeepAlive(true)
+
+			go n.handleNewConnection(ctx, NewConnection(conn))
+		}
+	}()
+
+	n.log.Info("started TCP listener", zap.String("host", n.host), zap.Int("port", n.port))
 
 	return nil
 }
@@ -112,48 +127,67 @@ func (n *Network) handleNewConnection(ctx context.Context, conn Connection) {
 		return
 	}
 
-	for {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil { // stop the server if the TCP listener goroutine dies
+				n.signal(control.FAILED, fmt.Errorf("TCP listener panicked: %v", r))
+			}
+		}()
+
 		select {
 		case <-ctx.Done():
-			n.log.Info("connection closing")
-			return
-		default:
-			bufIn := buffer.New()
-			size, err := conn.Receive(bufIn)
-			if err != nil && err.Error() == "EOF" {
-				// TODO broadcast player disconnect if conn.GetState() == Play.
-
-				break
-			} else if err != nil || size == 0 {
-				_ = conn.Close()
-				// TODO broadcast player disconnect if conn.GetState() == Play.
-				break
+			if err := conn.Close(); err != nil {
+				n.log.Error("failed while closing connection", zap.String("conn", conn.ID().String()), zap.Error(err))
+				return
 			}
+			n.log.Info("connection closed", zap.String("conn", conn.ID().String()))
+		}
+	}()
 
-			// decompression
-			// decryption
+	for {
+		bufIn := buffer.New()
+		size, err := conn.Receive(bufIn) // this blocking call will wait until some bytes will appear on the wire
+		if err != nil && err.Error() == "EOF" {
+			// TODO broadcast player disconnect if conn.GetState() == Play.
 
-			if bufIn.Bytes()[0] == 0xFE { // LEGACY PING
-				continue
-			}
-
-			n.log.Debug("reading blob of bytes", zap.Int("len", bufIn.Len()), zap.String("conn", conn.ID().String()))
-			var packetCount int
-			for {
-				packetLen := bufIn.PullVarInt()
-				if packetLen == 0 {
-					break // no more packets in this blob
-				}
-
-				packetBytes := bufIn.Bytes()[bufIn.IndexI() : bufIn.IndexI()+packetLen]
-				bufIn.SkipLen(packetLen)
-				packetCount++
-
-				n.log.Debug(fmt.Sprintf("read a packet %d in blob", packetCount),
-					zap.Int("packetLen", int(packetLen)), zap.String("bytes", fmt.Sprintf("%X", packetBytes)))
-				n.dispatcher.HandleSPacket(conn, packetBytes)
-			}
+			break
+		} else if err != nil || size == 0 {
+			_ = conn.Close()
+			// TODO broadcast player disconnect if conn.GetState() == Play.
+			break
 		}
 
+		// decompression
+		// decryption
+
+		if bufIn.Bytes()[0] == 0xFE { // LEGACY PING
+			continue
+		}
+
+		n.log.Debug("reading blob of bytes", zap.Int("len", bufIn.Len()), zap.String("conn", conn.ID().String()))
+		var packetCount int
+		for {
+			packetLen := bufIn.PullVarInt()
+			if packetLen == 0 {
+				break // no more packets in this blob
+			}
+
+			packetBytes := bufIn.Bytes()[bufIn.IndexI() : bufIn.IndexI()+packetLen]
+			bufIn.SkipLen(packetLen)
+			packetCount++
+
+			n.log.Debug(fmt.Sprintf("read a packet %d in blob", packetCount),
+				zap.Int("packetLen", int(packetLen)), zap.String("bytes", fmt.Sprintf("%X", packetBytes)))
+			n.dispatcher.HandleSPacket(conn, packetBytes)
+		}
+	}
+}
+
+func (n *Network) signal(state control.ComponentState, err error) {
+	n.control <- control.Command{
+		Signal:    control.COMPONENT,
+		Component: control.NETWORK,
+		State:     state,
+		Err:       err,
 	}
 }

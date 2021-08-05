@@ -19,14 +19,21 @@ import (
 
 // RegisterEventHandlersState3 registers handlers for envelopes broadcast in the Play connection state.
 //  Play state handlers are entirely asynchronous, so NATS subscriptions need to be created at boot time.
-func RegisterEventHandlersState3(log *zap.Logger, ps nats.PubSub, roster *players.Roster, world *world.World) error {
+func RegisterEventHandlersState3(ctrlChan chan control.Command, log *zap.Logger, ps nats.PubSub, roster *players.Roster, world *world.World) {
 	if err := ps.Subscribe(subj.MkPlayerLoading(), handlePlayerLoading(ps, log, roster, world)); err != nil {
-		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
+		// Handlers don't have any async loops, so do not need to signal readiness, it's ready as soon
+		// they are registered, and have no internal components that would need to be stopped.
+		// But it can fail while loading and that needs to be signalled.
+		ctrlChan <- control.Command{
+			Signal:    control.COMPONENT,
+			Component: control.EVENTS,
+			State:     control.FAILED,
+			Err:       fmt.Errorf("failed to register PlayerLoading handler: %w", err),
+		}
+		return
 	}
 
 	log.Info("Play state event handlers registered")
-
-	return nil
 }
 
 func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster, world *world.World) func(lope *envelope.E) {
