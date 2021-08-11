@@ -6,6 +6,10 @@ import (
 
 type Subj string
 
+func (s Subj) String() string {
+	return string(s)
+}
+
 // *** Connection related subjects ***
 
 // MkConnReceive creates a subject name string for given connection ID for receiving server bound packets.
@@ -20,12 +24,9 @@ func MkConnStateChange(connID uuid.UUID) Subj { return Subj("conn.state." + conn
 // MkNewConn creates a subject name string for announcing new connections appearing.
 func MkNewConn() Subj { return "conn.new" }
 
-// MkConnClose creates a subject name string for announcing connection to be closed.
+// MkConnClose creates a subject name string for announcing connections to be closed.
 func MkConnClose() Subj { return "conn.close" }
 
-// DEBT There will be a need for global transmission channel, to broadcast world state updates, chat messages etc.
-//  This will likely be done via separate broadcasting channel, and it will need to be handled by the broadcaster,
-//  a new component in the network subsystem. Broadcaster of every node will unicast messages to every player connected
-//  to that node. Eventually the broadcaster will become more clever and select a subset of players that actually need
-//  the message (e.g. only those subscribed to relevant chat channels, or close enough to the updated chunk).
+// MkConnBroadcast creates a subject name string for announcing broadcast packets that need to be
+// sent to all (or eventually some) players.
 func MkConnBroadcast() Subj { return "conn.broadcast" }

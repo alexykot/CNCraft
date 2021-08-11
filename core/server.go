@@ -91,7 +91,7 @@ func NewServer(conf control.ServerConf) (Server, error) {
 
 	sharder := w.NewSharder(serverCtx, conf.World, log.LevelUp(log.Named(rootLog, "sharder"), conf.LogLevels.Sharder), pubSub, ctrlChan, world, roster)
 
-	dispatcher := network.NewDispatcher(serverCtx,
+	dispatcher := network.NewDispatcher(
 		log.LevelUp(log.Named(rootLog, "dispatcher"), conf.LogLevels.Dispatcher),
 		pubSub, auth.GetAuther(),
 		roster,

@@ -46,7 +46,7 @@ func (n *Network) Start() {
 		return
 	}
 
-	if err := n.dispatcher.Start(n.ctx); err != nil {
+	if err := n.dispatcher.Init(n.ctx); err != nil {
 		n.signal(control.FAILED, fmt.Errorf("failed to start network: failed to start dispatcher: %w", err))
 		return
 	}

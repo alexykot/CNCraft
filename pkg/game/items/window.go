@@ -327,7 +327,7 @@ func (m *windowMgr) handleMode1(slotID int16, button button, clickedItem Slot) (
 	slotItem := m.clickable.GetSlot(slotID)
 
 	if clickedItem.IsPresent {
-		return false, fmt.Errorf("clickedItem should not b/**/e present in mode 1")
+		return false, fmt.Errorf("clickedItem should not be present in mode 1")
 	}
 
 	m.log.Debug(fmt.Sprintf("button: %d; slotID: %d; slotItem: %v; clickedItem: %v", button, slotID, slotItem, clickedItem),

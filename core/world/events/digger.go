@@ -72,7 +72,7 @@ func (d *digger) handlePlayerDiggingEvent(tick game.Tick, event *envelope.E) (ma
 		return nil, errors.New("provided event is not a playerDigging event")
 	}
 
-	playerID, err := uuid.FromBytes([]byte(playerDigging.PlayerId))
+	playerID, err := uuid.Parse(playerDigging.PlayerId)
 	if err != nil {
 		return nil, fmt.Errorf("PlayerId invalid: %w", err)
 	}

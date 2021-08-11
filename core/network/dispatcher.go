@@ -34,10 +34,15 @@ type DispatcherTransmitter struct {
 	aliver  *KeepAliver
 	sharder *world.Sharder
 
+	// map of mutexes intended to control access to individual connections. Each connection needs to be thread-safe,
+	// but unrelated connections may be processed in parallel.
 	connMu map[uuid.UUID]*sync.Mutex
+
+	// mutex protecting editing the connMu map itself.
+	connMapMu sync.Mutex
 }
 
-func NewDispatcher(_ context.Context, log *zap.Logger, ps nats.PubSub, auth auth.A, tally *players.Roster, aliver *KeepAliver, sharder *world.Sharder) *DispatcherTransmitter {
+func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *players.Roster, aliver *KeepAliver, sharder *world.Sharder) *DispatcherTransmitter {
 	return &DispatcherTransmitter{
 		log:     log,
 		ps:      ps,
@@ -50,43 +55,20 @@ func NewDispatcher(_ context.Context, log *zap.Logger, ps nats.PubSub, auth auth
 	}
 }
 
-func (d *DispatcherTransmitter) Start(ctx context.Context) error {
+func (d *DispatcherTransmitter) Init(ctx context.Context) error {
 	d.aliver.Start(ctx)
-	if err := d.register(); err != nil {
-		return fmt.Errorf("failed to register dispatcher: %w", err)
+
+	if err := d.ps.Subscribe(subj.MkConnClose(), d.connCloseHandler); err != nil {
+		return fmt.Errorf("failed to subscribe to %s: %w", subj.MkConnClose().String(), err)
 	}
+	d.log.Debug("registered conn closing handler")
+
+	if err := d.ps.Subscribe(subj.MkConnBroadcast(), d.broadcastHandler); err != nil {
+		return fmt.Errorf("failed to subscribe to %s: %w", subj.MkConnBroadcast().String(), err)
+	}
+	d.log.Debug("registered conn broadcast handler")
 
 	d.log.Info("dispatcher started")
-	return nil
-}
-
-func (d *DispatcherTransmitter) register() error {
-	closeHandler := func(lope *envelope.E) {
-		closeConn := lope.GetCloseConn()
-		if closeConn == nil {
-			d.log.Error("failed to parse envelope: there is no closeConn inside", zap.Any("envelope", lope))
-			return
-		}
-
-		connID, err := uuid.Parse(closeConn.ConnId)
-		if err != nil {
-			d.log.Error("failed to parse conn ID as UUID", zap.String("id", closeConn.ConnId))
-			return
-		}
-		d.log.Debug("connection closing requested", zap.String("conn", closeConn.ConnId))
-
-		if playerID, ok := d.roster.GetPlayerIDByConnID(connID); ok {
-			playerLeftLope := envelope.PlayerLeft(&pb.PlayerLeft{PlayerId: playerID.String()})
-			if err := d.ps.Publish(subj.MkPlayerLeft(), playerLeftLope); err != nil {
-				d.log.Error("failed to publish player left message", zap.Error(err))
-			}
-		}
-	}
-
-	if err := d.ps.Subscribe(subj.MkConnClose(), closeHandler); err != nil {
-		return fmt.Errorf("failed to subscribe to connClose: %w", err)
-	}
-	d.log.Debug("registered connClose handler")
 	return nil
 }
 
@@ -287,7 +269,7 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 		return fmt.Errorf("failed to handle %s packet: %w", sPacket.Type().String(), err)
 	}
 	if cPackets != nil {
-		for _, cPacket := range cPackets { /**/
+		for _, cPacket := range cPackets {
 			if err := d.transmitCPacket(conn, cPacket); err != nil {
 				return fmt.Errorf("failed to transmit %s packet: %w", cPacket.Type().String(), err)
 			}
@@ -295,6 +277,53 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	}
 
 	return nil
+}
+
+func (d *DispatcherTransmitter) connCloseHandler(lope *envelope.E) {
+	closeConn := lope.GetCloseConn()
+	if closeConn == nil {
+		d.log.Error("failed to parse envelope: there is no closeConn inside", zap.Any("envelope", lope))
+		return
+	}
+
+	connID, err := uuid.Parse(closeConn.ConnId)
+	if err != nil {
+		d.log.Error("failed to parse conn ID as UUID", zap.String("id", closeConn.ConnId))
+		return
+	}
+	d.log.Debug("connection closing requested", zap.String("conn", closeConn.ConnId))
+
+	if playerID, ok := d.roster.GetPlayerIDByConnID(connID); ok {
+		playerLeftLope := envelope.PlayerLeft(&pb.PlayerLeft{PlayerId: playerID.String()})
+		if err := d.ps.Publish(subj.MkPlayerLeft(), playerLeftLope); err != nil {
+			d.log.Error("failed to publish player left message", zap.Error(err))
+		}
+	}
+
+	d.connMapMu.Lock()
+	delete(d.connMu, connID)
+	d.connMapMu.Unlock()
+}
+
+// DEBT There is a need for global transmissions, to broadcast world state updates, chat messages etc.
+//  Broadcasting is done via dedicated channel, which is handled by the broadcast handler. This implementation
+//  of the handler is very dumb and will not work at any meaningful scale. This will need to become a separate
+//  Broadcaster component that will select a subset of relevant players that actually need to receive the message
+//  (e.g. only those subscribed to relevant chat channels, or close enough to the updated chunk).
+//  Broadcaster of every cluster node will unicast messages to every relevant player connected to that node.
+func (d *DispatcherTransmitter) broadcastHandler(lope *envelope.E) {
+	if cPacked := lope.GetCpacket(); cPacked == nil {
+		d.log.Error("failed to parse broadcast envelope: there is no cPacked inside", zap.Any("envelope", lope))
+		return
+	}
+
+	d.connMapMu.Lock()
+	for connID := range d.connMu {
+		if err := d.ps.Publish(subj.MkConnTransmit(connID), lope); err != nil {
+			d.log.Error("failed to publish player left message", zap.Error(err))
+		}
+	}
+	d.connMapMu.Unlock()
 }
 
 func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protocol.CPacket) error {
@@ -338,6 +367,7 @@ func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut *buffer.B
 }
 
 // TODO add chat message here to tell user why they were disconnected
+// DEBT looks like this is not actually dropping the TCP connection, need to add that as well.
 func (d *DispatcherTransmitter) forceDisconnect(connState protocol.State, connID uuid.UUID) error {
 	d.log.Info("evicting player", zap.String("conn", connID.String()))
 
