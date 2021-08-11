@@ -196,11 +196,17 @@ func (p *CPacketBlockAction) ProtocolID() ProtocolPacketID { return protocolCBlo
 func (p *CPacketBlockAction) Type() PacketType             { return CBlockAction }
 func (p *CPacketBlockAction) Push(writer *buffer.Buffer)   { panic("packet not implemented") }
 
-type CPacketBlockChange struct{}
+type CPacketBlockChange struct {
+	Location data.PositionI
+	Block    objects.BlockID
+}
 
 func (p *CPacketBlockChange) ProtocolID() ProtocolPacketID { return protocolCBlockChange }
 func (p *CPacketBlockChange) Type() PacketType             { return CBlockChange }
-func (p *CPacketBlockChange) Push(writer *buffer.Buffer)   { panic("packet not implemented") }
+func (p *CPacketBlockChange) Push(writer *buffer.Buffer) {
+	p.Location.Push(writer)
+	writer.PushVarInt(int32(p.Block.ID()))
+}
 
 type CPacketBossBar struct{}
 

@@ -26,10 +26,12 @@ type shard struct {
 	log      *zap.Logger
 	ps       nats.PubSub
 	dimID    uuid.UUID
-	chunkIDs []level.ChunkID
-	events   []*envelope.E
+	chunkIDs []level.ChunkID // list of chunks in this shard
+	events   []*envelope.E   // current list of accumulated events waiting to be processed
 
-	tickHandlers  map[string]events.TickHandler
+	tickHandlers map[string]events.TickHandler // mapping handler names to corresponding handler functions
+	// mapping shard events to corresponding handler names and functions. There can be multiple handlers for each
+	// event, but every individual handler can have only one function per event.
 	eventHandlers map[pb.OneOfEvent]map[string]events.EventHandler
 }
 
@@ -49,6 +51,8 @@ func newShard(log *zap.Logger, ps nats.PubSub, id ShardID, dimID uuid.UUID, chun
 	}, nil
 }
 
+// dispatch initiates all handlers, subscribes to shard events channel and starts the event loop in a goroutine.
+// It's expected to be triggered only once for any given shard instance.
 func (s *shard) dispatch(ctx context.Context, roster *players.Roster, failSignaller chan startMessage, world *World) error {
 	if err := s.initiateHandlers(s.chunkIDs, world, roster); err != nil {
 		return fmt.Errorf("failed to instantiate world processors: %w", err)
@@ -62,6 +66,7 @@ func (s *shard) dispatch(ctx context.Context, roster *players.Roster, failSignal
 	return nil
 }
 
+// incomingEventHandler received the incoming events for this shard and saves them in the local slice until the next tick
 func (s *shard) incomingEventHandler(lope *envelope.E) {
 	s.Lock()
 	defer s.Unlock()
@@ -74,6 +79,13 @@ func (s *shard) incomingEventHandler(lope *envelope.E) {
 	s.events = append(s.events, lope)
 }
 
+// runEventLoop runs infinite loop that will count and handle every tick. On every tick the events accumulated in the
+// s.events slice will be drained and pushed to all event handlers. Also event-independent tick handlers will be
+// triggered.
+// The infinite loop considers the provided context and will stop whenever context is cancelled, i.e. when
+// server shutdown sequence is initiated.
+// If the infinite loop is stopped for any reason (e.g. panic) - it will attempt to unsubscribe from
+// the incoming shard events channel and will dispatch a restart message to signalling channel.
 func (s *shard) runEventLoop(ctx context.Context, failSignaller chan startMessage) {
 	var err error
 	defer func() {
@@ -111,49 +123,31 @@ func (s *shard) runEventLoop(ctx context.Context, failSignaller chan startMessag
 	}
 }
 
-// cutEvents returns a copy of the current outstanding events ready for handling and nullifies the events list itself.
+// cutEvents returns a copy of the current outstanding events ready for handling and nullifies the s.events list.
 func (s *shard) cutEvents() []*envelope.E {
-	s.Lock()
-	defer s.Unlock()
-
 	if len(s.events) == 0 {
 		return nil
 	}
 
+	s.Lock()
 	eventsCopy := s.events
 	s.events = nil
+	s.Unlock()
 
 	return eventsCopy
 }
 
-func mkShardIDFromChunks(dimName string, shardChunks []level.ChunkID) ShardID {
-	var leastX, leastZ int64
-	for _, chunkID := range shardChunks {
-		x, z := level.XZFromChunkID(chunkID)
-		if leastX > x {
-			leastX = x
-		}
-		if leastZ > z {
-			leastZ = z
-		}
-	}
-
-	return MkShardIDFromCoords(dimName, leastX, leastZ)
-}
-
-func MkShardIDFromCoords(dimName string, x, z int64) ShardID {
-	return ShardID(fmt.Sprintf("shard.%s.%d.%d", dimName, x, z))
-}
-
+// handleTick handles an individual tick and it's events.
+// It will take provided events and push them to all event handlers. Also it will trigger all event-independent tick handlers.
 func (s *shard) handleTick(tick game.Tick, tickEvents []*envelope.E) error {
 	for name, tickHandler := range s.tickHandlers {
 		userOutLopes, err := tickHandler(tick)
 		if err != nil {
 			return fmt.Errorf("failed to handle tick in handler `%s` of shard `%s`: %w", name, s.id, err)
 		}
-		for userId, outLopes := range userOutLopes {
-			if err := s.ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
-				return fmt.Errorf("failed to publish conn.transmit message for conn `%s`, shard `%s`: %w", userId, s.id, err)
+		for publishSubject, outLopes := range userOutLopes {
+			if err := s.ps.Publish(publishSubject, outLopes...); err != nil {
+				return fmt.Errorf("failed to publish message for subj `%s`, shard `%s`: %w", publishSubject, s.id, err)
 			}
 		}
 	}
@@ -167,9 +161,9 @@ func (s *shard) handleTick(tick game.Tick, tickEvents []*envelope.E) error {
 					return fmt.Errorf("failed to handle tick event `%s` in handler `%s` of shard `%s`: %w",
 						pb.Event_PlayerDigging, name, s.id, err)
 				}
-				for userId, outLopes := range userOutLopes {
-					if err := s.ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
-						return fmt.Errorf("failed to publish conn.transmit message for conn `%s`, shard `%s`: %w", userId, s.id, err)
+				for publishSubject, outLopes := range userOutLopes {
+					if err := s.ps.Publish(publishSubject, outLopes...); err != nil {
+						return fmt.Errorf("failed to publish message for subj `%s`, shard `%s`: %w", publishSubject, s.id, err)
 					}
 				}
 			}
@@ -178,7 +172,13 @@ func (s *shard) handleTick(tick game.Tick, tickEvents []*envelope.E) error {
 	return nil
 }
 
+// initiateHandlers retrieves all available tick and event handlers and saves them with the shard.
+// This is expected to be run only once on shard creation.
 func (s *shard) initiateHandlers(chunkIDs []level.ChunkID, world *World, roster *players.Roster) error {
+	if len(s.tickHandlers) > 0 || len(s.eventHandlers) > 0 {
+		return fmt.Errorf("handlers already initiated for shard %s", s.id.String())
+	}
+
 	var err error
 	chunks := make([]level.Chunk, len(chunkIDs), len(chunkIDs))
 	for index, chunkID := range chunkIDs {
@@ -202,4 +202,23 @@ func (s *shard) initiateHandlers(chunkIDs []level.ChunkID, world *World, roster 
 	}
 
 	return nil
+}
+
+func mkShardIDFromChunks(dimName string, shardChunks []level.ChunkID) ShardID {
+	var leastX, leastZ int64
+	for _, chunkID := range shardChunks {
+		x, z := level.XZFromChunkID(chunkID)
+		if leastX > x {
+			leastX = x
+		}
+		if leastZ > z {
+			leastZ = z
+		}
+	}
+
+	return MkShardIDFromCoords(dimName, leastX, leastZ)
+}
+
+func MkShardIDFromCoords(dimName string, x, z int64) ShardID {
+	return ShardID(fmt.Sprintf("shard.%s.%d.%d", dimName, x, z))
 }

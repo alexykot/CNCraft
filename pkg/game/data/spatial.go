@@ -79,14 +79,14 @@ func (p PositionI) String() string {
 	return fmt.Sprintf("%d:%d:%d", p.X, p.Y, p.Z)
 }
 
-func (p PositionI) Pull(reader *buffer.Buffer) {
+func (p *PositionI) Pull(reader *buffer.Buffer) {
 	val := reader.PullUint64()
 	p.X = int64(val) >> 38
 	p.Y = int64(val) & 0xFFF
 	p.Z = int64(val) << 26 >> 38
 }
 
-func (p PositionI) Push(writer *buffer.Buffer) {
+func (p *PositionI) Push(writer *buffer.Buffer) {
 	writer.PushInt64(((p.X & 0x3FFFFFF) << 38) | ((p.Z & 0x3FFFFFF) << 12) | (p.Y & 0xFFF))
 }
 

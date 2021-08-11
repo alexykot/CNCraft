@@ -115,8 +115,10 @@ func createCPacketsMap() map[PacketType]func() CPacket {
 		CPlayerInfo:            func() CPacket { return &CPacketPlayerInfo{} },
 		CEntityMetadata:        func() CPacket { return &CPacketEntityMetadata{} },
 
-		CWindowItems:        func() CPacket { return &CPacketWindowItems{} },
-		CSetSlot:            func() CPacket { return &CPacketSetSlot{} },
-		CWindowConfirmation: func() CPacket { return &CPacketWindowConfirmation{} },
+		CWindowItems:              func() CPacket { return &CPacketWindowItems{} },
+		CSetSlot:                  func() CPacket { return &CPacketSetSlot{} },
+		CWindowConfirmation:       func() CPacket { return &CPacketWindowConfirmation{} },
+		CAcknowledgePlayerDigging: func() CPacket { return &CPacketAcknowledgePlayerDigging{} },
+		CBlockChange:              func() CPacket { return &CPacketBlockChange{} },
 	}
 }

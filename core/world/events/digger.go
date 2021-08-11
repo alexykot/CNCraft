@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/core/players"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/envelope/pb"
@@ -17,6 +18,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/level"
 	"github.com/alexykot/cncraft/pkg/game/player"
 	"github.com/alexykot/cncraft/pkg/protocol"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 )
 
 // maxDigDistance - very crude way to determine if digging is within legal distance.
@@ -55,7 +57,11 @@ func (d *digger) GetEventHandlers() map[pb.OneOfEvent]EventHandler {
 	}
 }
 
-func (d *digger) handlePlayerDiggingEvent(tick game.Tick, event *envelope.E) (map[uuid.UUID][]*envelope.E, error) {
+func (d *digger) handleTick(tick game.Tick) (map[uuid.UUID][]*envelope.E, error) {
+	return nil, nil
+}
+
+func (d *digger) handlePlayerDiggingEvent(tick game.Tick, event *envelope.E) (map[subj.Subj][]*envelope.E, error) {
 	shardEvent := event.GetShardEvent()
 	if shardEvent == nil {
 		return nil, errors.New("provided event is not a shardEvent")
@@ -80,7 +86,7 @@ func (d *digger) handlePlayerDiggingEvent(tick game.Tick, event *envelope.E) (ma
 	return res, nil
 }
 
-func (d *digger) handleDig(tick game.Tick, digAction player.DiggingAction, playerID uuid.UUID, blockPosF data.PositionF) (map[uuid.UUID][]*envelope.E, error) {
+func (d *digger) handleDig(tick game.Tick, digAction player.DiggingAction, playerID uuid.UUID, blockPosF data.PositionF) (map[subj.Subj][]*envelope.E, error) {
 	switch digAction {
 	case player.StartedDigging:
 		return d.handleStartedDigging(tick, playerID, blockPosF)
@@ -95,7 +101,7 @@ func (d *digger) handleDig(tick game.Tick, digAction player.DiggingAction, playe
 
 // handleStartedDigging handles digging starts sent by clients. It accounts for multiple clients potentially trying
 // to dig the same block at the same time.
-func (d *digger) handleStartedDigging(tick game.Tick, playerID uuid.UUID, blockPosF data.PositionF) (map[uuid.UUID][]*envelope.E, error) {
+func (d *digger) handleStartedDigging(tick game.Tick, playerID uuid.UUID, blockPosF data.PositionF) (map[subj.Subj][]*envelope.E, error) {
 	blockPosI := blockPosF.ToInt()
 	block, err := d.getBlockAtCoords(blockPosI)
 	if err != nil {
@@ -106,7 +112,9 @@ func (d *digger) handleStartedDigging(tick game.Tick, playerID uuid.UUID, blockP
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine if dig is legal for player %s, coords %s: %w", playerID, blockPosF.String(), err)
 	} else if !isLegal {
-		return map[uuid.UUID][]*envelope.E{playerID: {d.ackResponse(false, blockPosI, block, player.StartedDigging)}}, nil
+		return map[subj.Subj][]*envelope.E{subj.MkConnTransmit(playerID): {
+			d.ackPacket(false, blockPosI, block, player.StartedDigging),
+		}}, nil
 	}
 
 	d.Lock()
@@ -120,10 +128,12 @@ func (d *digger) handleStartedDigging(tick game.Tick, playerID uuid.UUID, blockP
 	d.activeDigs[blockPosI] = dig
 	d.Unlock()
 
-	return map[uuid.UUID][]*envelope.E{playerID: {d.ackResponse(true, blockPosI, block, player.StartedDigging)}}, nil
+	return map[subj.Subj][]*envelope.E{subj.MkConnTransmit(playerID): {
+		d.ackPacket(true, blockPosI, block, player.StartedDigging),
+	}}, nil
 }
 
-func (d *digger) handleFinishedDigging(tick game.Tick, playerID uuid.UUID, blockPosF data.PositionF) (map[uuid.UUID][]*envelope.E, error) {
+func (d *digger) handleFinishedDigging(tick game.Tick, playerID uuid.UUID, blockPosF data.PositionF) (map[subj.Subj][]*envelope.E, error) {
 	blockPosI := blockPosF.ToInt()
 	block, err := d.getBlockAtCoords(blockPosI)
 	if err != nil {
@@ -134,35 +144,45 @@ func (d *digger) handleFinishedDigging(tick game.Tick, playerID uuid.UUID, block
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine if dig is legal for player %s, coords %s: %w", playerID, blockPosF.String(), err)
 	} else if !isLegal {
-		return map[uuid.UUID][]*envelope.E{playerID: {d.ackResponse(false, blockPosI, block, player.FinishedDigging)}}, nil
+		return map[subj.Subj][]*envelope.E{subj.MkConnTransmit(playerID): {d.ackPacket(false, blockPosI, block, player.FinishedDigging)}}, nil
 	}
 
 	d.Lock()
 	dig, ok := d.activeDigs[blockPosI]
 	if !ok || dig.diggerCount == 0 { // no digging was actually happening on this block, NAck.
 		d.Unlock()
-		return map[uuid.UUID][]*envelope.E{playerID: {d.ackResponse(false, blockPosI, block, player.FinishedDigging)}}, nil
+		return map[subj.Subj][]*envelope.E{subj.MkConnTransmit(playerID): {
+			d.ackPacket(false, blockPosI, block, player.FinishedDigging),
+		}}, nil
 	}
 
 	// enough time has passed to dig out the given block with given tool, Ack and broadcast world state update
 	if tick.AsTime().Sub(dig.startTime.AsTime()) >= digDuration {
-		delete(d.activeDigs, blockPosI) // block digged successfully, all digging now stops
+		delete(d.activeDigs, blockPosI) // block dug successfully, all digging now stops
 		d.Unlock()
 
-		return map[uuid.UUID][]*envelope.E{playerID: {
-			d.ackResponse(true, blockPosI, block, player.FinishedDigging),
-			// TODO broadcast placed block disappeared
-			// TODO broadcast block entity spawned
-		}}, nil
+		// TODO need to actually update the world state here
+
+		return map[subj.Subj][]*envelope.E{
+			subj.MkConnTransmit(playerID): {
+				d.ackPacket(true, blockPosI, block, player.FinishedDigging),
+			},
+			subj.MkConnBroadcast(): {
+				d.blockMinedPacket(blockPosI),
+				// TODO broadcast block entity spawned (no idea yet how to do that)
+			},
+		}, nil
 	} else { // enough time has passed to dig out the given block with given tool, NAck
 		d.Unlock()
-		return map[uuid.UUID][]*envelope.E{playerID: {d.ackResponse(false, blockPosI, block, player.FinishedDigging)}}, nil
+		return map[subj.Subj][]*envelope.E{subj.MkConnTransmit(playerID): {
+			d.ackPacket(false, blockPosI, block, player.FinishedDigging),
+		}}, nil
 	}
 }
 
 // handleCancelledDigging handles digging cancellations sent by clients. It does not consider/handle abandoned digs,
 // e.g. where client connection is lost. Those are handled during regular ticks where overtime digs are quietly removed.
-func (d *digger) handleCancelledDigging(_ game.Tick, playerID uuid.UUID, blockPosF data.PositionF) (map[uuid.UUID][]*envelope.E, error) {
+func (d *digger) handleCancelledDigging(_ game.Tick, playerID uuid.UUID, blockPosF data.PositionF) (map[subj.Subj][]*envelope.E, error) {
 	blockPosI := blockPosF.ToInt()
 
 	d.Lock()
@@ -172,7 +192,7 @@ func (d *digger) handleCancelledDigging(_ game.Tick, playerID uuid.UUID, blockPo
 		if dig.diggerCount == 0 { // nobody is digging this block anymore
 			delete(d.activeDigs, blockPosI)
 		} else {
-			d.activeDigs[blockPosI] = dig // somebody is still digging it it seems
+			d.activeDigs[blockPosI] = dig // somebody else is still digging this block it seems
 		}
 	}
 	d.Unlock()
@@ -182,7 +202,9 @@ func (d *digger) handleCancelledDigging(_ game.Tick, playerID uuid.UUID, blockPo
 		return nil, fmt.Errorf("failed to find block at coords %s: %w", blockPosI.String(), err)
 	}
 
-	return map[uuid.UUID][]*envelope.E{playerID: {d.ackResponse(true, blockPosI, block, player.CancelledDigging)}}, nil
+	return map[subj.Subj][]*envelope.E{subj.MkConnTransmit(playerID): {
+		d.ackPacket(true, blockPosI, block, player.CancelledDigging),
+	}}, nil
 }
 
 func (d *digger) digIsLegal(playerID uuid.UUID, block level.Block, blockPosF data.PositionF) (digDuration time.Duration, isLegal bool, err error) {
@@ -234,7 +256,8 @@ func (d *digger) getChunkAtCoords(blockPosI data.PositionI) (level.Chunk, error)
 	return nil, fmt.Errorf("chunk %s not found in shard", chunkID.String())
 }
 
-func (d *digger) ackResponse(ack bool, blockPosI data.PositionI, block level.Block, action player.DiggingAction) *envelope.E {
+// ackPacket produces AcknowledgePlayerDigging response. It will produce ack OR nack response, depending on params.
+func (d *digger) ackPacket(ack bool, blockPosI data.PositionI, block level.Block, action player.DiggingAction) *envelope.E {
 	cpacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CAcknowledgePlayerDigging)
 	nack := cpacket.(*protocol.CPacketAcknowledgePlayerDigging)
 
@@ -244,4 +267,15 @@ func (d *digger) ackResponse(ack bool, blockPosI data.PositionI, block level.Blo
 	nack.Successful = ack
 
 	return envelope.MkCpacketEnvelope(nack)
+}
+
+// blockUpdate produces a block update CPacket, setting the position of mined block to Air.
+func (d *digger) blockMinedPacket(blockPosI data.PositionI) *envelope.E {
+	cpacket, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CBlockChange)
+	change := cpacket.(*protocol.CPacketBlockChange)
+
+	change.Location = blockPosI
+	change.Block = objects.BlockAir
+
+	return envelope.MkCpacketEnvelope(change)
 }

@@ -1,8 +1,7 @@
 package events
 
 import (
-	"github.com/google/uuid"
-
+	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/core/players"
 	"github.com/alexykot/cncraft/pkg/envelope"
 	"github.com/alexykot/cncraft/pkg/envelope/pb"
@@ -10,8 +9,8 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/level"
 )
 
-type EventHandler func(tick game.Tick, event *envelope.E) (map[uuid.UUID][]*envelope.E, error)
-type TickHandler func(tick game.Tick) (map[uuid.UUID][]*envelope.E, error)
+type EventHandler func(tick game.Tick, event *envelope.E) (map[subj.Subj][]*envelope.E, error)
+type TickHandler func(tick game.Tick) (map[subj.Subj][]*envelope.E, error)
 
 type Handler interface {
 	Name() string

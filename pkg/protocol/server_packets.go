@@ -128,7 +128,7 @@ func (p *SPacketTeleportConfirm) ProtocolID() ProtocolPacketID { return protocol
 func (p *SPacketTeleportConfirm) Type() PacketType             { return STeleportConfirm }
 func (p *SPacketTeleportConfirm) Pull(reader *buffer.Buffer) error {
 	p.TeleportID = reader.PullVarInt()
-	return nil // DEBT actually check for errors
+	return nil
 }
 
 type SPacketQueryBlockNBT struct {
@@ -141,7 +141,7 @@ func (p *SPacketQueryBlockNBT) Type() PacketType             { return SQueryBloc
 func (p *SPacketQueryBlockNBT) Pull(reader *buffer.Buffer) error {
 	p.TransactionID = reader.PullVarInt()
 	p.Location.Pull(reader)
-	return nil // DEBT actually check for errors
+	return nil
 }
 
 type SPacketQueryEntityNBT struct{}
@@ -454,7 +454,7 @@ type SPacketPlayerDigging struct {
 func (p *SPacketPlayerDigging) ProtocolID() ProtocolPacketID { return protocolSPlayerDigging }
 func (p *SPacketPlayerDigging) Type() PacketType             { return SPlayerDigging }
 func (p *SPacketPlayerDigging) Pull(reader *buffer.Buffer) error {
-	if err := (&p.Status).Pull(reader); err != nil {
+	if err := p.Status.Pull(reader); err != nil {
 		return fmt.Errorf("failed to pull digging action: %w", err)
 	}
 	p.Position.Pull(reader)
