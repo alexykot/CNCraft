@@ -6,7 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/alexykot/cncraft/pkg/game/level"
-	pBlocks "github.com/alexykot/cncraft/pkg/protocol/blocks"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 )
 
 // SectionRepo loads sections from persistence and handles saving world block updates back into persistence
@@ -34,43 +34,43 @@ func loadDefaultSection(index uint8) level.Section {
 	if index == 0 {
 		for z := 0; z < level.SectionZ; z++ {
 			for x := 0; x < level.SectionX; x++ {
-				blocks[0][z][x] = level.NewBlock(pBlocks.Bedrock)
-				blocks[1][z][x] = level.NewBlock(pBlocks.Dirt)
-				blocks[2][z][x] = level.NewBlock(pBlocks.Dirt)
-				blocks[3][z][x] = level.NewBlock(pBlocks.GrassBlock_SnowyTrue)
-				blocks[4][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[5][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[6][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[7][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[8][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[9][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[10][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[11][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[12][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[13][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[14][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[15][z][x] = level.NewBlock(pBlocks.Air)
+				blocks[0][z][x] = level.NewBlock(objects.BlockBedrock)
+				blocks[1][z][x] = level.NewBlock(objects.BlockDirt)
+				blocks[2][z][x] = level.NewBlock(objects.BlockDirt)
+				blocks[3][z][x] = level.NewBlock(objects.BlockGrassBlock_SnowyTrue)
+				blocks[4][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[5][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[6][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[7][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[8][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[9][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[10][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[11][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[12][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[13][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[14][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[15][z][x] = level.NewBlock(objects.BlockAir)
 			}
 		}
 	} else {
 		for z := 0; z < level.SectionZ; z++ {
 			for x := 0; x < level.SectionX; x++ {
-				blocks[0][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[1][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[2][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[3][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[4][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[5][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[6][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[7][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[8][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[9][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[10][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[11][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[12][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[13][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[14][z][x] = level.NewBlock(pBlocks.Air)
-				blocks[15][z][x] = level.NewBlock(pBlocks.Air)
+				blocks[0][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[1][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[2][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[3][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[4][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[5][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[6][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[7][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[8][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[9][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[10][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[11][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[12][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[13][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[14][z][x] = level.NewBlock(objects.BlockAir)
+				blocks[15][z][x] = level.NewBlock(objects.BlockAir)
 			}
 		}
 	}

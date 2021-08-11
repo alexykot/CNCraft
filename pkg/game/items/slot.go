@@ -1,10 +1,10 @@
 package items
 
-import pItems "github.com/alexykot/cncraft/pkg/protocol/items"
+import "github.com/alexykot/cncraft/pkg/protocol/objects"
 
 type Slot struct {
 	IsPresent bool
-	ItemID    pItems.ItemID
+	ItemID    objects.ItemID
 	ItemCount int16
 	NBT       map[string]string // DEBT not clear atm how to handle this NBT compound
 }
@@ -47,7 +47,7 @@ func (r slotRange) GetEmptySlots(window clickable) []int16 {
 	return emptySlots
 }
 
-func (r slotRange) GetItemSlots(window clickable, itemID pItems.ItemID) []int16 {
+func (r slotRange) GetItemSlots(window clickable, itemID objects.ItemID) []int16 {
 	var itemSlots []int16
 	for slotID := r.start; slotID <= r.end; slotID++ {
 		slotItem := window.GetSlot(slotID)

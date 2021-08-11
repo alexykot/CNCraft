@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/alexykot/cncraft/pkg/protocol/blocks"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 )
 
 func TestBitsPerBlock(t *testing.T) {
@@ -36,72 +36,72 @@ func TestMakePalette(t *testing.T) {
 		s := &section{index: 0, blocks: [SectionY][SectionZ][SectionX]Block{}}
 		for z := 0; z < SectionZ; z++ {
 			for x := 0; x < SectionX; x++ {
-				s.blocks[0][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[1][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[2][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[3][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[4][z][x] = NewBlock(blocks.Air)
-				s.blocks[5][z][x] = NewBlock(blocks.Air)
-				s.blocks[6][z][x] = NewBlock(blocks.Air)
-				s.blocks[7][z][x] = NewBlock(blocks.Air)
-				s.blocks[8][z][x] = NewBlock(blocks.Air)
-				s.blocks[9][z][x] = NewBlock(blocks.Air)
-				s.blocks[10][z][x] = NewBlock(blocks.Air)
-				s.blocks[11][z][x] = NewBlock(blocks.Air)
-				s.blocks[12][z][x] = NewBlock(blocks.Air)
-				s.blocks[13][z][x] = NewBlock(blocks.Air)
-				s.blocks[14][z][x] = NewBlock(blocks.Air)
-				s.blocks[15][z][x] = NewBlock(blocks.Air)
+				s.blocks[0][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[1][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[2][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[3][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[4][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[5][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[6][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[7][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[8][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[9][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[10][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[11][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[12][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[13][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[14][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[15][z][x] = NewBlock(objects.BlockAir)
 			}
 		}
 
 		palette := s.makePalette()
 		require.Len(t, palette, 2)
-		assert.Equal(t, blocks.Dirt, palette[0])
-		assert.Equal(t, blocks.Air, palette[1])
+		assert.Equal(t, objects.BlockDirt, palette[0])
+		assert.Equal(t, objects.BlockAir, palette[1])
 	})
 	t.Run("16_blocks", func(t *testing.T) {
 		s := &section{index: 0, blocks: [SectionY][SectionZ][SectionX]Block{}}
 		for z := 0; z < SectionZ; z++ {
 			for x := 0; x < SectionX; x++ {
-				s.blocks[0][z][x] = NewBlock(blocks.Air)
-				s.blocks[1][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[2][z][x] = NewBlock(blocks.Stone)
-				s.blocks[3][z][x] = NewBlock(blocks.Grass)
-				s.blocks[4][z][x] = NewBlock(blocks.Granite)
-				s.blocks[5][z][x] = NewBlock(blocks.Gravel)
-				s.blocks[6][z][x] = NewBlock(blocks.Sand)
-				s.blocks[7][z][x] = NewBlock(blocks.Sandstone)
-				s.blocks[8][z][x] = NewBlock(blocks.Ice)
-				s.blocks[9][z][x] = NewBlock(blocks.BlackWool)
-				s.blocks[10][z][x] = NewBlock(blocks.WhiteWool)
-				s.blocks[11][z][x] = NewBlock(blocks.PinkWool)
-				s.blocks[12][z][x] = NewBlock(blocks.GrayWool)
-				s.blocks[13][z][x] = NewBlock(blocks.BlueWool)
-				s.blocks[14][z][x] = NewBlock(blocks.RedWool)
-				s.blocks[15][z][x] = NewBlock(blocks.GreenWool)
+				s.blocks[0][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[1][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[2][z][x] = NewBlock(objects.BlockStone)
+				s.blocks[3][z][x] = NewBlock(objects.BlockGrass)
+				s.blocks[4][z][x] = NewBlock(objects.BlockGranite)
+				s.blocks[5][z][x] = NewBlock(objects.BlockGravel)
+				s.blocks[6][z][x] = NewBlock(objects.BlockSand)
+				s.blocks[7][z][x] = NewBlock(objects.BlockSandstone)
+				s.blocks[8][z][x] = NewBlock(objects.BlockIce)
+				s.blocks[9][z][x] = NewBlock(objects.BlockBlackWool)
+				s.blocks[10][z][x] = NewBlock(objects.BlockWhiteWool)
+				s.blocks[11][z][x] = NewBlock(objects.BlockPinkWool)
+				s.blocks[12][z][x] = NewBlock(objects.BlockGrayWool)
+				s.blocks[13][z][x] = NewBlock(objects.BlockBlueWool)
+				s.blocks[14][z][x] = NewBlock(objects.BlockRedWool)
+				s.blocks[15][z][x] = NewBlock(objects.BlockGreenWool)
 			}
 		}
 
 		palette := s.makePalette()
 		require.Len(t, palette, 16)
-		expectedBlocks := []blocks.BlockID{
-			blocks.Air,
-			blocks.Dirt,
-			blocks.Stone,
-			blocks.Grass,
-			blocks.Granite,
-			blocks.Gravel,
-			blocks.Sand,
-			blocks.Sandstone,
-			blocks.Ice,
-			blocks.BlackWool,
-			blocks.WhiteWool,
-			blocks.PinkWool,
-			blocks.GrayWool,
-			blocks.BlueWool,
-			blocks.RedWool,
-			blocks.GreenWool,
+		expectedBlocks := []objects.BlockID{
+			objects.BlockAir,
+			objects.BlockDirt,
+			objects.BlockStone,
+			objects.BlockGrass,
+			objects.BlockGranite,
+			objects.BlockGravel,
+			objects.BlockSand,
+			objects.BlockSandstone,
+			objects.BlockIce,
+			objects.BlockBlackWool,
+			objects.BlockWhiteWool,
+			objects.BlockPinkWool,
+			objects.BlockGrayWool,
+			objects.BlockBlueWool,
+			objects.BlockRedWool,
+			objects.BlockGreenWool,
 		}
 
 		for _, expected := range expectedBlocks {
@@ -119,29 +119,29 @@ func TestMakePalette(t *testing.T) {
 
 func TestMakeBlockData4(t *testing.T) {
 	t.Run("2_blocks", func(t *testing.T) {
-		palette := []blocks.BlockID{
-			blocks.Air,
-			blocks.Dirt,
+		palette := []objects.BlockID{
+			objects.BlockAir,
+			objects.BlockDirt,
 		}
 		s := &section{index: 0, blocks: [SectionY][SectionZ][SectionX]Block{}}
 		for z := 0; z < SectionZ; z++ {
 			for x := 0; x < SectionX; x++ {
-				s.blocks[0][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[1][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[2][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[3][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[4][z][x] = NewBlock(blocks.Air)
-				s.blocks[5][z][x] = NewBlock(blocks.Air)
-				s.blocks[6][z][x] = NewBlock(blocks.Air)
-				s.blocks[7][z][x] = NewBlock(blocks.Air)
-				s.blocks[8][z][x] = NewBlock(blocks.Air)
-				s.blocks[9][z][x] = NewBlock(blocks.Air)
-				s.blocks[10][z][x] = NewBlock(blocks.Air)
-				s.blocks[11][z][x] = NewBlock(blocks.Air)
-				s.blocks[12][z][x] = NewBlock(blocks.Air)
-				s.blocks[13][z][x] = NewBlock(blocks.Air)
-				s.blocks[14][z][x] = NewBlock(blocks.Air)
-				s.blocks[15][z][x] = NewBlock(blocks.Air)
+				s.blocks[0][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[1][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[2][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[3][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[4][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[5][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[6][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[7][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[8][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[9][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[10][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[11][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[12][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[13][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[14][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[15][z][x] = NewBlock(objects.BlockAir)
 			}
 		}
 
@@ -157,35 +157,35 @@ func TestMakeBlockData4(t *testing.T) {
 		}
 	})
 	t.Run("8_blocks", func(t *testing.T) {
-		palette := []blocks.BlockID{
-			blocks.Air,       // 0
-			blocks.Dirt,      // 1
-			blocks.Stone,     // 2
-			blocks.Grass,     // 3
-			blocks.Granite,   // 4
-			blocks.Gravel,    // 5
-			blocks.Sand,      // 6
-			blocks.Sandstone, // 7
+		palette := []objects.BlockID{
+			objects.BlockAir,       // 0
+			objects.BlockDirt,      // 1
+			objects.BlockStone,     // 2
+			objects.BlockGrass,     // 3
+			objects.BlockGranite,   // 4
+			objects.BlockGravel,    // 5
+			objects.BlockSand,      // 6
+			objects.BlockSandstone, // 7
 		}
 		s := &section{index: 0, blocks: [SectionY][SectionZ][SectionX]Block{}}
 		for z := 0; z < SectionZ; z++ {
 			for x := 0; x < SectionX; x++ {
-				s.blocks[0][z][x] = NewBlock(blocks.Air)
-				s.blocks[1][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[2][z][x] = NewBlock(blocks.Stone)
-				s.blocks[3][z][x] = NewBlock(blocks.Grass)
-				s.blocks[4][z][x] = NewBlock(blocks.Granite)
-				s.blocks[5][z][x] = NewBlock(blocks.Gravel)
-				s.blocks[6][z][x] = NewBlock(blocks.Sand)
-				s.blocks[7][z][x] = NewBlock(blocks.Sandstone)
-				s.blocks[8][z][x] = NewBlock(blocks.Air)
-				s.blocks[9][z][x] = NewBlock(blocks.Air)
-				s.blocks[10][z][x] = NewBlock(blocks.Air)
-				s.blocks[11][z][x] = NewBlock(blocks.Air)
-				s.blocks[12][z][x] = NewBlock(blocks.Air)
-				s.blocks[13][z][x] = NewBlock(blocks.Air)
-				s.blocks[14][z][x] = NewBlock(blocks.Air)
-				s.blocks[15][z][x] = NewBlock(blocks.Air)
+				s.blocks[0][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[1][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[2][z][x] = NewBlock(objects.BlockStone)
+				s.blocks[3][z][x] = NewBlock(objects.BlockGrass)
+				s.blocks[4][z][x] = NewBlock(objects.BlockGranite)
+				s.blocks[5][z][x] = NewBlock(objects.BlockGravel)
+				s.blocks[6][z][x] = NewBlock(objects.BlockSand)
+				s.blocks[7][z][x] = NewBlock(objects.BlockSandstone)
+				s.blocks[8][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[9][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[10][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[11][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[12][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[13][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[14][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[15][z][x] = NewBlock(objects.BlockAir)
 			}
 		}
 
@@ -215,44 +215,44 @@ func TestMakeBlockData4(t *testing.T) {
 		}
 	})
 	t.Run("16_blocks", func(t *testing.T) {
-		palette := []blocks.BlockID{
-			blocks.Air,
-			blocks.Dirt,
-			blocks.Stone,
-			blocks.Grass,
-			blocks.Granite,
-			blocks.Gravel,
-			blocks.Sand,
-			blocks.Sandstone,
-			blocks.Ice,
-			blocks.BlackWool,
-			blocks.WhiteWool,
-			blocks.PinkWool,
-			blocks.GrayWool,
-			blocks.BlueWool,
-			blocks.RedWool,
-			blocks.GreenWool,
+		palette := []objects.BlockID{
+			objects.BlockAir,
+			objects.BlockDirt,
+			objects.BlockStone,
+			objects.BlockGrass,
+			objects.BlockGranite,
+			objects.BlockGravel,
+			objects.BlockSand,
+			objects.BlockSandstone,
+			objects.BlockIce,
+			objects.BlockBlackWool,
+			objects.BlockWhiteWool,
+			objects.BlockPinkWool,
+			objects.BlockGrayWool,
+			objects.BlockBlueWool,
+			objects.BlockRedWool,
+			objects.BlockGreenWool,
 		}
 
 		s := &section{index: 0, blocks: [SectionY][SectionZ][SectionX]Block{}}
 		for z := 0; z < SectionZ; z++ {
 			for x := 0; x < SectionX; x++ {
-				s.blocks[0][z][x] = NewBlock(blocks.Air)
-				s.blocks[1][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[2][z][x] = NewBlock(blocks.Stone)
-				s.blocks[3][z][x] = NewBlock(blocks.Grass)
-				s.blocks[4][z][x] = NewBlock(blocks.Granite)
-				s.blocks[5][z][x] = NewBlock(blocks.Gravel)
-				s.blocks[6][z][x] = NewBlock(blocks.Sand)
-				s.blocks[7][z][x] = NewBlock(blocks.Sandstone)
-				s.blocks[8][z][x] = NewBlock(blocks.Ice)
-				s.blocks[9][z][x] = NewBlock(blocks.BlackWool)
-				s.blocks[10][z][x] = NewBlock(blocks.WhiteWool)
-				s.blocks[11][z][x] = NewBlock(blocks.PinkWool)
-				s.blocks[12][z][x] = NewBlock(blocks.GrayWool)
-				s.blocks[13][z][x] = NewBlock(blocks.BlueWool)
-				s.blocks[14][z][x] = NewBlock(blocks.RedWool)
-				s.blocks[15][z][x] = NewBlock(blocks.GreenWool)
+				s.blocks[0][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[1][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[2][z][x] = NewBlock(objects.BlockStone)
+				s.blocks[3][z][x] = NewBlock(objects.BlockGrass)
+				s.blocks[4][z][x] = NewBlock(objects.BlockGranite)
+				s.blocks[5][z][x] = NewBlock(objects.BlockGravel)
+				s.blocks[6][z][x] = NewBlock(objects.BlockSand)
+				s.blocks[7][z][x] = NewBlock(objects.BlockSandstone)
+				s.blocks[8][z][x] = NewBlock(objects.BlockIce)
+				s.blocks[9][z][x] = NewBlock(objects.BlockBlackWool)
+				s.blocks[10][z][x] = NewBlock(objects.BlockWhiteWool)
+				s.blocks[11][z][x] = NewBlock(objects.BlockPinkWool)
+				s.blocks[12][z][x] = NewBlock(objects.BlockGrayWool)
+				s.blocks[13][z][x] = NewBlock(objects.BlockBlueWool)
+				s.blocks[14][z][x] = NewBlock(objects.BlockRedWool)
+				s.blocks[15][z][x] = NewBlock(objects.BlockGreenWool)
 			}
 		}
 
@@ -299,29 +299,29 @@ func TestMakeBlockData4(t *testing.T) {
 
 func TestMakeBlockData14(t *testing.T) {
 	t.Run("2_blocks", func(t *testing.T) {
-		palette := []blocks.BlockID{
-			blocks.Air,  //  0, 00000000000000
-			blocks.Dirt, // 10, 00000000001010
+		palette := []objects.BlockID{
+			objects.BlockAir,  //  0, 00000000000000
+			objects.BlockDirt, // 10, 00000000001010
 		}
 		s := &section{index: 0, blocks: [SectionY][SectionZ][SectionX]Block{}}
 		for z := 0; z < SectionZ; z++ {
 			for x := 0; x < SectionX; x++ {
-				s.blocks[0][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[1][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[2][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[3][z][x] = NewBlock(blocks.Dirt)
-				s.blocks[4][z][x] = NewBlock(blocks.Air)
-				s.blocks[5][z][x] = NewBlock(blocks.Air)
-				s.blocks[6][z][x] = NewBlock(blocks.Air)
-				s.blocks[7][z][x] = NewBlock(blocks.Air)
-				s.blocks[8][z][x] = NewBlock(blocks.Air)
-				s.blocks[9][z][x] = NewBlock(blocks.Air)
-				s.blocks[10][z][x] = NewBlock(blocks.Air)
-				s.blocks[11][z][x] = NewBlock(blocks.Air)
-				s.blocks[12][z][x] = NewBlock(blocks.Air)
-				s.blocks[13][z][x] = NewBlock(blocks.Air)
-				s.blocks[14][z][x] = NewBlock(blocks.Air)
-				s.blocks[15][z][x] = NewBlock(blocks.Air)
+				s.blocks[0][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[1][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[2][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[3][z][x] = NewBlock(objects.BlockDirt)
+				s.blocks[4][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[5][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[6][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[7][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[8][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[9][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[10][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[11][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[12][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[13][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[14][z][x] = NewBlock(objects.BlockAir)
+				s.blocks[15][z][x] = NewBlock(objects.BlockAir)
 			}
 		}
 

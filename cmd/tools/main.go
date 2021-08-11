@@ -18,7 +18,7 @@ import (
 
 	"github.com/alexykot/cncraft/core/db/orm"
 	"github.com/alexykot/cncraft/pkg/game/items"
-	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 
 	"github.com/alexykot/cncraft/cmd/tools/packet"
 	coreDB "github.com/alexykot/cncraft/core/db"
@@ -275,17 +275,17 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 			inventory.RowHotbar = [9]items.Slot{
 				{
 					IsPresent: true,
-					ItemID:    pItems.DiamondPickaxe,
+					ItemID:    objects.ItemDiamondPickaxe,
 					ItemCount: 1,
 				},
 				{
 					IsPresent: true,
-					ItemID:    pItems.Bedrock,
+					ItemID:    objects.ItemBedrock,
 					ItemCount: 64,
 				},
 				{
 					IsPresent: true,
-					ItemID:    pItems.Bedrock,
+					ItemID:    objects.ItemBedrock,
 					ItemCount: 40,
 				},
 			}

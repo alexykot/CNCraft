@@ -72,30 +72,30 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 		joinGame.HashedSeed = int64(binary.LittleEndian.Uint64(world.SeedHash[:]))
 		joinGame.ViewDistance = p.Settings.ViewDistance
 		joinGame.EnableRespawnScreen = control.GetCurrentConfig().World.EnableRespawnScreen
-		outLopes = append(outLopes, mkCpacketEnvelope(joinGame))
+		outLopes = append(outLopes, envelope.MkCpacketEnvelope(joinGame))
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPluginMessage)
 		pluginMessage := cpacket.(*protocol.CPacketPluginMessage)
 		pluginMessage.Message = &plugin.Brand{Name: control.GetCurrentConfig().Brand}
-		outLopes = append(outLopes, mkCpacketEnvelope(pluginMessage))
+		outLopes = append(outLopes, envelope.MkCpacketEnvelope(pluginMessage))
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CServerDifficulty)
 		difficulty := cpacket.(*protocol.CPacketServerDifficulty)
 		difficulty.Difficulty = world.Difficulty
 		difficulty.Locked = world.DifficultyIsLocked
-		outLopes = append(outLopes, mkCpacketEnvelope(difficulty))
+		outLopes = append(outLopes, envelope.MkCpacketEnvelope(difficulty))
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerAbilities)
 		abilities := cpacket.(*protocol.CPacketPlayerAbilities)
 		abilities.Abilities = *p.Abilities
 		abilities.FlyingSpeed = p.Settings.FlyingSpeed
 		abilities.FieldOfView = p.Settings.FoVModifier
-		outLopes = append(outLopes, mkCpacketEnvelope(abilities))
+		outLopes = append(outLopes, envelope.MkCpacketEnvelope(abilities))
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CDeclareRecipes)
 		declareRecipes := cpacket.(*protocol.CPacketDeclareRecipes)
 		declareRecipes.RecipeCount = 0 // TODO probably will be a static list of recipes defined for current server version
-		outLopes = append(outLopes, mkCpacketEnvelope(declareRecipes))
+		outLopes = append(outLopes, envelope.MkCpacketEnvelope(declareRecipes))
 
 		// TODO CTags packet is not defined
 		// TODO CEntityStatus packet is not defined
@@ -108,14 +108,14 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 			cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CChunkData)
 			chunkData := cpacket.(*protocol.CPacketChunkData)
 			chunkData.Chunk = chunk
-			outLopes = append(outLopes, mkCpacketEnvelope(chunkData))
+			outLopes = append(outLopes, envelope.MkCpacketEnvelope(chunkData))
 		}
 
 		// Player Position And Look
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CPlayerPositionAndLook)
 		posAndLook := cpacket.(*protocol.CPacketPlayerPositionAndLook)
 		posAndLook.Location = p.State.Location // Relative is always False here.
-		outLopes = append(outLopes, mkCpacketEnvelope(posAndLook))
+		outLopes = append(outLopes, envelope.MkCpacketEnvelope(posAndLook))
 
 		// Player inventory init
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CWindowItems)
@@ -123,12 +123,12 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 		inventorySlots := p.State.Inventory.ToArray()
 		winItems.SlotCount = int16(len(inventorySlots))
 		winItems.Slots = inventorySlots
-		outLopes = append(outLopes, mkCpacketEnvelope(winItems))
+		outLopes = append(outLopes, envelope.MkCpacketEnvelope(winItems))
 
 		cpacket, _ = protocol.GetPacketFactory().MakeCPacket(protocol.CHeldItemChange)
 		heldItemChange := cpacket.(*protocol.CPacketHeldItemChange)
 		heldItemChange.Slot = p.State.Inventory.CurrentHotbarSlot
-		outLopes = append(outLopes, mkCpacketEnvelope(heldItemChange))
+		outLopes = append(outLopes, envelope.MkCpacketEnvelope(heldItemChange))
 
 		if err := ps.Publish(subj.MkConnTransmit(userId), outLopes...); err != nil {
 			log.Error("failed to publish conn.transmit message", zap.Error(err), zap.Any("conn", userId))

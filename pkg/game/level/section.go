@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/alexykot/cncraft/pkg/buffer"
-	"github.com/alexykot/cncraft/pkg/protocol/blocks"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 )
 
 // Section - 16*16*16 blocks cubic section, part of the chunk
@@ -80,8 +80,8 @@ func (s *section) Push(writer *buffer.Buffer) {
 	}
 }
 
-func (s *section) makePalette() []blocks.BlockID {
-	paletteMap := make(map[blocks.BlockID]struct{})
+func (s *section) makePalette() []objects.BlockID {
+	paletteMap := make(map[objects.BlockID]struct{})
 
 	for y := 0; y < SectionY; y++ {
 		for z := 0; z < SectionZ; z++ {
@@ -91,7 +91,7 @@ func (s *section) makePalette() []blocks.BlockID {
 		}
 	}
 
-	palette := make([]blocks.BlockID, len(paletteMap), len(paletteMap))
+	palette := make([]objects.BlockID, len(paletteMap), len(paletteMap))
 	var i int
 	for blockId := range paletteMap {
 		palette[i] = blockId
@@ -127,7 +127,7 @@ func bitsPerBlock(len int) uint8 {
 // 0 0000000 0000000 0000000 0000000 0000000 0000000 0000000 0000000 0000000        bpb=7, 9 blocks
 // 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000          bpb=8, 8 blocks
 // 00000000 00000000000000 00000000000000 00000000000000 00000000000000             bpb=14, 4 blocks
-func (s *section) makeBlockData(bpb uint8, palette []blocks.BlockID) ([]uint64, error) {
+func (s *section) makeBlockData(bpb uint8, palette []objects.BlockID) ([]uint64, error) {
 	var useGlobalPalette bool
 
 	var tupleSize uint8

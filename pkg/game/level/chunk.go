@@ -1,12 +1,14 @@
 package level
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
 
-	"github.com/alexykot/cncraft/pkg/protocol/blocks"
+	"github.com/alexykot/cncraft/pkg/game/data"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 )
 
 // DEBT make this configurable for supporting taller worlds
@@ -34,10 +36,17 @@ func (c ChunkID) String() string {
 	return string(c)
 }
 
+// MkChunkID creates ChunkID from given chunk coordinates.
 func MkChunkID(x, z int64) ChunkID {
 	return ChunkID(fmt.Sprintf("chunk.%d.%d", x, z))
 }
 
+// FindChunkID finds the chunk coordinates from given global block coordinates and provides the ChunkID for it.
+func FindChunkID(p data.PositionI) ChunkID {
+	return MkChunkID(getChunkXZ(p.X), getChunkXZ(p.Z))
+}
+
+// XZFromChunkID extracts chunk X and Z coordinates from the given ChunkID.
 func XZFromChunkID(ID ChunkID) (x, z int64) {
 	pieces := strings.Split(string(ID), ".")
 	if len(pieces) != 3 {
@@ -68,16 +77,16 @@ type Chunk interface {
 	HeightMap() heightMap
 
 	// GetBlock - supports values x.[0:15] y.[0:255] z.[0:15]
-	GetBlock(x, y, z int64) (Block, error)
+	GetBlock(p data.PositionI) (Block, error)
 
 	// SetBlock - supports values x.[0:15] y.[0:255] z.[0:15]
-	SetBlock(x, y, z int64, block Block) error
+	SetBlock(p data.PositionI, block Block) error
 
 	// GetGlobalBlock - supports any x.y.z values, but validates if the coords belong to this chunk, errors out if not.
-	GetGlobalBlock(x, y, z int64) (Block, error)
+	GetGlobalBlock(p data.PositionI) (Block, error)
 
 	// SetGlobalBlock - supports any x.y.z values, but validates if the coords belong to this chunk, errors out if not.
-	SetGlobalBlock(x, y, z int64, block Block) error
+	SetGlobalBlock(p data.PositionI, block Block) error
 }
 
 // DEBT no performance considerations applied here yet. Likely will have to be redesigned for RAM/CPU efficiency.
@@ -166,45 +175,45 @@ func (c *chunk) HeightMap() heightMap {
 	return heightMap
 }
 
-func (c *chunk) GetBlock(x, y, z int64) (Block, error) {
-	sectionIndex := int(math.Floor(float64(y / sectionsPerChunk)))
+func (c *chunk) GetBlock(p data.PositionI) (Block, error) {
+	sectionIndex := int(math.Floor(float64(p.Y / sectionsPerChunk)))
 	if len(c.sections) < sectionIndex {
-		return nil, fmt.Errorf("block coord y.%d out of range", y)
+		return nil, fmt.Errorf("block coord y.%d out of range", p.Y)
 	}
 
-	sectionY := y % sectionsPerChunk
-	sectionBlock := c.sections[sectionIndex].GetBlock(x, sectionY, z)
+	sectionY := p.Y % sectionsPerChunk
+	sectionBlock := c.sections[sectionIndex].GetBlock(p.X, sectionY, p.Z)
 	if sectionBlock == nil {
 		return nil, fmt.Errorf("failed to find block in chunk %s, section %d at coords x.%d y.%d z.%d",
-			string(c.ID()), sectionIndex, x, sectionY, z)
+			string(c.ID()), sectionIndex, p.X, sectionY, p.Z)
 	}
 	return sectionBlock, nil
 }
 
-func (c *chunk) SetBlock(x, y, z int64, block Block) error {
-	return nil
+func (c *chunk) SetBlock(p data.PositionI, block Block) error {
+	return errors.New("SetBlock unimplemented")
 }
 
-func (c *chunk) GetGlobalBlock(x, y, z int64) (Block, error) {
-	if c.x != getChunkXZ(x) {
-		return nil, fmt.Errorf("coord x.%d is outside of chunk %s", x, c.ID())
+func (c *chunk) GetGlobalBlock(p data.PositionI) (Block, error) {
+	if c.x != getChunkXZ(p.X) {
+		return nil, fmt.Errorf("coord x.%d is outside of chunk %s", p.X, c.ID())
 	}
-	if c.z != getChunkXZ(z) {
-		return nil, fmt.Errorf("coord z.%d is outside of chunk %s", x, c.ID())
+	if c.z != getChunkXZ(p.Z) {
+		return nil, fmt.Errorf("coord z.%d is outside of chunk %s", p.Z, c.ID())
 	}
 
-	return c.GetBlock(getLocalXZ(x), y, getLocalXZ(z))
+	return c.GetBlock(getLocalPosition(p))
 }
 
-func (c *chunk) SetGlobalBlock(x, y, z int64, block Block) error {
-	if c.x != getChunkXZ(x) {
-		return fmt.Errorf("coord x.%d is outside of chunk %s", x, c.ID())
+func (c *chunk) SetGlobalBlock(p data.PositionI, block Block) error {
+	if c.x != getChunkXZ(p.X) {
+		return fmt.Errorf("coord x.%d is outside of chunk %s", p.X, c.ID())
 	}
-	if c.z != getChunkXZ(z) {
-		return fmt.Errorf("coord z.%d is outside of chunk %s", x, c.ID())
+	if c.z != getChunkXZ(p.Z) {
+		return fmt.Errorf("coord z.%d is outside of chunk %s", p.Z, c.ID())
 	}
 
-	return c.SetBlock(getLocalXZ(x), y, getLocalXZ(z), block)
+	return c.SetBlock(getLocalPosition(p), block)
 }
 
 func (c *chunk) findHeights() [ChunkX][ChunkZ]uint8 {
@@ -233,7 +242,7 @@ func (c *chunk) findHeights() [ChunkX][ChunkZ]uint8 {
 				for y := int64(SectionY); y > 0; y-- {
 					sectionBlock := c.sections[sectionIndex].GetBlock(x, y-1, z)
 					// DEBT check for solid block rather than non-air, start at https://minecraft.gamepedia.com/Solid_block
-					if sectionBlock.ID() != blocks.Air {
+					if sectionBlock.ID() != objects.BlockAir {
 						// DEBT for unknown reason Notchian server supplies height of "2" in the flatworld the
 						//  solid block height is "4". Adjusting until figure out why.
 						heights[x][z] = uint8(y + sectionIndex*SectionY - 2)
@@ -285,13 +294,12 @@ func (c *chunk) compactHeights(heights [ChunkX][ChunkZ]uint8) []int64 {
 	return res
 }
 
-// getLocalXZ - take global positive or negative x or z coord, return always positive chunk-local coord
-func getLocalXZ(xz int64) int64 {
-	if xz == 0 {
-		return 0
+func getLocalPosition(p data.PositionI) data.PositionI {
+	return data.PositionI{
+		X: int64(math.Abs(float64(getChunkXZ(p.X) - p.X))),
+		Y: p.Y,
+		Z: int64(math.Abs(float64(getChunkXZ(p.Z) - p.Z))),
 	}
-
-	return int64(math.Abs(float64(getChunkXZ(xz) - xz)))
 }
 
 // getChunkXZ - take global positive or negative x or z block coord,

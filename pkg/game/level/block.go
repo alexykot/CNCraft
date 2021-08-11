@@ -2,22 +2,22 @@ package level
 
 import (
 	"github.com/alexykot/cncraft/pkg/game/data"
-	"github.com/alexykot/cncraft/pkg/protocol/blocks"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 )
 
 type Block interface {
-	ID() blocks.BlockID
+	ID() objects.BlockID
 }
 
 type block struct {
 	pos data.PositionI
-	id  blocks.BlockID
+	id  objects.BlockID
 }
 
-func NewBlock(id blocks.BlockID) Block {
+func NewBlock(id objects.BlockID) Block {
 	return &block{id: id}
 }
 
-func (b *block) ID() blocks.BlockID {
+func (b *block) ID() objects.BlockID {
 	return b.id
 }

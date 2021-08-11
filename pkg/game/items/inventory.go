@@ -3,7 +3,7 @@ package items
 import (
 	"go.uber.org/zap"
 
-	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 )
 
 type Inventory struct {
@@ -84,7 +84,7 @@ func (i *Inventory) GetSlot(slotID int16) Slot {
 }
 
 func (i *Inventory) SetSlot(slotID int16, item Slot) {
-	item.IsPresent = item.ItemID != pItems.Air
+	item.IsPresent = item.ItemID != objects.ItemAir
 
 	if slotID == 0 {
 		i.Result = item
@@ -103,6 +103,13 @@ func (i *Inventory) SetSlot(slotID int16, item Slot) {
 	} else if slotID == 45 {
 		i.Offhand = item
 	}
+}
+
+func (i *Inventory) GetCurrentTool() Slot {
+	if i.CurrentHotbarSlot > 9 {
+		return Slot{}
+	}
+	return i.RowHotbar[i.CurrentHotbarSlot]
 }
 
 func (i *Inventory) GetRange(rangeType rangeType) slotRange {

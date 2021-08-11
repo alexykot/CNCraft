@@ -1,13 +1,14 @@
-package items
+package objects
 
+// TODO Need to setup automated code generation from Notichan data export and provide here detailed data about every block.
 var stackable16 = map[ItemID]struct{}{
-	Egg:      {},
-	Snowball: {},
+	ItemEgg:      {},
+	ItemSnowball: {},
 }
 
 var stackable64 = map[ItemID]struct{}{
-	Dirt:    {},
-	Bedrock: {},
+	ItemDirt:    {},
+	ItemBedrock: {},
 }
 
 func (b ItemID) MaxStack() int16 {

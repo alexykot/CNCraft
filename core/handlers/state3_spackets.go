@@ -184,7 +184,7 @@ func HandleSWindowConfirmation(inventory *items.Inventory, sPacket protocol.SPac
 // HandleSEntityAction - TODO nothing to do here yet, to implement later
 func HandleSEntityAction(sPacket protocol.SPacket) error {
 	if _, ok := sPacket.(*protocol.SPacketEntityAction); !ok {
-		return fmt.Errorf("received packet is not a closeWindow: %v", sPacket)
+		return fmt.Errorf("received packet is not a entityAction: %v", sPacket)
 	}
 
 	return nil
@@ -202,10 +202,9 @@ func HandleSAnimation(sPacket protocol.SPacket) error {
 func HandleSPlayerDigging(ps nats.PubSub, sharder *world.Sharder, player *players.Player, sPacket protocol.SPacket) error {
 	dig, ok := sPacket.(*protocol.SPacketPlayerDigging)
 	if !ok {
-		return fmt.Errorf("received packet is not a heldItemChange: %v", sPacket)
+		return fmt.Errorf("received packet is not a playerDigging: %v", sPacket)
 	}
 
-	// DEBT this should check player position and ensure dig position is legal
 	shardID, ok := sharder.FindShardID(player.State.Dimension, dig.Position)
 	if !ok {
 		return fmt.Errorf("could not find shard for coords provided: x.%d z.%d", dig.Position.X, dig.Position.Z)

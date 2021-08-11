@@ -17,7 +17,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/entities"
 	"github.com/alexykot/cncraft/pkg/game/items"
 	"github.com/alexykot/cncraft/pkg/game/player"
-	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 )
 
 // repo is a player repository, it implements handling the persistent storage of player data.
@@ -99,7 +99,7 @@ func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, username string, con
 	inventory.CurrentHotbarSlot = uint8(dbPlayer.CurrentHotbar)
 
 	for _, dbItem := range dbInventories {
-		inventory.SetSlot(dbItem.SlotNumber, items.Slot{ItemID: pItems.ItemID(dbItem.ItemID), ItemCount: dbItem.ItemCount})
+		inventory.SetSlot(dbItem.SlotNumber, items.Slot{ItemID: objects.ItemID(dbItem.ItemID), ItemCount: dbItem.ItemCount})
 	}
 
 	return &Player{

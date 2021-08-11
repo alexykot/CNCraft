@@ -69,7 +69,7 @@ func (sh *Sharder) Start() {
 	sh.log.Info("sharder started")
 }
 
-func (sh *Sharder) FindShardID(dimID uuid.UUID, coords *data.PositionI) (ShardID, bool) {
+func (sh *Sharder) FindShardID(dimID uuid.UUID, coords data.PositionI) (ShardID, bool) {
 	dim, ok := sh.world.Dimensions[dimID]
 	if !ok {
 		return "", false

@@ -8,7 +8,7 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/items"
 	"github.com/alexykot/cncraft/pkg/game/player"
-	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 )
 
@@ -173,13 +173,13 @@ func (p *SPacketChatMessage) Pull(reader *buffer.Buffer) error {
 }
 
 type SPacketClientStatus struct {
-	Action player.StatusAction
+	Action player.ClientStatusAction
 }
 
 func (p *SPacketClientStatus) ProtocolID() ProtocolPacketID { return protocolSClientStatus }
 func (p *SPacketClientStatus) Type() PacketType             { return SClientStatus }
 func (p *SPacketClientStatus) Pull(reader *buffer.Buffer) error {
-	p.Action = player.StatusAction(reader.PullVarInt())
+	p.Action = player.ClientStatusAction(reader.PullVarInt())
 	return nil // DEBT actually check for errors
 }
 
@@ -254,7 +254,7 @@ func (p *SPacketClickWindow) Pull(reader *buffer.Buffer) error {
 	p.Mode = int16(reader.PullVarInt())
 	p.ClickedItem.IsPresent = reader.PullBool()
 	if p.ClickedItem.IsPresent {
-		p.ClickedItem.ItemID = pItems.ItemID(reader.PullVarInt())
+		p.ClickedItem.ItemID = objects.ItemID(reader.PullVarInt())
 		p.ClickedItem.ItemCount = int16(reader.PullByte())
 	}
 	return nil
@@ -444,15 +444,17 @@ func (p *SPacketPlayerAbilities) Pull(reader *buffer.Buffer) error {
 }
 
 type SPacketPlayerDigging struct {
-	Status   int32
-	Position *data.PositionI
+	Status   player.DiggingAction
+	Position data.PositionI
 	Face     byte
 }
 
 func (p *SPacketPlayerDigging) ProtocolID() ProtocolPacketID { return protocolSPlayerDigging }
 func (p *SPacketPlayerDigging) Type() PacketType             { return SPlayerDigging }
 func (p *SPacketPlayerDigging) Pull(reader *buffer.Buffer) error {
-	p.Status = reader.PullVarInt()
+	if err := (&p.Status).Pull(reader); err != nil {
+		return fmt.Errorf("failed to pull digging action: %w", err)
+	}
 	p.Position.Pull(reader)
 	p.Face = reader.PullByte()
 	return nil

@@ -1,8 +1,16 @@
 package envelope
 
 import (
+	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/envelope/pb"
+	"github.com/alexykot/cncraft/pkg/protocol"
 )
+
+func MkCpacketEnvelope(cpacket protocol.CPacket) *E {
+	bufOut := buffer.New()
+	cpacket.Push(bufOut)
+	return CPacket(&pb.CPacket{Bytes: bufOut.Bytes(), PacketType: cpacket.Type().Value()})
+}
 
 func Empty() *E {
 	return &E{}

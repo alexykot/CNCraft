@@ -50,6 +50,7 @@ func (p *Player) SetSettings(settings *player.Settings) {
 	p.Settings = settings
 }
 
+// GetLocation - get current location of the player
 func (p *Player) GetLocation() data.Location {
 	p.mu.Lock()
 	defer p.mu.Unlock()

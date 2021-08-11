@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 
-	pItems "github.com/alexykot/cncraft/pkg/protocol/items"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 )
 
 func TestClickMgr(t *testing.T) {
@@ -74,8 +74,8 @@ type testSlot struct {
 
 func tSlot(slotID int16, slot Slot) testSlot { return testSlot{slotID: slotID, Slot: slot} }
 
-func pickaxe() Slot { return Slot{IsPresent: true, ItemID: pItems.DiamondPickaxe, ItemCount: 1} }
-func showel() Slot  { return Slot{IsPresent: true, ItemID: pItems.DiamondShovel, ItemCount: 1} }
+func pickaxe() Slot { return Slot{IsPresent: true, ItemID: objects.ItemDiamondPickaxe, ItemCount: 1} }
+func showel() Slot  { return Slot{IsPresent: true, ItemID: objects.ItemDiamondShovel, ItemCount: 1} }
 
 func bedrock(stackCount ...int16) Slot {
 	var itemCount int16 = 64
@@ -83,7 +83,7 @@ func bedrock(stackCount ...int16) Slot {
 		itemCount = stackCount[0]
 	}
 
-	return Slot{IsPresent: true, ItemID: pItems.Bedrock, ItemCount: itemCount}
+	return Slot{IsPresent: true, ItemID: objects.ItemBedrock, ItemCount: itemCount}
 }
 func empty() Slot { return Slot{} }
 

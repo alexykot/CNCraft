@@ -6,16 +6,16 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/alexykot/cncraft/pkg/game/items"
-
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/chat"
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/entities"
+	"github.com/alexykot/cncraft/pkg/game/items"
 	"github.com/alexykot/cncraft/pkg/game/level"
 	"github.com/alexykot/cncraft/pkg/game/player"
 	"github.com/alexykot/cncraft/pkg/nbt"
+	"github.com/alexykot/cncraft/pkg/protocol/objects"
 	"github.com/alexykot/cncraft/pkg/protocol/plugin"
 	"github.com/alexykot/cncraft/pkg/protocol/status"
 	"github.com/alexykot/cncraft/pkg/protocol/tags"
@@ -158,14 +158,22 @@ func (p *CPacketStatistics) ProtocolID() ProtocolPacketID { return protocolCStat
 func (p *CPacketStatistics) Type() PacketType             { return CStatistics }
 func (p *CPacketStatistics) Push(writer *buffer.Buffer)   { panic("packet not implemented") }
 
-type CPacketAcknowledgePlayerDigging struct{}
+type CPacketAcknowledgePlayerDigging struct {
+	Location   data.PositionI
+	Block      objects.BlockID
+	Status     player.DiggingAction
+	Successful bool
+}
 
 func (p *CPacketAcknowledgePlayerDigging) ProtocolID() ProtocolPacketID {
 	return protocolCAcknowledgePlayerDigging
 }
 func (p *CPacketAcknowledgePlayerDigging) Type() PacketType { return CAcknowledgePlayerDigging }
 func (p *CPacketAcknowledgePlayerDigging) Push(writer *buffer.Buffer) {
-	panic("packet not implemented")
+	p.Location.Push(writer)
+	writer.PushVarInt(int32(p.Block))
+	p.Status.Push(writer)
+	writer.PushBool(p.Successful)
 }
 
 type CPacketBlockBreakAnimation struct{}

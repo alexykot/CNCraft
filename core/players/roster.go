@@ -115,7 +115,7 @@ func (r *Roster) GetPlayerIDByConnID(connID uuid.UUID) (uuid.UUID, bool) {
 	return uuid.UUID{}, false
 }
 
-// SetPlayerSpatial - *bool type is used here to separate true/false valus from an absence of value to update
+// SetPlayerSpatial - pointer types are used here to separate possible default values from an absence of value to update.
 func (r *Roster) SetPlayerSpatial(connID uuid.UUID, position *data.PositionF, rotation *data.RotationF, onGround *bool) {
 	p, ok := r.GetPlayerByConnID(connID)
 	if !ok {

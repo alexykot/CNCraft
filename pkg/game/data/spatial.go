@@ -1,6 +1,9 @@
 package data
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/alexykot/cncraft/pkg/buffer"
 	"github.com/alexykot/cncraft/pkg/mask"
 )
@@ -39,15 +42,39 @@ type Relativity struct {
 	Pitch bool
 }
 
-func (r *PositionI) Pull(reader *buffer.Buffer) {
-	val := reader.PullUint64()
-	r.X = int64(val) >> 38
-	r.Y = int64(val) & 0xFFF
-	r.Z = int64(val) << 26 >> 38
+func (p PositionF) ToInt() PositionI {
+	return PositionI{
+		X: int64(math.Round(p.X)),
+		Y: int64(math.Round(p.Y)),
+		Z: int64(math.Round(p.Z)),
+	}
 }
 
-func (r *PositionI) Push(writer *buffer.Buffer) {
-	writer.PushInt64(((r.X & 0x3FFFFFF) << 38) | ((r.Z & 0x3FFFFFF) << 12) | (r.Y & 0xFFF))
+func (p PositionF) String() string {
+	return fmt.Sprintf("%f:%f:%f", p.X, p.Y, p.Z)
+}
+
+func (p PositionI) ToFloat() PositionF {
+	return PositionF{
+		X: float64(p.X),
+		Y: float64(p.Y),
+		Z: float64(p.Z),
+	}
+}
+
+func (p PositionI) String() string {
+	return fmt.Sprintf("%d:%d:%d", p.X, p.Y, p.Z)
+}
+
+func (p PositionI) Pull(reader *buffer.Buffer) {
+	val := reader.PullUint64()
+	p.X = int64(val) >> 38
+	p.Y = int64(val) & 0xFFF
+	p.Z = int64(val) << 26 >> 38
+}
+
+func (p PositionI) Push(writer *buffer.Buffer) {
+	writer.PushInt64(((p.X & 0x3FFFFFF) << 38) | ((p.Z & 0x3FFFFFF) << 12) | (p.Y & 0xFFF))
 }
 
 func (r *Relativity) Push(writer *buffer.Buffer) {
