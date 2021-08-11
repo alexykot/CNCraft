@@ -1,10 +1,13 @@
 //go:generate stringer -type=Dimension settings.go
+//go:generate stringer -type=Difficulty settings.go
 
 package game
 
 import (
 	"fmt"
 	"time"
+
+	"github.com/alexykot/cncraft/pkg/buffer"
 )
 
 type Difficulty byte
@@ -13,6 +16,10 @@ type Tick int64
 
 const TickSpeed = time.Millisecond * 50
 
+func (d Tick) AsTime() time.Time {
+	return time.Unix(0, int64(d))
+}
+
 const (
 	Peaceful Difficulty = iota
 	Easy
@@ -20,38 +27,16 @@ const (
 	Hard
 )
 
-func (d Difficulty) String() string {
-	switch d {
-	case Peaceful:
-		return "Peaceful"
-	case Easy:
-		return "Easy"
-	case Normal:
-		return "Normal"
-	case Hard:
-		return "Hard"
-	default:
-		panic(fmt.Errorf("no difficulty for id %d", byte(d)))
-	}
-}
+func (d *Difficulty) Pull(reader *buffer.Buffer) error {
+	id := reader.PullByte()
 
-func ValueOfDifficulty(d Difficulty) byte {
-	return byte(d)
-}
-
-func DifficultyValueOf(id byte) Difficulty {
-	switch id {
-	case 0:
-		return Peaceful
-	case 1:
-		return Easy
-	case 2:
-		return Normal
-	case 3:
-		return Hard
+	switch int(id) {
+	case 0, 1, 2, 3:
+		*d = Difficulty(id)
 	default:
-		panic(fmt.Errorf("no difficulty for id %d", id))
+		return fmt.Errorf("no difficulty for id %d", id)
 	}
+	return nil
 }
 
 type Dimension int
@@ -87,7 +72,6 @@ const (
 	WorldAmplified
 	WorldCustomized
 	WorldBuffet
-	WorldDefault11
 )
 
 func (l WorldType) String() string {
@@ -104,8 +88,6 @@ func (l WorldType) String() string {
 		return "customized"
 	case WorldBuffet:
 		return "buffet"
-	case WorldDefault11:
-		return "default_1_1"
 	}
 	return ""
 }

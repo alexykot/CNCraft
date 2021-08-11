@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/alexykot/cncraft/pkg/buffer"
+	"github.com/alexykot/cncraft/pkg/envelope/pb"
 	"github.com/alexykot/cncraft/pkg/mask"
 )
 
@@ -40,6 +41,18 @@ type Relativity struct {
 
 	Yaw   bool
 	Pitch bool
+}
+
+func PositionFFromPb(pos *pb.Position) PositionF {
+	if pos == nil {
+		return PositionF{}
+	}
+
+	return PositionF{
+		X: pos.X,
+		Y: pos.Y,
+		Z: pos.Z,
+	}
 }
 
 func (p PositionF) ToInt() PositionI {

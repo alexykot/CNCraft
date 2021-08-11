@@ -151,14 +151,16 @@ func (p *SPacketQueryEntityNBT) Type() PacketType             { return SQueryEnt
 func (p *SPacketQueryEntityNBT) Pull(reader *buffer.Buffer)   { panic("packet not implemented") }
 
 type SPacketSetDifficulty struct {
-	Difficulty game.Difficulty
+	Difficulty *game.Difficulty
 }
 
 func (p *SPacketSetDifficulty) ProtocolID() ProtocolPacketID { return protocolSSetDifficulty }
 func (p *SPacketSetDifficulty) Type() PacketType             { return SSetDifficulty }
 func (p *SPacketSetDifficulty) Pull(reader *buffer.Buffer) error {
-	p.Difficulty = game.DifficultyValueOf(reader.PullByte())
-	return nil // DEBT actually check for errors
+	if err := p.Difficulty.Pull(reader); err != nil {
+		return fmt.Errorf("failed to pull Difficulty: %w", err)
+	}
+	return nil
 }
 
 type SPacketChatMessage struct {
