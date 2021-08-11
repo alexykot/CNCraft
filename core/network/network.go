@@ -10,7 +10,10 @@ import (
 
 	"github.com/alexykot/cncraft/core/control"
 	"github.com/alexykot/cncraft/core/nats"
+	"github.com/alexykot/cncraft/core/nats/subj"
 	"github.com/alexykot/cncraft/pkg/buffer"
+	"github.com/alexykot/cncraft/pkg/envelope"
+	"github.com/alexykot/cncraft/pkg/envelope/pb"
 )
 
 type Network struct {
@@ -121,9 +124,7 @@ func (n *Network) handleNewConnection(ctx context.Context, conn Connection) {
 
 	if err := n.dispatcher.RegisterNewConn(conn); err != nil {
 		n.log.Error("failed to register conn subscriptions", zap.Error(err), zap.Any("conn", conn))
-		if err = conn.Close(); err != nil {
-			n.log.Error("error while closing failed connection", zap.Error(err), zap.Any("conn", conn))
-		}
+		_ = conn.Close() // errors here don't really matter, 'cus connection is already dead anyway
 		return
 	}
 
@@ -135,11 +136,8 @@ func (n *Network) handleNewConnection(ctx context.Context, conn Connection) {
 		}()
 
 		select {
-		case <-ctx.Done():
-			if err := conn.Close(); err != nil {
-				n.log.Error("failed while closing connection", zap.String("conn", conn.ID().String()), zap.Error(err))
-				return
-			}
+		case <-ctx.Done(): // close connection when context cancelled, i.e. when server is shutting down
+			_ = conn.Close() // errors here don't really matter
 			n.log.Info("connection closed", zap.String("conn", conn.ID().String()))
 		}
 	}()
@@ -147,13 +145,20 @@ func (n *Network) handleNewConnection(ctx context.Context, conn Connection) {
 	for {
 		bufIn := buffer.New()
 		size, err := conn.Receive(bufIn) // this blocking call will wait until some bytes will appear on the wire
-		if err != nil && err.Error() == "EOF" {
-			// TODO broadcast player disconnect if conn.GetState() == Play.
 
-			break
-		} else if err != nil || size == 0 {
-			_ = conn.Close()
-			// TODO broadcast player disconnect if conn.GetState() == Play.
+		if err != nil && (err.Error() == "EOF" || size == 0) {
+			n.log.Debug("connection lost", zap.String("conn", conn.ID().String()))
+			_ = conn.Close() // errors here don't really matter, 'cus connection is already dead anyway
+
+			lope := envelope.CloseConn(&pb.CloseConn{
+				ConnId: conn.ID().String(),
+				State:  pb.ConnState(conn.GetState()),
+			})
+
+			if err := n.ps.Publish(subj.MkConnClosed(), lope); err != nil {
+				n.log.Error("failed to publish CloseConn", zap.Error(err), zap.String("conn", conn.ID().String()))
+				return
+			}
 			break
 		}
 

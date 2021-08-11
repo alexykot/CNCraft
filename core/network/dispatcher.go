@@ -56,14 +56,16 @@ func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *players.
 }
 
 func (d *DispatcherTransmitter) Init(ctx context.Context) error {
-	d.aliver.Start(ctx)
+	if err := d.aliver.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start the keepaliver: %w", err)
+	}
 
-	if err := d.ps.Subscribe(subj.MkConnClose(), d.connCloseHandler); err != nil {
-		return fmt.Errorf("failed to subscribe to %s: %w", subj.MkConnClose().String(), err)
+	if err := d.ps.Subscribe(subj.MkConnClosed(), d.connClosedHandler); err != nil {
+		return fmt.Errorf("failed to subscribe to %s: %w", subj.MkConnClosed().String(), err)
 	}
 	d.log.Debug("registered conn closing handler")
 
-	if err := d.ps.Subscribe(subj.MkConnBroadcast(), d.broadcastHandler); err != nil {
+	if err := d.ps.Subscribe(subj.MkConnBroadcast(), d.packetBroadcastHandler); err != nil {
 		return fmt.Errorf("failed to subscribe to %s: %w", subj.MkConnBroadcast().String(), err)
 	}
 	d.log.Debug("registered conn broadcast handler")
@@ -75,52 +77,7 @@ func (d *DispatcherTransmitter) Init(ctx context.Context) error {
 func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
 	d.connMu[conn.ID()] = &sync.Mutex{}
 
-	transmitHandler := func(lope *envelope.E) {
-		conn := conn
-		log := d.log.With(zap.String("conn", conn.ID().String()))
-
-		d.connMu[conn.ID()].Lock()
-		defer d.connMu[conn.ID()].Unlock()
-
-		pbCPacket := lope.GetCpacket()
-		if pbCPacket == nil {
-			log.Error("failed to parse envelope: there is no CPacket inside", zap.Any("envelope", lope))
-			return
-		}
-		pacType := protocol.PacketType(pbCPacket.PacketType)
-		log.Debug("transmitting CPacket", zap.String("type", pacType.String()))
-
-		bufOut := buffer.New()
-		bufOut.PushVarInt(int32(pacType.ProtocolID()))
-
-		packetBytes := bytes.Join([][]byte{
-			bufOut.Bytes(),
-			pbCPacket.GetBytes(),
-		}, nil)
-
-		if err := d.transmitBytes(conn, packetBytes); err != nil {
-			if errors.Is(err, ErrTCPWriteFail) {
-				log.Info("closing failed connection", zap.Error(err)) // assuming connection dead and client gone
-				d.aliver.DropDeadConn(conn.ID())
-				if err := conn.Close(); err != nil {
-					log.Warn("error while closing connection", zap.Error(err))
-				}
-			} else {
-				log.Error("failed to transmit bytes", zap.Error(err))
-			}
-			return
-		}
-
-		if pacType == protocol.CDisconnectLogin || pacType == protocol.CDisconnectPlay {
-			d.aliver.DropDeadConn(conn.ID())
-			if err := conn.Close(); err != nil {
-				log.Warn("error while closing connection", zap.Error(err))
-			}
-			return
-		}
-	}
-
-	if err := d.ps.Subscribe(subj.MkConnTransmit(conn.ID()), transmitHandler); err != nil {
+	if err := d.ps.Subscribe(subj.MkConnTransmit(conn.ID()), d.getTransmitHandler(conn)); err != nil {
 		return fmt.Errorf("failed to subscribe to connTransmit: %w", err)
 	}
 
@@ -279,7 +236,7 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	return nil
 }
 
-func (d *DispatcherTransmitter) connCloseHandler(lope *envelope.E) {
+func (d *DispatcherTransmitter) connClosedHandler(lope *envelope.E) {
 	closeConn := lope.GetCloseConn()
 	if closeConn == nil {
 		d.log.Error("failed to parse envelope: there is no closeConn inside", zap.Any("envelope", lope))
@@ -291,7 +248,7 @@ func (d *DispatcherTransmitter) connCloseHandler(lope *envelope.E) {
 		d.log.Error("failed to parse conn ID as UUID", zap.String("id", closeConn.ConnId))
 		return
 	}
-	d.log.Debug("connection closing requested", zap.String("conn", closeConn.ConnId))
+	d.log.Debug("connection closed", zap.String("conn", closeConn.ConnId))
 
 	if playerID, ok := d.roster.GetPlayerIDByConnID(connID); ok {
 		playerLeftLope := envelope.PlayerLeft(&pb.PlayerLeft{PlayerId: playerID.String()})
@@ -311,7 +268,7 @@ func (d *DispatcherTransmitter) connCloseHandler(lope *envelope.E) {
 //  Broadcaster component that will select a subset of relevant players that actually need to receive the message
 //  (e.g. only those subscribed to relevant chat channels, or close enough to the updated chunk).
 //  Broadcaster of every cluster node will unicast messages to every relevant player connected to that node.
-func (d *DispatcherTransmitter) broadcastHandler(lope *envelope.E) {
+func (d *DispatcherTransmitter) packetBroadcastHandler(lope *envelope.E) {
 	if cPacked := lope.GetCpacket(); cPacked == nil {
 		d.log.Error("failed to parse broadcast envelope: there is no cPacked inside", zap.Any("envelope", lope))
 		return
@@ -324,6 +281,66 @@ func (d *DispatcherTransmitter) broadcastHandler(lope *envelope.E) {
 		}
 	}
 	d.connMapMu.Unlock()
+}
+
+func (d *DispatcherTransmitter) getTransmitHandler(conn Connection) func(lope *envelope.E) {
+	return func(lope *envelope.E) {
+		conn := conn
+		log := d.log.With(zap.String("conn", conn.ID().String()))
+
+		d.connMu[conn.ID()].Lock()
+		defer d.connMu[conn.ID()].Unlock()
+
+		pbCPacket := lope.GetCpacket()
+		if pbCPacket == nil {
+			log.Error("failed to parse envelope: there is no CPacket inside", zap.Any("envelope", lope))
+			return
+		}
+		pacType := protocol.PacketType(pbCPacket.PacketType)
+		log.Debug("transmitting CPacket", zap.String("type", pacType.String()))
+
+		bufOut := buffer.New()
+		bufOut.PushVarInt(int32(pacType.ProtocolID()))
+
+		packetBytes := bytes.Join([][]byte{
+			bufOut.Bytes(),
+			pbCPacket.GetBytes(),
+		}, nil)
+
+		if err := d.transmitBytes(conn, packetBytes); err != nil {
+			if errors.Is(err, ErrTCPWriteFail) { // we've noticed a dead connection before KeepAliver triggered
+				log.Info("closing failed connection", zap.Error(err)) // assuming connection dead and client gone
+				_ = conn.Close()                                      // errors here don't really matter, 'cus connection is already dead anyway
+
+				lope := envelope.CloseConn(&pb.CloseConn{
+					ConnId: conn.ID().String(),
+					State:  pb.ConnState(conn.GetState()),
+				})
+
+				if err := d.ps.Publish(subj.MkConnClosed(), lope); err != nil {
+					d.log.Error("failed to publish CloseConn", zap.Error(err), zap.String("conn", conn.ID().String()))
+				}
+			} else {
+				log.Error("failed to transmit bytes", zap.Error(err))
+			}
+			return
+		}
+
+		// Cleanly disconnecting the player.
+		if pacType == protocol.CDisconnectLogin || pacType == protocol.CDisconnectPlay {
+			_ = conn.Close() // errors here don't really matter, 'cus connection is already dead anyway
+
+			lope := envelope.CloseConn(&pb.CloseConn{
+				ConnId: conn.ID().String(),
+				State:  pb.ConnState(conn.GetState()),
+			})
+
+			if err := d.ps.Publish(subj.MkConnClosed(), lope); err != nil {
+				d.log.Error("failed to publish CloseConn", zap.Error(err), zap.String("conn", conn.ID().String()))
+			}
+			return
+		}
+	}
 }
 
 func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protocol.CPacket) error {

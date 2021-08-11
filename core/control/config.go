@@ -89,12 +89,12 @@ func GetDefaultConfig() ServerConf {
 		LogLevels: logLevels{
 			Baseline: "DEBUG",
 
-			Dispatcher: "ERROR",
-			Network:    "ERROR",
+			Dispatcher: "DEBUG",
+			Network:    "DEBUG",
 			PubSub:     "ERROR",
 			DB:         "ERROR",
 
-			Players: "DEBUG",
+			Players: "ERROR",
 			Windows: "ERROR",
 			Sharder: "DEBUG",
 			World:   "DEBUG",

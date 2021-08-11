@@ -10,8 +10,7 @@ func MkPlayerLoading() Subj { return "players.loading" }
 //  This is sent after the player has successfully spawned in the world.
 func MkPlayerJoined() Subj { return "players.joined" }
 
-// MkPlayerLeft creates a subject name string for announcing new players successfully joined server.
-//  This is sent after the player has successfully spawned in the world.
+// MkPlayerLeft creates a subject name string for announcing players leaving server.
 func MkPlayerLeft() Subj { return "players.left" }
 
 // MkNewPlayerJoined creates a subject name string for announcing new players joining server for the first time.
