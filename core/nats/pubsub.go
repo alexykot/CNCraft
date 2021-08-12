@@ -37,24 +37,37 @@ type PubSub interface {
 	Unsubscribe(subj subj.Subj)
 }
 
+type natsServer interface {
+	ConfigureLogger()
+	Start()
+	Shutdown()
+	ReadyForConnections(time.Duration) bool
+}
+
 type pubsub struct {
 	ctx     context.Context
 	subs    map[subj.Subj][]*natsc.Subscription
-	natsd   *natsd.Server
+	natsd   natsServer
 	client  *natsc.Conn
 	log     *zap.Logger
 	control chan control.Command
 }
 
-func NewNats() *natsd.Server {
+func NewNATSServer() (natsServer, error) {
 	opts := &natsd.Options{
-		Port: 4222, // NATS default port.
+		Port:   4222, // NATS default port.
+		NoSigs: true,
 	}
 
-	return natsd.New(opts)
+	server, err := natsd.NewServer(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate NATS server: %w", err)
+	}
+
+	return server, nil
 }
 
-func NewPubSub(ctx context.Context, log *zap.Logger, nats *natsd.Server, control chan control.Command) PubSub {
+func NewPubSub(ctx context.Context, log *zap.Logger, nats natsServer, control chan control.Command) PubSub {
 	return &pubsub{
 		ctx:     ctx,
 		natsd:   nats,

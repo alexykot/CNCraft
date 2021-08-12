@@ -70,7 +70,12 @@ func NewServer(conf control.ServerConf) (Server, error) {
 		return nil, fmt.Errorf("could not instantiate root logger: %w", err)
 	}
 
-	pubSub := nats.NewPubSub(serverCtx, log.LevelUp(log.Named(rootLog, "pubsub"), conf.LogLevels.PubSub), nats.NewNats(), ctrlChan)
+	natsd, err := nats.NewNATSServer()
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("could not instantiate NATS server: %w", err)
+	}
+	pubSub := nats.NewPubSub(serverCtx, log.LevelUp(log.Named(rootLog, "pubsub"), conf.LogLevels.PubSub), natsd, ctrlChan)
 
 	database, err := db.New(conf.DBURL, conf.LogLevels.DB == "DEBUG", log.LevelUp(log.Named(rootLog, "DB"), conf.LogLevels.DB))
 	if err != nil {
