@@ -55,6 +55,14 @@ func GetRootLogger(level string) (*zap.Logger, error) {
 	return log.Named(rootLoggerName), nil
 }
 
+func MustGetTestLogger() *zap.Logger {
+	log, err := GetRootLogger("DEBUG")
+	if err != nil {
+		panic(fmt.Errorf("failed to instantiate dev logger: %w", err))
+	}
+	return log
+}
+
 // Named is wrapping the zap.Logger.Named() method. It is needed to register logger names requested.
 func Named(parent *zap.Logger, name string) *zap.Logger {
 	if name == "" {

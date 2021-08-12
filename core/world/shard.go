@@ -206,6 +206,11 @@ func (s *shard) initiateHandlers(chunkIDs []level.ChunkID, world *World, roster 
 
 func mkShardIDFromChunks(dimName string, shardChunks []level.ChunkID) ShardID {
 	var leastX, leastZ int64
+	if len(shardChunks) == 0 {
+		return MkShardIDFromCoords(dimName, leastX, leastZ)
+	}
+
+	leastX, leastZ = level.XZFromChunkID(shardChunks[0])
 	for _, chunkID := range shardChunks {
 		x, z := level.XZFromChunkID(chunkID)
 		if leastX > x {

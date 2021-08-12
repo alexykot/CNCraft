@@ -256,7 +256,7 @@ func registerMiscTools(ctx context.Context, cmd *cobra.Command) {
 				return fmt.Errorf("CNCRAFT_TEST_DB_URL envar must be set to a valid DB URL")
 			}
 
-			db, err := coreDB.New(dbURL, false, zap.L())
+			db, err := coreDB.New(zap.L(), dbURL, false)
 			if err != nil {
 				return fmt.Errorf("failed to open DB URL %s: %w", dbURL, err)
 			}

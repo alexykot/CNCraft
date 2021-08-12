@@ -189,7 +189,10 @@ func (sh *Sharder) bootstrapShards() {
 // Split an area defined by given bottom left and top right points into chunks and return list of chunk IDs.
 func splitAreaChunks(lowerX, lowerZ, higherX, higherZ int64) []level.ChunkID {
 	var chunkIDs []level.ChunkID
+	resetLowerZ := lowerZ
+
 	for lowerX < higherX {
+		lowerZ = resetLowerZ
 		for lowerZ < higherZ {
 			chunkIDs = append(chunkIDs, level.MkChunkID(lowerX, lowerZ))
 			lowerZ += level.ChunkZ
@@ -199,21 +202,26 @@ func splitAreaChunks(lowerX, lowerZ, higherX, higherZ int64) []level.ChunkID {
 	return chunkIDs
 }
 
-// DEBT This function has a bug and doesn't split correctly for world edges -48,-48,48,48 and shard size 2x2.
 func splitDimensionShards(dimID uuid.UUID, dimName string, edges level.Edges, shardX, shardZ int64) map[ShardID]startMessage {
 	var shardStarts = make(map[ShardID]startMessage)
 
-	// starting from 0.0 coords - cover all four quadrants of the map.
-	// This assumes 0.0 coords is actually within the boundaries of the map. It can be on the edge though.
+	// Start from 0.0 point and cover all four quadrants of the map.
+	// This expects that 0.0 point is actually within the boundaries of the map. It can be on the edge though.
+
+	// North-East quadrant
 	var shardEdgeStartX, shardEdgeStartZ int64
 	for shardEdgeStartX < edges.PositiveX {
 		for shardEdgeStartZ < edges.PositiveZ {
 			shardChunks := splitAreaChunks(
 				shardEdgeStartX,
 				shardEdgeStartZ,
-				shardEdgeStartX+shardX*level.ChunkX,
-				shardEdgeStartZ+shardZ*level.ChunkZ)
+				min(shardEdgeStartX+shardX*level.ChunkX, edges.PositiveX),
+				min(shardEdgeStartZ+shardZ*level.ChunkZ, edges.PositiveZ),
+			)
 			shardID := mkShardIDFromChunks(dimName, shardChunks)
+			if _, ok := shardStarts[shardID]; ok {
+				println("duplicate shard", shardID)
+			}
 			shardStarts[shardID] = startMessage{
 				id:          shardID,
 				dimensionID: dimID,
@@ -221,17 +229,19 @@ func splitDimensionShards(dimID uuid.UUID, dimName string, edges level.Edges, sh
 			}
 			shardEdgeStartZ += shardZ * level.ChunkZ
 		}
+		shardEdgeStartZ = 0
 		shardEdgeStartX += shardX * level.ChunkX
 	}
 
+	// South-East quadrant
 	shardEdgeStartX = 0
 	shardEdgeStartZ = 0
 	for shardEdgeStartX < edges.PositiveX {
 		for shardEdgeStartZ > edges.NegativeZ {
 			shardChunks := splitAreaChunks(
 				shardEdgeStartX,
-				shardEdgeStartZ-shardZ*level.ChunkZ,
-				shardEdgeStartX+shardX*level.ChunkX,
+				max(shardEdgeStartZ-shardZ*level.ChunkZ, edges.NegativeZ),
+				min(shardEdgeStartX+shardX*level.ChunkX, edges.PositiveX),
 				shardEdgeStartZ)
 			shardID := mkShardIDFromChunks(dimName, shardChunks)
 			shardStarts[shardID] = startMessage{
@@ -241,18 +251,21 @@ func splitDimensionShards(dimID uuid.UUID, dimName string, edges level.Edges, sh
 			}
 			shardEdgeStartZ -= shardZ * level.ChunkZ
 		}
+		shardEdgeStartZ = 0
 		shardEdgeStartX += shardX * level.ChunkX
 	}
 
+	// North-West quadrant
 	shardEdgeStartX = 0
 	shardEdgeStartZ = 0
 	for shardEdgeStartX > edges.NegativeX {
 		for shardEdgeStartZ < edges.PositiveZ {
 			shardChunks := splitAreaChunks(
-				shardEdgeStartX-shardX*level.ChunkX,
+				max(shardEdgeStartX-shardX*level.ChunkX, edges.NegativeX),
 				shardEdgeStartZ,
 				shardEdgeStartX,
-				shardEdgeStartZ+shardZ*level.ChunkZ)
+				min(shardEdgeStartZ+shardZ*level.ChunkZ, edges.PositiveZ),
+			)
 			shardID := mkShardIDFromChunks(dimName, shardChunks)
 			shardStarts[shardID] = startMessage{
 				id:          shardID,
@@ -261,18 +274,21 @@ func splitDimensionShards(dimID uuid.UUID, dimName string, edges level.Edges, sh
 			}
 			shardEdgeStartZ += shardZ * level.ChunkZ
 		}
+		shardEdgeStartZ = 0
 		shardEdgeStartX -= shardX * level.ChunkX
 	}
 
+	// South-West quadrant
 	shardEdgeStartX = 0
 	shardEdgeStartZ = 0
 	for shardEdgeStartX > edges.NegativeX {
 		for shardEdgeStartZ > edges.NegativeZ {
 			shardChunks := splitAreaChunks(
-				shardEdgeStartX-shardX*level.ChunkX,
-				shardEdgeStartZ-shardZ*level.ChunkZ,
+				max(shardEdgeStartX-shardX*level.ChunkX, edges.NegativeX),
+				max(shardEdgeStartZ-shardZ*level.ChunkZ, edges.NegativeZ),
+				shardEdgeStartX,
 				shardEdgeStartZ,
-				shardEdgeStartX)
+			)
 			shardID := mkShardIDFromChunks(dimName, shardChunks)
 			shardStarts[shardID] = startMessage{
 				id:          shardID,
@@ -281,6 +297,7 @@ func splitDimensionShards(dimID uuid.UUID, dimName string, edges level.Edges, sh
 			}
 			shardEdgeStartZ -= shardZ * level.ChunkZ
 		}
+		shardEdgeStartZ = 0
 		shardEdgeStartX -= shardX * level.ChunkX
 	}
 
@@ -294,4 +311,18 @@ func (sh *Sharder) signal(state control.ComponentState, err error) {
 		State:     state,
 		Err:       err,
 	}
+}
+
+func min(x, y int64) int64 {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func max(x, y int64) int64 {
+	if x > y {
+		return x
+	}
+	return y
 }
