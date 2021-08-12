@@ -20,8 +20,6 @@ import (
 type Sharder struct {
 	sync.Mutex
 
-	ctx context.Context
-
 	control      chan control.Command
 	shardControl chan startMessage
 	log          *zap.Logger
@@ -49,9 +47,8 @@ type startMessage struct {
 	err         error
 }
 
-func NewSharder(ctx context.Context, conf control.WorldConf, log *zap.Logger, ps nats.PubSub, control chan control.Command, world *World, roster *players.Roster) *Sharder {
+func NewSharder(log *zap.Logger, control chan control.Command, conf control.WorldConf, ps nats.PubSub, world *World, roster *players.Roster) *Sharder {
 	return &Sharder{
-		ctx:          ctx,
 		control:      control,
 		shardControl: make(chan startMessage),
 		log:          log,
@@ -64,8 +61,8 @@ func NewSharder(ctx context.Context, conf control.WorldConf, log *zap.Logger, ps
 	}
 }
 
-func (sh *Sharder) Start() {
-	go sh.dispatchSharderLoop()
+func (sh *Sharder) Start(ctx context.Context) {
+	go sh.dispatchSharderLoop(ctx)
 	sh.log.Info("sharder started")
 }
 
@@ -101,7 +98,7 @@ func (sh *Sharder) FindShardID(dimID uuid.UUID, coords data.PositionI) (ShardID,
 	return id, true
 }
 
-func (sh *Sharder) dispatchSharderLoop() {
+func (sh *Sharder) dispatchSharderLoop(ctx context.Context) {
 	sh.signal(control.STARTING, nil)
 
 	defer func() {
@@ -118,7 +115,7 @@ func (sh *Sharder) dispatchSharderLoop() {
 
 	for {
 		select {
-		case <-sh.ctx.Done():
+		case <-ctx.Done():
 			sh.Lock()
 			sh.isStopping = true
 
@@ -153,7 +150,7 @@ func (sh *Sharder) dispatchSharderLoop() {
 
 			sh.log.Debug("starting shard", zap.String("id", string(shardStartMsg.id)), zap.Int("chunks", len(shardStartMsg.chunkIDs)))
 
-			if err := sh.shards[shardStartMsg.id].dispatch(sh.ctx, sh.roster, sh.shardControl, sh.world); err != nil {
+			if err := sh.shards[shardStartMsg.id].dispatch(ctx, sh.roster, sh.shardControl, sh.world); err != nil {
 				sh.log.Error("failed to restart shard, signalling shard failure", zap.Error(err))
 				sh.signal(control.FAILED, fmt.Errorf("failed to restart shard %s: %w", shardStartMsg.id, err))
 			}

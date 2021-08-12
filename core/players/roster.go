@@ -1,7 +1,6 @@
 package players
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"sync"
@@ -19,7 +18,6 @@ import (
 
 // Roster holds the map of all players logged into this server.
 type Roster struct {
-	ctx     context.Context
 	control chan control.Command
 	log     *zap.Logger
 	ps      nats.PubSub
@@ -29,13 +27,12 @@ type Roster struct {
 	players map[uuid.UUID]*Player
 }
 
-func NewRoster(ctx context.Context, ctrlChan chan control.Command, log, windowLog *zap.Logger, ps nats.PubSub, db *sql.DB) *Roster {
+func NewRoster(log, windowLog *zap.Logger, ctrlChan chan control.Command, ps nats.PubSub, db *sql.DB) *Roster {
 	return &Roster{
-		ctx:     ctx,
 		control: ctrlChan,
 		log:     log,
 		ps:      ps,
-		repo:    newRepo(db, windowLog),
+		repo:    newRepo(windowLog, db), // DEBT this really should be instantiated separately and passed in as option.
 
 		// DEBT this is a single point of synchronisation for all currently connected players. This will break
 		//  down in multi-node cluster setup, and cluster-global synchronisation will be needed instead.

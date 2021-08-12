@@ -16,9 +16,13 @@ import (
 	"github.com/alexykot/cncraft/pkg/envelope"
 )
 
+var ctxGet func() context.Context
+
 // RegisterPlayerStateHandlers registers handlers for envelopes carrying updates of the player state that
 // need to be persisted.
-func RegisterPlayerStateHandlers(ps nats.PubSub, log *zap.Logger, db *sql.DB) error {
+func RegisterPlayerStateHandlers(ctxGetter func() context.Context, ps nats.PubSub, log *zap.Logger, db *sql.DB) error {
+	ctxGet = ctxGetter
+
 	if err := ps.Subscribe(subj.MkNewPlayerJoined(), handleNewPlayer(log, db)); err != nil {
 		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
 	}
@@ -60,7 +64,7 @@ func handleNewPlayer(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 			log.Error("failed to parse player ID", zap.String("id", newPlayer.PlayerId), zap.Error(err))
 			return
 		}
-		if err := dbPlayer.Insert(context.TODO(), db, boil.Infer()); err != nil {
+		if err := dbPlayer.Insert(ctxGet(), db, boil.Infer()); err != nil {
 			log.Error("failed to insert player", zap.String("id", newPlayer.PlayerId), zap.Error(err))
 			return
 		}
@@ -84,7 +88,7 @@ func handlePlayerLeft(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 			log.Error("failed to parse player ID", zap.String("id", playerLeft.PlayerId), zap.Error(err))
 			return
 		}
-		if _, err = dbPlayer.Update(context.TODO(), db, boil.Whitelist(orm.PlayerColumns.ConnID)); err != nil {
+		if _, err = dbPlayer.Update(ctxGet(), db, boil.Whitelist(orm.PlayerColumns.ConnID)); err != nil {
 			log.Error("failed to update player", zap.String("id", playerLeft.PlayerId), zap.Error(err))
 			return
 		}
@@ -108,7 +112,7 @@ func handlePlayerSpatial(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 			return
 		}
 
-		player, err := orm.FindPlayer(context.TODO(), db, playerId)
+		player, err := orm.FindPlayer(ctxGet(), db, playerId)
 		if err == sql.ErrNoRows {
 			log.Warn("received posUpdate for nonexistent player, ignoring", zap.String("id", spatial.PlayerId))
 			return
@@ -126,7 +130,7 @@ func handlePlayerSpatial(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 
 		player.OnGround = spatial.OnGround
 
-		if _, err = player.Update(context.TODO(), db,
+		if _, err = player.Update(ctxGet(), db,
 			boil.Whitelist(
 				orm.PlayerColumns.PositionX, orm.PlayerColumns.PositionY, orm.PlayerColumns.PositionZ,
 				orm.PlayerColumns.Yaw, orm.PlayerColumns.Pitch, orm.PlayerColumns.OnGround,
@@ -159,7 +163,7 @@ func handlePlayerInventory(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 			return
 		}
 
-		dbPlayer, err := orm.FindPlayer(context.TODO(), tx, playerId)
+		dbPlayer, err := orm.FindPlayer(ctxGet(), tx, playerId)
 		if err == sql.ErrNoRows {
 			log.Warn("received posUpdate for nonexistent player, ignoring", zap.String("id", inventory.PlayerId))
 			return
@@ -168,7 +172,7 @@ func handlePlayerInventory(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 			return
 		}
 
-		if _, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(playerId)).DeleteAll(context.TODO(), tx); err != nil {
+		if _, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(playerId)).DeleteAll(ctxGet(), tx); err != nil {
 			log.Error("failed to wipe player inventory", zap.String("id", inventory.PlayerId), zap.Error(err))
 			_ = tx.Rollback()
 			return
@@ -181,7 +185,7 @@ func handlePlayerInventory(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 				ItemID:     int16(item.ItemId),
 				ItemCount:  int16(item.ItemCount),
 			}
-			if err := dbItem.Insert(context.TODO(), tx, boil.Infer()); err != nil {
+			if err := dbItem.Insert(ctxGet(), tx, boil.Infer()); err != nil {
 				log.Error("failed to wipe player inventory", zap.String("id", inventory.PlayerId), zap.Error(err))
 				_ = tx.Rollback()
 				return
@@ -189,7 +193,7 @@ func handlePlayerInventory(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 		}
 
 		dbPlayer.CurrentHotbar = int16(inventory.CurrentHotbar)
-		if _, err = dbPlayer.Update(context.TODO(), tx, boil.Whitelist(orm.PlayerColumns.CurrentHotbar)); err != nil {
+		if _, err = dbPlayer.Update(ctxGet(), tx, boil.Whitelist(orm.PlayerColumns.CurrentHotbar)); err != nil {
 			log.Error("failed to save user hotbar active slot", zap.String("id", inventory.PlayerId), zap.Error(err))
 		}
 

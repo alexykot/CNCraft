@@ -41,16 +41,14 @@ type World struct {
 	StartDimension uuid.UUID
 	Dimensions     map[uuid.UUID]level.Dimension
 
-	ctx  context.Context
 	repo *SectionRepo
 	log  *zap.Logger
 }
 
 // NewWorld - creates world from persisted settigns. Does NOT load world data.
-func NewWorld(ctx context.Context, _ control.WorldConf, log *zap.Logger, db *sql.DB) (*World, error) {
+func NewWorld(log *zap.Logger, _ control.WorldConf, db *sql.DB) (*World, error) {
 	world := GetDefaultWorld() // TODO load world starting settings from persistence.
 
-	world.ctx = ctx
 	world.log = log
 	world.repo = newRepo(log, db)
 
@@ -84,7 +82,7 @@ func GetDefaultWorld() *World {
 	return defaultWorld
 }
 
-func (w *World) Load(ctrlChan chan control.Command) {
+func (w *World) Load(_ context.Context, ctrlChan chan control.Command) {
 	for name, worldDim := range w.Dimensions {
 		w.log.Debug(fmt.Sprintf("loading level %s", name))
 

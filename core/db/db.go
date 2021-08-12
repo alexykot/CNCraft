@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -17,7 +18,7 @@ import (
 
 var dbLogger *zap.Logger
 
-func New(url string, isDebug bool, logger *zap.Logger) (*sql.DB, error) {
+func New(logger *zap.Logger, url string, isDebug bool) (*sql.DB, error) {
 	db, err := sql.Open("postgres", url)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize database: %w", err)
@@ -29,7 +30,9 @@ func New(url string, isDebug bool, logger *zap.Logger) (*sql.DB, error) {
 	return db, nil
 }
 
-func Init(ctrlChan chan control.Command, ps nats.PubSub, db *sql.DB) {
+func Init(ctx context.Context, ctrlChan chan control.Command, ps nats.PubSub, db *sql.DB) {
+	dbCtx = ctx
+
 	// DB does not have any async loops, so does not need to signal readiness, it's ready as soon
 	// as it's loaded, and has no internal components that would need to be stopped.
 	// But it can fail while loading and that needs to be signalled.
@@ -85,7 +88,7 @@ func migrateDB(db *sql.DB) error {
 
 // registerStateRecorders registers all async handlers needed for saving persistent state of the system.
 func registerStateRecorders(ps nats.PubSub, db *sql.DB) error {
-	if err := recorders.RegisterPlayerStateHandlers(ps, dbLogger, db); err != nil {
+	if err := recorders.RegisterPlayerStateHandlers(Ctx, ps, dbLogger, db); err != nil {
 		return fmt.Errorf("failed to register player state handlers: %w", err)
 	}
 

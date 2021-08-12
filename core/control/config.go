@@ -14,9 +14,9 @@ type ServerConf struct {
 
 	World WorldConf `yaml:"world"` // Configuration of the world to load. Only one world per server at a time supported.
 
-	DBURL     string      `yaml:"db-url"` // URL of the postgres server
-	Network   NetworkConf `yaml:"network"`
-	LogLevels logLevels   `yaml:"log-levels"` // log level settings for various subsystems.
+	DBURL string      `yaml:"db-url"` // URL of the postgres server
+	Net   NetworkConf `yaml:"network"`
+	Log   logLevels   `yaml:"log-levels"` // log level settings for various subsystems.
 
 }
 
@@ -42,7 +42,7 @@ type logLevels struct {
 	// Baseline defines minimum global log level. Any other log level may be more verbose, but cannot be less verbose.
 	// Defaults to `ERROR`
 	// DEBT baseline is in fact the opposite of the above - it's the *most* verbose level, not *least* verbose.
-	//  `zap` only allows this mechanics, will need to either workaround this issue or replace `zap`.
+	//  `zap` only allows this mechanics, will need to either find a workaround for this issue or replace `zap`.
 	Baseline string `yaml:"base"`
 
 	Dispatcher string `yaml:"dispatcher"`
@@ -60,14 +60,18 @@ type logLevels struct {
 // It should not be changed in runtime, effects of the runtime change are undefined.
 var currentConf ServerConf
 
+// RegisterCurrentConfig registers a config as the singleton of configuration for current server process.
 func RegisterCurrentConfig(serverConfig ServerConf) {
 	currentConf = serverConfig
 }
 
+// GetCurrentConfig provides current singleton config.
 func GetCurrentConfig() ServerConf {
 	return currentConf
 }
 
+// GetDefaultConfig is a temporary function to provide a workable hardcoded development config. Eventually it will be
+// replaced with a proper external configuration loader.
 func GetDefaultConfig() ServerConf {
 	return addDefaults(ServerConf{
 		ServerID:  strings.ToUpper(base64.StdEncoding.EncodeToString([]byte(uuid.New().String())))[:16],
@@ -81,12 +85,12 @@ func GetDefaultConfig() ServerConf {
 		},
 
 		DBURL: "postgresql://postgres:root@127.0.0.1:5432/cncraft?sslmode=disable",
-		Network: NetworkConf{
+		Net: NetworkConf{
 			Host:        "0.0.0.0",
-			Port:        25565,
+			Port:        25566,
 			ZipTreshold: 1,
 		},
-		LogLevels: logLevels{
+		Log: logLevels{
 			Baseline: "DEBUG",
 
 			Dispatcher: "DEBUG",
@@ -107,38 +111,38 @@ func addDefaults(conf ServerConf) ServerConf {
 		conf.World.ShardSize = 10
 	}
 
-	if conf.LogLevels.Baseline == "" {
-		conf.LogLevels.Baseline = "ERROR"
+	if conf.Log.Baseline == "" {
+		conf.Log.Baseline = "ERROR"
 	}
 
-	if conf.LogLevels.Network == "" {
-		conf.LogLevels.Network = conf.LogLevels.Baseline
+	if conf.Log.Network == "" {
+		conf.Log.Network = conf.Log.Baseline
 	}
-	if conf.LogLevels.PubSub == "" {
-		conf.LogLevels.PubSub = conf.LogLevels.Baseline
+	if conf.Log.PubSub == "" {
+		conf.Log.PubSub = conf.Log.Baseline
 	}
-	if conf.LogLevels.Players == "" {
-		conf.LogLevels.Players = conf.LogLevels.Baseline
+	if conf.Log.Players == "" {
+		conf.Log.Players = conf.Log.Baseline
 	}
-	if conf.LogLevels.Windows == "" {
-		conf.LogLevels.Windows = conf.LogLevels.Baseline
+	if conf.Log.Windows == "" {
+		conf.Log.Windows = conf.Log.Baseline
 	}
-	if conf.LogLevels.World == "" {
-		conf.LogLevels.World = conf.LogLevels.Baseline
+	if conf.Log.World == "" {
+		conf.Log.World = conf.Log.Baseline
 	}
-	if conf.LogLevels.Sharder == "" {
-		conf.LogLevels.Sharder = conf.LogLevels.Baseline
+	if conf.Log.Sharder == "" {
+		conf.Log.Sharder = conf.Log.Baseline
 	}
-	if conf.LogLevels.DB == "" {
-		conf.LogLevels.DB = conf.LogLevels.Baseline
-	}
-
-	if conf.Network.Host == "" {
-		conf.Network.Host = "localhost"
+	if conf.Log.DB == "" {
+		conf.Log.DB = conf.Log.Baseline
 	}
 
-	if conf.Network.Port == 0 {
-		conf.Network.Port = 25566
+	if conf.Net.Host == "" {
+		conf.Net.Host = "localhost"
+	}
+
+	if conf.Net.Port == 0 {
+		conf.Net.Port = 25566
 	}
 
 	return conf

@@ -19,7 +19,7 @@ import (
 
 // RegisterEventHandlersState3 registers handlers for envelopes broadcast in the Play connection state.
 //  Play state handlers are entirely asynchronous, so NATS subscriptions need to be created at boot time.
-func RegisterEventHandlersState3(ctrlChan chan control.Command, log *zap.Logger, ps nats.PubSub, roster *players.Roster, world *world.World) {
+func RegisterEventHandlersState3(log *zap.Logger, ctrlChan chan control.Command, ps nats.PubSub, roster *players.Roster, world *world.World) {
 	if err := ps.Subscribe(subj.MkPlayerLoading(), handlePlayerLoading(ps, log, roster, world)); err != nil {
 		// Handlers don't have any async loops, so do not need to signal readiness, it's ready as soon
 		// they are registered, and have no internal components that would need to be stopped.

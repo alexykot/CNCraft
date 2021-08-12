@@ -21,7 +21,6 @@ type Network struct {
 	port int
 
 	log *zap.Logger
-	ctx context.Context
 
 	dispatcher *DispatcherTransmitter
 
@@ -29,9 +28,8 @@ type Network struct {
 	control chan control.Command
 }
 
-func NewNetwork(ctx context.Context, conf control.NetworkConf, log *zap.Logger, ctrlChan chan control.Command, bus nats.PubSub, disp *DispatcherTransmitter) *Network {
+func NewNetwork(log *zap.Logger, ctrlChan chan control.Command, conf control.NetworkConf, bus nats.PubSub, disp *DispatcherTransmitter) *Network {
 	return &Network{
-		ctx:        ctx,
 		host:       conf.Host,
 		port:       conf.Port,
 		dispatcher: disp,
@@ -41,15 +39,15 @@ func NewNetwork(ctx context.Context, conf control.NetworkConf, log *zap.Logger, 
 	}
 }
 
-func (n *Network) Start() {
+func (n *Network) Start(ctx context.Context) {
 	n.signal(control.STARTING, nil)
 
-	if err := n.startListening(n.ctx); err != nil {
+	if err := n.startListening(ctx); err != nil {
 		n.signal(control.FAILED, fmt.Errorf("failed to start network: failed to start listening on %s:%d: %w", n.host, n.port, err))
 		return
 	}
 
-	if err := n.dispatcher.Init(n.ctx); err != nil {
+	if err := n.dispatcher.Init(ctx); err != nil {
 		n.signal(control.FAILED, fmt.Errorf("failed to start network: failed to start dispatcher: %w", err))
 		return
 	}

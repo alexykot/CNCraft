@@ -31,7 +31,7 @@ import (
 const natsStartTimeout = 500 * time.Millisecond
 
 type PubSub interface {
-	Start()
+	Start(ctx context.Context)
 	Publish(subj subj.Subj, messages ...*envelope.E) error
 	Subscribe(subj subj.Subj, handleFunc func(message *envelope.E)) error
 	Unsubscribe(subj subj.Subj)
@@ -45,7 +45,6 @@ type natsServer interface {
 }
 
 type pubsub struct {
-	ctx     context.Context
 	subs    map[subj.Subj][]*natsc.Subscription
 	natsd   natsServer
 	client  *natsc.Conn
@@ -67,9 +66,8 @@ func NewNATSServer() (natsServer, error) {
 	return server, nil
 }
 
-func NewPubSub(ctx context.Context, log *zap.Logger, nats natsServer, control chan control.Command) PubSub {
+func NewPubSub(log *zap.Logger, control chan control.Command, nats natsServer) PubSub {
 	return &pubsub{
-		ctx:     ctx,
 		natsd:   nats,
 		control: control,
 		log:     log,
@@ -77,15 +75,15 @@ func NewPubSub(ctx context.Context, log *zap.Logger, nats natsServer, control ch
 	}
 }
 
-func (ps *pubsub) Start() {
+func (ps *pubsub) Start(ctx context.Context) {
 	ps.signal(control.STARTING, nil)
 
-	if err := ps.startServer(); err != nil {
+	if err := ps.startServer(ctx); err != nil {
 		ps.signal(control.FAILED, fmt.Errorf("failed to start NATS server: %w", err)) // signal NATS has failed
 		return
 	}
 
-	if err := ps.startClient(); err != nil {
+	if err := ps.startClient(ctx); err != nil {
 		ps.signal(control.FAILED, fmt.Errorf("failed to start NATS client: %w", err)) // signal NATS has failed
 		return
 	}
@@ -94,8 +92,8 @@ func (ps *pubsub) Start() {
 	ps.log.Info("pubsub started")
 }
 
-func (ps *pubsub) startServer() error {
-	go ps.handleContextCancel() // make sure NATS shutdown is called whenever context is cancelled
+func (ps *pubsub) startServer(ctx context.Context) error {
+	go ps.handleContextCancel(ctx) // make sure NATS shutdown is called whenever context is cancelled
 
 	go func() {
 		defer func() {
@@ -120,7 +118,7 @@ func (ps *pubsub) startServer() error {
 	return nil
 }
 
-func (ps *pubsub) startClient() error {
+func (ps *pubsub) startClient(_ context.Context) error {
 	var err error
 	opts := []natsc.Option{
 		natsc.DontRandomize(),
@@ -183,10 +181,10 @@ func (ps *pubsub) makeHandler(handleFunc func(*envelope.E)) natsc.MsgHandler {
 	}
 }
 
-func (ps *pubsub) handleContextCancel() {
+func (ps *pubsub) handleContextCancel(ctx context.Context) {
 	for {
 		select {
-		case <-ps.ctx.Done():
+		case <-ctx.Done():
 			ps.signal(control.STOPPED, nil)
 			ps.natsd.Shutdown()
 			return

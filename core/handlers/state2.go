@@ -95,8 +95,8 @@ func HandleSEncryptionResponse(auther auth.A, ps nats.PubSub,
 		return nil, fmt.Errorf("failed to enable conn encryption: %w", err)
 	}
 
-	setCompression, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CSetCompression)                      // Predefined packet is expected to always exist.
-	setCompression.(*protocol.CPacketSetCompression).Threshold = control.GetCurrentConfig().Network.ZipTreshold // And always be of the correct type.
+	setCompression, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CSetCompression)                  // Predefined packet is expected to always exist.
+	setCompression.(*protocol.CPacketSetCompression).Threshold = control.GetCurrentConfig().Net.ZipTreshold // And always be of the correct type.
 
 	loginSuccess, _ := protocol.GetPacketFactory().MakeCPacket(protocol.CLoginSuccess)
 	loginSuccess.(*protocol.CPacketLoginSuccess).PlayerUUID = mojangData.ProfileID

@@ -33,7 +33,7 @@ type KeepAliver struct {
 	theyLive map[uuid.UUID]int64 // latest timestamp of the keepalive response received from the given connection
 }
 
-func NewKeepAliver(control chan control.Command, ps nats.PubSub, log *zap.Logger) *KeepAliver {
+func NewKeepAliver(log *zap.Logger, control chan control.Command, ps nats.PubSub) *KeepAliver {
 	return &KeepAliver{
 		control:  control,
 		ps:       ps,

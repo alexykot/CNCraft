@@ -19,23 +19,12 @@ import (
 	"github.com/alexykot/cncraft/core/nats"
 	"github.com/alexykot/cncraft/core/network"
 	"github.com/alexykot/cncraft/core/players"
-	w "github.com/alexykot/cncraft/core/world"
+	"github.com/alexykot/cncraft/core/world"
 	"github.com/alexykot/cncraft/pkg/log"
 	"github.com/alexykot/cncraft/pkg/protocol/auth"
 )
 
-type Server interface {
-	Start() error
-	Stop() error
-
-	Version() string
-
-	//	Chat() // chat implementation needed
-	// DEBT this should be part of chat implementation.
-	// Broadcast(message string) error
-}
-
-type server struct {
+type Server struct {
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 
@@ -44,8 +33,7 @@ type server struct {
 	control chan control.Command
 	config  control.ServerConf
 
-	killSignal chan os.Signal
-	db         *sql.DB
+	db *sql.DB
 
 	log *zap.Logger
 	ps  nats.PubSub
@@ -53,82 +41,65 @@ type server struct {
 	net *network.Network
 
 	players *players.Roster
-	world   *w.World
-	sharder *w.Sharder
-
-	// chat    // chat implementation needed
+	world   *world.World
+	sharder *world.Sharder
 }
 
 // NewServer wires up and provides new server instance.
-func NewServer(conf control.ServerConf) (Server, error) {
-	serverCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
-	ctrlChan := make(chan control.Command)
+func NewServer(config control.ServerConf) (*Server, error) {
+	var err error
+	srv := &Server{
+		reg:     make(map[control.Component]control.ComponentState),
+		control: make(chan control.Command),
+		config:  config,
+	}
 
-	rootLog, err := log.GetRootLogger(serverCtx, conf.LogLevels.Baseline)
-	if err != nil {
-		cancel()
+	srv.ctx, srv.cancelFunc = signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
+
+	if srv.log, err = log.GetRootLogger(srv.config.Log.Baseline); err != nil {
+		srv.cancelFunc()
 		return nil, fmt.Errorf("could not instantiate root logger: %w", err)
 	}
 
 	natsd, err := nats.NewNATSServer()
 	if err != nil {
-		cancel()
+		srv.cancelFunc()
 		return nil, fmt.Errorf("could not instantiate NATS server: %w", err)
 	}
-	pubSub := nats.NewPubSub(serverCtx, log.LevelUp(log.Named(rootLog, "pubsub"), conf.LogLevels.PubSub), natsd, ctrlChan)
+	srv.ps = nats.NewPubSub(log.NamedLevelUp(srv.log, "pubsub", srv.config.Log.PubSub), srv.control, natsd)
 
-	database, err := db.New(conf.DBURL, conf.LogLevels.DB == "DEBUG", log.LevelUp(log.Named(rootLog, "DB"), conf.LogLevels.DB))
-	if err != nil {
-		cancel()
+	if srv.db, err = db.New(log.NamedLevelUp(srv.log, "DB", srv.config.Log.DB),
+		srv.config.DBURL, srv.config.Log.DB == "DEBUG"); err != nil {
+		srv.cancelFunc()
 		return nil, fmt.Errorf("could not instantiate DB: %w", err)
 	}
 
-	roster := players.NewRoster(serverCtx, ctrlChan,
-		log.LevelUp(log.Named(rootLog, "players"), conf.LogLevels.Players),
-		log.LevelUp(log.Named(rootLog, "windows"), conf.LogLevels.Players),
-		pubSub, database)
+	srv.players = players.NewRoster(
+		log.NamedLevelUp(srv.log, "players", srv.config.Log.Players),
+		log.NamedLevelUp(srv.log, "windows", srv.config.Log.Players),
+		srv.control, srv.ps, srv.db)
 
-	world, err := w.NewWorld(serverCtx, conf.World, log.LevelUp(log.Named(rootLog, "world"), conf.LogLevels.World), database)
-	if err != nil {
-		cancel()
+	if srv.world, err = world.NewWorld(log.NamedLevelUp(srv.log, "world", srv.config.Log.World),
+		srv.config.World, srv.db); err != nil {
+		srv.cancelFunc()
 		return nil, fmt.Errorf("could not instantiate world: %w", err)
 	}
 
-	sharder := w.NewSharder(serverCtx, conf.World, log.LevelUp(log.Named(rootLog, "sharder"), conf.LogLevels.Sharder), pubSub, ctrlChan, world, roster)
+	srv.sharder = world.NewSharder(log.NamedLevelUp(srv.log, "sharder", srv.config.Log.Sharder), srv.control, srv.config.World, srv.ps, srv.world, srv.players)
 
 	dispatcher := network.NewDispatcher(
-		log.LevelUp(log.Named(rootLog, "dispatcher"), conf.LogLevels.Dispatcher),
-		pubSub, auth.GetAuther(),
-		roster,
-		network.NewKeepAliver(ctrlChan, pubSub, log.LevelUp(log.Named(rootLog, "aliver"), conf.LogLevels.Dispatcher)),
-		sharder,
+		log.NamedLevelUp(srv.log, "dispatcher", srv.config.Log.Dispatcher),
+		srv.ps, auth.GetAuther(),
+		srv.players,
+		network.NewKeepAliver(log.NamedLevelUp(srv.log, "aliver", srv.config.Log.Dispatcher), srv.control, srv.ps),
+		srv.sharder,
 	)
+	srv.net = network.NewNetwork(log.NamedLevelUp(srv.log, "network", srv.config.Log.Network), srv.control, srv.config.Net, srv.ps, dispatcher)
 
-	net := network.NewNetwork(serverCtx, conf.Network, log.LevelUp(log.Named(rootLog, "network"), conf.LogLevels.Network), ctrlChan, pubSub, dispatcher)
-
-	return &server{
-		ctx:        serverCtx,
-		cancelFunc: cancel,
-
-		reg: make(map[control.Component]control.ComponentState),
-
-		config: conf,
-
-		log: rootLog,
-		db:  database,
-		ps:  pubSub,
-		net: net,
-
-		control:    ctrlChan,
-		killSignal: make(chan os.Signal),
-
-		players: roster,
-		world:   world,
-		sharder: sharder,
-	}, nil
+	return srv, nil
 }
 
-func (s *server) Start() error {
+func (s *Server) Start() error {
 	go s.startServer()
 
 	s.startControlLoop()
@@ -136,7 +107,7 @@ func (s *server) Start() error {
 }
 
 // shutdown will unconditionally kill the server and exit the process.
-func (s *server) shutdown(failed bool) {
+func (s *Server) shutdown(failed bool) {
 	var code int
 	if failed {
 		code = 1
@@ -150,7 +121,7 @@ func (s *server) shutdown(failed bool) {
 	os.Exit(code)
 }
 
-func (s *server) Stop() error {
+func (s *Server) Stop() error {
 	const serverStopTimeout = time.Second * 5
 	s.log.Info("stopping server")
 
@@ -198,11 +169,11 @@ func (s *server) Stop() error {
 
 }
 
-func (s *server) Version() string {
+func (s *Server) Version() string {
 	return "0.0.1-SNAPSHOT"
 }
 
-func (s *server) startServer() {
+func (s *Server) startServer() {
 	rand.Seed(time.Now().UnixNano())
 
 	// DEBT when starting server:
@@ -211,25 +182,25 @@ func (s *server) startServer() {
 
 	control.RegisterCurrentConfig(s.config)
 
-	s.ps.Start()
+	s.ps.Start(s.ctx)
 
-	db.Init(s.control, s.ps, s.db)
+	db.Init(s.ctx, s.control, s.ps, s.db)
 
-	s.net.Start()
+	s.net.Start(s.ctx)
 
-	s.world.Load(s.control)
+	s.world.Load(s.ctx, s.control)
 
-	s.sharder.Start()
+	s.sharder.Start(s.ctx)
 
-	handlers.RegisterEventHandlersState3(s.control, log.LevelUp(log.Named(s.log, "players"), s.config.LogLevels.Players),
-		s.ps, s.players, s.world)
+	handlers.RegisterEventHandlersState3(log.NamedLevelUp(s.log, "players", s.config.Log.Players),
+		s.control, s.ps, s.players, s.world)
 
 	s.players.RegisterHandlers()
 
 	s.log.Info("server started")
 }
 
-func (s *server) startControlLoop() {
+func (s *Server) startControlLoop() {
 	var serverFailed bool
 
 controlLoop:
@@ -246,8 +217,9 @@ controlLoop:
 				// <no state>       => <any state>
 				// control.STARTING => control.READY, control.STOPPED, control.FAILED
 				// control.READY    => control.STOPPED, control.FAILED
-				// Any other state transitions are assumed to be a result race condition
+				// Any other state transitions are assumed to be a result of possible race conditions
 				// inside the component and will be ignored.
+				//
 				// On receiving a control.FAILED message - server shutdown will be initiated.
 				//
 				// This map does not need to be thread safe as it's only ever accessed here and inside the shutdown

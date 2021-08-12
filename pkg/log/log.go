@@ -1,7 +1,6 @@
 package log
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -17,7 +16,7 @@ var longestShortNameLength int
 
 const rootLoggerName = "CNC"
 
-func GetRootLogger(_ context.Context, level string) (*zap.Logger, error) {
+func GetRootLogger(level string) (*zap.Logger, error) {
 	var err error
 	var log *zap.Logger
 
@@ -79,6 +78,11 @@ func LevelUp(logger *zap.Logger, level string) *zap.Logger {
 	}
 
 	return logger.WithOptions(zap.IncreaseLevel(levelEnabler))
+}
+
+// NamedLevelUp is a convenience method combining Named and LevelUp.
+func NamedLevelUp(parent *zap.Logger, name, level string) *zap.Logger {
+	return LevelUp(Named(parent, name), level)
 }
 
 func PaddedFullNameEncoder(loggerName string, encoder zapcore.PrimitiveArrayEncoder) {

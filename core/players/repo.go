@@ -2,7 +2,6 @@ package players
 
 import "C"
 import (
-	"context"
 	"database/sql"
 	"fmt"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"go.uber.org/zap"
 
+	"github.com/alexykot/cncraft/core/db"
 	"github.com/alexykot/cncraft/core/db/orm"
 	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/data"
@@ -26,17 +26,17 @@ type repo struct {
 	db        *sql.DB
 }
 
-func newRepo(db *sql.DB, windowLog *zap.Logger) *repo {
-	return &repo{windowLog, db}
+func newRepo(log *zap.Logger, db *sql.DB) *repo {
+	return &repo{log, db}
 }
 
 func (r *repo) InitPlayer(username string, connID uuid.UUID) (p *Player, isNew bool, err error) {
-	tx, err := r.db.BeginTx(context.TODO(), nil)
+	tx, err := r.db.BeginTx(db.Ctx(), nil)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	dbPlayer, err := orm.Players(orm.PlayerWhere.Username.EQ(username)).One(context.TODO(), tx)
+	dbPlayer, err := orm.Players(orm.PlayerWhere.Username.EQ(username)).One(db.Ctx(), tx)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, false, fmt.Errorf("failed to load player data: %w", err)
 	}
@@ -88,9 +88,9 @@ func (r *repo) createNewPlayer(username string, connID uuid.UUID) *Player {
 
 func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, username string, connID uuid.UUID) (*Player, error) {
 	dbPlayer.ConnID = null.StringFrom(connID.String())
-	_, err := dbPlayer.Update(context.TODO(), tx, boil.Whitelist(orm.PlayerColumns.ConnID))
+	_, err := dbPlayer.Update(db.Ctx(), tx, boil.Whitelist(orm.PlayerColumns.ConnID))
 
-	dbInventories, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(dbPlayer.ID)).All(context.TODO(), tx)
+	dbInventories, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(dbPlayer.ID)).All(db.Ctx(), tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query player inventory: %w", err)
 	}
