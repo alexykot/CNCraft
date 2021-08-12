@@ -54,7 +54,7 @@ func handlePlayerLoading(ps nats.PubSub, log *zap.Logger, roster *players.Roster
 		}
 		log.Debug("handling player loading", zap.String("user", userId.String()))
 
-		p, err := roster.AddPlayer(userId, loading.Username)
+		p, err := roster.AddPlayer(loading.Username, userId, world.StartDimension)
 		if err != nil {
 			log.Error("failed add player", zap.Error(err))
 			return

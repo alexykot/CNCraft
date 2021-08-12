@@ -68,14 +68,14 @@ func GetDefaultWorld() *World {
 			Difficulty:         game.Peaceful,
 			DifficultyIsLocked: true,
 			Seed:               make([]byte, 4, 4),
+			StartDimension:     uuid.NewSHA1(uuid.UUID{}, []byte(game.Overworld.String())),
+			Dimensions:         make(map[uuid.UUID]level.Dimension),
 			NBTDimensionCodec:  vanillaDimentionsCodec,
 			NBTDimension:       vanillaDimentionsCodec.Dimensions.RegistryEntries[0].Element,
 		}
 		binary.LittleEndian.PutUint32(defaultWorld.Seed, rand.Uint32())
 		defaultWorld.SeedHash = sha256.Sum256(defaultWorld.Seed)
 
-		defaultWorld.StartDimension = uuid.NewSHA1(uuid.UUID{}, []byte(game.Overworld.String()))
-		defaultWorld.Dimensions = make(map[uuid.UUID]level.Dimension)
 		defaultWorld.Dimensions[defaultWorld.StartDimension] = level.NewDimension(game.Overworld.String())
 	}
 

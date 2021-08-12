@@ -12,7 +12,6 @@ import (
 
 	"github.com/alexykot/cncraft/core/db"
 	"github.com/alexykot/cncraft/core/db/orm"
-	"github.com/alexykot/cncraft/pkg/game"
 	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/entities"
 	"github.com/alexykot/cncraft/pkg/game/items"
@@ -30,7 +29,7 @@ func newRepo(log *zap.Logger, db *sql.DB) *repo {
 	return &repo{log, db}
 }
 
-func (r *repo) InitPlayer(username string, connID uuid.UUID) (p *Player, isNew bool, err error) {
+func (r *repo) InitPlayer(username string, connID, dimensionID uuid.UUID) (p *Player, isNew bool, err error) {
 	tx, err := r.db.BeginTx(db.Ctx(), nil)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to begin transaction: %w", err)
@@ -42,10 +41,10 @@ func (r *repo) InitPlayer(username string, connID uuid.UUID) (p *Player, isNew b
 	}
 
 	if err == sql.ErrNoRows {
-		p = r.createNewPlayer(username, connID)
+		p = r.createNewPlayer(username, connID, dimensionID)
 		isNew = true
 	} else {
-		if p, err = r.loadPlayer(tx, dbPlayer, username, connID); err != nil {
+		if p, err = r.loadPlayer(tx, dbPlayer, username, connID, dimensionID); err != nil {
 			return nil, false, fmt.Errorf("failed to load player: %w", err)
 		}
 	}
@@ -57,7 +56,7 @@ func (r *repo) InitPlayer(username string, connID uuid.UUID) (p *Player, isNew b
 	return p, isNew, nil
 }
 
-func (r *repo) createNewPlayer(username string, connID uuid.UUID) *Player {
+func (r *repo) createNewPlayer(username string, connID, dimensionID uuid.UUID) *Player {
 	inventory := items.NewInventory(r.windowLog)
 
 	return &Player{
@@ -72,10 +71,9 @@ func (r *repo) createNewPlayer(username string, connID uuid.UUID) *Player {
 		},
 		Abilities: &player.Abilities{},
 		State: &player.State{
-			// DEBT this needs to be replaced with proper spawn point and starting conditions.
-			Dimension: uuid.NewSHA1(uuid.UUID{}, []byte(game.Overworld.String())),
+			Dimension: dimensionID,
 			Inventory: inventory,
-			Location: data.Location{
+			Location: data.Location{ // DEBT this needs to be replaced with proper spawn point and starting conditions.
 				PositionF: data.PositionF{
 					X: 0,
 					Y: 10,
@@ -86,7 +84,7 @@ func (r *repo) createNewPlayer(username string, connID uuid.UUID) *Player {
 	}
 }
 
-func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, username string, connID uuid.UUID) (*Player, error) {
+func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, username string, connID, dimensionID uuid.UUID) (*Player, error) {
 	dbPlayer.ConnID = null.StringFrom(connID.String())
 	_, err := dbPlayer.Update(db.Ctx(), tx, boil.Whitelist(orm.PlayerColumns.ConnID))
 
@@ -114,9 +112,13 @@ func (r *repo) loadPlayer(tx *sql.Tx, dbPlayer *orm.Player, username string, con
 		},
 		Abilities: &player.Abilities{},
 		State: &player.State{
-			Dimension: dbPlayer.DimensionID,
+			// not using the previously saved dimension for the player here because player may
+			// join a dimension different from what they left previously.
+			Dimension: dimensionID,
 			Inventory: inventory,
 			Location: data.Location{
+				// DEBT this does not account for the fact that the player may join a different dimension from
+				//  what they left previously, and last recorded location in that dimension will be irrelevant.
 				PositionF: data.PositionF{
 					X: dbPlayer.PositionX,
 					Y: dbPlayer.PositionY,

@@ -81,14 +81,6 @@ func PlayerInventoryUpdate(inventoryUpdate *pb.PlayerInventoryUpdate) *E {
 	}
 }
 
-func NewPlayerJoined(newPlayer *pb.NewPlayerJoined) *E {
-	return &E{
-		Envelope: pb.Envelope{
-			Message: &pb.Envelope_NewPlayer{NewPlayer: newPlayer},
-		},
-	}
-}
-
 func PlayerDigging(digging *pb.PlayerDigging) *E {
 	return &E{
 		Envelope: pb.Envelope{

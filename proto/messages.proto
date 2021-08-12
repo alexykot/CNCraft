@@ -29,19 +29,14 @@ message PlayerLoading {
     // TODO also publish skin data
 }
 
-// A new player joined for the first time.
-message NewPlayerJoined {
+// A player joined server and spawned.
+message PlayerJoined {
     string player_id = 1;
     string conn_id = 2;
     string profile_id = 3;
     string username = 4;
-    Position pos = 5;
-}
-
-// A player has fully joined and spawned.
-message PlayerJoined {
-    string player_id = 1;
-    string conn_id = 2;
+    string dimension_id = 5;
+    Position pos = 6;
 }
 
 // A player has left and disconnected.

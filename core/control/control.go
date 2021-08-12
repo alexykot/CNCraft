@@ -4,8 +4,6 @@ type signal int
 
 const (
 	COMPONENT signal = iota
-
-	SERVER_FAIL
 )
 
 type Component string

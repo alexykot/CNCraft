@@ -20,11 +20,10 @@ message Envelope {
         CloseConn close_conn = 5;
 
         PlayerLoading player_loading = 6;
-        NewPlayerJoined new_player = 7;
-        PlayerJoined player_joined = 8;
-        PlayerLeft player_left = 9;
+        PlayerJoined player_joined = 7;
+        PlayerLeft player_left = 8;
 
-        PlayerSpatialUpdate player_spatial = 10;
-        PlayerInventoryUpdate player_inventory = 11;
+        PlayerSpatialUpdate player_spatial = 9;
+        PlayerInventoryUpdate player_inventory = 10;
     }
 }

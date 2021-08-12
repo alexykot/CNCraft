@@ -69,20 +69,25 @@ func (sh *Sharder) Start(ctx context.Context) {
 func (sh *Sharder) FindShardID(dimID uuid.UUID, coords data.PositionI) (ShardID, bool) {
 	dim, ok := sh.world.Dimensions[dimID]
 	if !ok {
+		sh.log.Debug("dimension not found", zap.String("dimID", dimID.String()))
 		return "", false
 	}
 
 	dimEdges := dim.Edges()
 	if dimEdges.PositiveX < coords.X {
+		sh.log.Debug("coords outside dim edges", zap.Any("edges", dimEdges), zap.Int64("X", coords.X))
 		return "", false
 	}
 	if dimEdges.PositiveZ < coords.Z {
+		sh.log.Debug("coords outside dim edges", zap.Any("edges", dimEdges), zap.Int64("Z", coords.Z))
 		return "", false
 	}
-	if dimEdges.NegativeX < coords.X {
+	if dimEdges.NegativeX > coords.X {
+		sh.log.Debug("coords outside dim edges", zap.Any("edges", dimEdges), zap.Int64("X", coords.X))
 		return "", false
 	}
-	if dimEdges.NegativeZ < coords.Z {
+	if dimEdges.NegativeZ > coords.Z {
+		sh.log.Debug("coords outside dim edges", zap.Any("edges", dimEdges), zap.Int64("Z", coords.Z))
 		return "", false
 	}
 

@@ -16,14 +16,14 @@ import (
 	"github.com/alexykot/cncraft/pkg/envelope"
 )
 
-var ctxGet func() context.Context
+var getCtx func() context.Context
 
 // RegisterPlayerStateHandlers registers handlers for envelopes carrying updates of the player state that
 // need to be persisted.
 func RegisterPlayerStateHandlers(ctxGetter func() context.Context, ps nats.PubSub, log *zap.Logger, db *sql.DB) error {
-	ctxGet = ctxGetter
+	getCtx = ctxGetter
 
-	if err := ps.Subscribe(subj.MkNewPlayerJoined(), handleNewPlayer(log, db)); err != nil {
+	if err := ps.Subscribe(subj.MkPlayerJoined(), handlePlayerJoined(log, db)); err != nil {
 		return fmt.Errorf("failed to register PlayerLoading handler: %w", err)
 	}
 
@@ -41,32 +41,57 @@ func RegisterPlayerStateHandlers(ctxGetter func() context.Context, ps nats.PubSu
 	return nil
 }
 
-func handleNewPlayer(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
+func handlePlayerJoined(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 	return func(inLope *envelope.E) {
 		var err error
 		log := log
 		db := db
 
-		newPlayer := inLope.GetNewPlayer()
-		if newPlayer == nil {
-			log.Error("envelope does not contain new player", zap.Any("envelope", inLope))
+		joinedPlayer := inLope.GetPlayerJoined()
+		if joinedPlayer == nil {
+			log.Error("envelope does not contain a joining player", zap.Any("envelope", inLope))
 			return
 		}
 
 		dbPlayer := &orm.Player{
-			ConnID:    null.StringFrom(newPlayer.ConnId),
-			Username:  newPlayer.Username,
-			PositionX: newPlayer.Pos.X,
-			PositionY: newPlayer.Pos.Y,
-			PositionZ: newPlayer.Pos.Z,
+			ConnID:    null.StringFrom(joinedPlayer.ConnId),
+			Username:  joinedPlayer.Username,
+			PositionX: joinedPlayer.Pos.X,
+			PositionY: joinedPlayer.Pos.Y,
+			PositionZ: joinedPlayer.Pos.Z,
 		}
-		if dbPlayer.ID, err = uuid.Parse(newPlayer.PlayerId); err != nil {
-			log.Error("failed to parse player ID", zap.String("id", newPlayer.PlayerId), zap.Error(err))
+		if dbPlayer.ID, err = uuid.Parse(joinedPlayer.PlayerId); err != nil {
+			log.Error("failed to parse player ID", zap.String("id", joinedPlayer.PlayerId), zap.Error(err))
 			return
 		}
-		if err := dbPlayer.Insert(ctxGet(), db, boil.Infer()); err != nil {
-			log.Error("failed to insert player", zap.String("id", newPlayer.PlayerId), zap.Error(err))
+		if dbPlayer.DimensionID, err = uuid.Parse(joinedPlayer.DimensionId); err != nil {
+			log.Error("failed to parse dimension ID", zap.String("id", joinedPlayer.DimensionId), zap.Error(err))
 			return
+		}
+		exists, err := orm.PlayerExists(getCtx(), db, dbPlayer.ID)
+		if err != nil {
+			log.Error("failed to check if player exists", zap.Error(err))
+			return
+		}
+
+		if exists {
+			if rows, err := dbPlayer.Update(getCtx(), db, boil.Whitelist(
+				orm.PlayerColumns.ConnID,
+				orm.PlayerColumns.DimensionID,
+				orm.PlayerColumns.PositionX,
+				orm.PlayerColumns.PositionY,
+				orm.PlayerColumns.PositionZ,
+			)); err != nil {
+				log.Error("failed to update player", zap.String("id", joinedPlayer.PlayerId), zap.Error(err))
+			} else if rows == 0 {
+				log.Error("failed to update player: player not found", zap.String("id", joinedPlayer.PlayerId))
+			} else if rows > 1 { // this should be impossible with update by primary key
+				log.Error("more than one player updated by id", zap.String("id", joinedPlayer.PlayerId))
+			}
+		} else {
+			if err := dbPlayer.Insert(getCtx(), db, boil.Infer()); err != nil {
+				log.Error("failed to insert new player", zap.String("id", joinedPlayer.PlayerId), zap.Error(err))
+			}
 		}
 	}
 }
@@ -88,7 +113,7 @@ func handlePlayerLeft(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 			log.Error("failed to parse player ID", zap.String("id", playerLeft.PlayerId), zap.Error(err))
 			return
 		}
-		if _, err = dbPlayer.Update(ctxGet(), db, boil.Whitelist(orm.PlayerColumns.ConnID)); err != nil {
+		if _, err = dbPlayer.Update(getCtx(), db, boil.Whitelist(orm.PlayerColumns.ConnID)); err != nil {
 			log.Error("failed to update player", zap.String("id", playerLeft.PlayerId), zap.Error(err))
 			return
 		}
@@ -112,7 +137,7 @@ func handlePlayerSpatial(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 			return
 		}
 
-		player, err := orm.FindPlayer(ctxGet(), db, playerId)
+		player, err := orm.FindPlayer(getCtx(), db, playerId)
 		if err == sql.ErrNoRows {
 			log.Warn("received posUpdate for nonexistent player, ignoring", zap.String("id", spatial.PlayerId))
 			return
@@ -130,7 +155,7 @@ func handlePlayerSpatial(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 
 		player.OnGround = spatial.OnGround
 
-		if _, err = player.Update(ctxGet(), db,
+		if _, err = player.Update(getCtx(), db,
 			boil.Whitelist(
 				orm.PlayerColumns.PositionX, orm.PlayerColumns.PositionY, orm.PlayerColumns.PositionZ,
 				orm.PlayerColumns.Yaw, orm.PlayerColumns.Pitch, orm.PlayerColumns.OnGround,
@@ -163,7 +188,7 @@ func handlePlayerInventory(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 			return
 		}
 
-		dbPlayer, err := orm.FindPlayer(ctxGet(), tx, playerId)
+		dbPlayer, err := orm.FindPlayer(getCtx(), tx, playerId)
 		if err == sql.ErrNoRows {
 			log.Warn("received posUpdate for nonexistent player, ignoring", zap.String("id", inventory.PlayerId))
 			return
@@ -172,7 +197,7 @@ func handlePlayerInventory(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 			return
 		}
 
-		if _, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(playerId)).DeleteAll(ctxGet(), tx); err != nil {
+		if _, err := orm.Inventories(orm.InventoryWhere.PlayerID.EQ(playerId)).DeleteAll(getCtx(), tx); err != nil {
 			log.Error("failed to wipe player inventory", zap.String("id", inventory.PlayerId), zap.Error(err))
 			_ = tx.Rollback()
 			return
@@ -185,7 +210,7 @@ func handlePlayerInventory(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 				ItemID:     int16(item.ItemId),
 				ItemCount:  int16(item.ItemCount),
 			}
-			if err := dbItem.Insert(ctxGet(), tx, boil.Infer()); err != nil {
+			if err := dbItem.Insert(getCtx(), tx, boil.Infer()); err != nil {
 				log.Error("failed to wipe player inventory", zap.String("id", inventory.PlayerId), zap.Error(err))
 				_ = tx.Rollback()
 				return
@@ -193,7 +218,7 @@ func handlePlayerInventory(log *zap.Logger, db *sql.DB) func(lope *envelope.E) {
 		}
 
 		dbPlayer.CurrentHotbar = int16(inventory.CurrentHotbar)
-		if _, err = dbPlayer.Update(ctxGet(), tx, boil.Whitelist(orm.PlayerColumns.CurrentHotbar)); err != nil {
+		if _, err = dbPlayer.Update(getCtx(), tx, boil.Whitelist(orm.PlayerColumns.CurrentHotbar)); err != nil {
 			log.Error("failed to save user hotbar active slot", zap.String("id", inventory.PlayerId), zap.Error(err))
 		}
 

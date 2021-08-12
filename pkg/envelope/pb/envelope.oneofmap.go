@@ -10,7 +10,6 @@ const (
 	Message_Spacket         OneOfMessage = "Spacket"
 	Message_CloseConn       OneOfMessage = "CloseConn"
 	Message_PlayerLoading   OneOfMessage = "PlayerLoading"
-	Message_NewPlayer       OneOfMessage = "NewPlayer"
 	Message_PlayerJoined    OneOfMessage = "PlayerJoined"
 	Message_PlayerLeft      OneOfMessage = "PlayerLeft"
 	Message_PlayerSpatial   OneOfMessage = "PlayerSpatial"

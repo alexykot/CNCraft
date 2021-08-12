@@ -49,7 +49,7 @@ func NewRoster(log, windowLog *zap.Logger, ctrlChan chan control.Command, ps nat
 	}
 }
 
-func (r *Roster) AddPlayer(connID uuid.UUID, username string) (*Player, error) {
+func (r *Roster) AddPlayer(username string, connID, dimensionID uuid.UUID) (*Player, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -71,16 +71,16 @@ func (r *Roster) AddPlayer(connID uuid.UUID, username string) (*Player, error) {
 	var err error
 	var isNew bool
 	var p *Player
-	if p, isNew, err = r.repo.InitPlayer(username, connID); err != nil {
+	if p, isNew, err = r.repo.InitPlayer(username, connID, dimensionID); err != nil {
 		return nil, fmt.Errorf("failed to init player: %w", err)
 	}
 
 	if isNew {
 		r.log.Debug("new player joined for the first time", zap.String("name", p.Username))
-		r.publishNewPlayerJoined(p)
 	} else {
 		r.log.Debug("rejoining player loaded", zap.String("name", p.Username))
 	}
+	r.publishPlayerJoined(p)
 
 	r.players[p.ID] = p
 	return p, nil
@@ -158,11 +158,6 @@ func (r *Roster) RegisterHandlers() {
 	//
 	// For now Roster does not signal readiness as it is ready as soon as it's started, and has nothing to stop.
 
-	if err := r.ps.Subscribe(subj.MkPlayerJoined(), r.playerJoinedHandler); err != nil {
-		r.signal(control.FAILED, fmt.Errorf("failed to start roster: failed to subscribe for joining users: %w", err))
-		return
-	}
-
 	if err := r.ps.Subscribe(subj.MkPlayerLeft(), r.playerLeftHandler); err != nil {
 		r.signal(control.FAILED, fmt.Errorf("failed to start roster: failed to subscribe for leaving users: %w", err))
 		return
@@ -171,24 +166,22 @@ func (r *Roster) RegisterHandlers() {
 	r.log.Info("global player handlers registered")
 }
 
-func (r *Roster) publishNewPlayerJoined(p *Player) {
-	lope := envelope.NewPlayerJoined(&pb.NewPlayerJoined{
-		PlayerId: p.ID.String(),
-		ConnId:   p.ConnID.String(),
-		Username: p.Username,
+func (r *Roster) publishPlayerJoined(p *Player) {
+	lope := envelope.PlayerJoined(&pb.PlayerJoined{
+		PlayerId:    p.ID.String(),
+		ConnId:      p.ConnID.String(),
+		DimensionId: p.State.Dimension.String(),
+		Username:    p.Username,
 		Pos: &pb.Position{
 			X: p.State.Location.X,
 			Y: p.State.Location.Y,
 			Z: p.State.Location.Z,
 		},
 	})
-	if err := r.ps.Publish(subj.MkNewPlayerJoined(), lope); err != nil {
+	if err := r.ps.Publish(subj.MkPlayerJoined(), lope); err != nil {
 		r.log.Error("failed to publish position update", zap.Error(err))
 	}
 }
-
-// TODO not sure if this is needed
-func (r *Roster) playerJoinedHandler(_ *envelope.E) {}
 
 func (r *Roster) playerLeftHandler(lope *envelope.E) {
 	left := lope.GetPlayerLeft()

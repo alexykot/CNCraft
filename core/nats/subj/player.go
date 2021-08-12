@@ -6,16 +6,12 @@ package subj
 //  This is send after successful login and triggers client world loading and player spawn.
 func MkPlayerLoading() Subj { return "players.loading" }
 
-// MkPlayerJoined creates a subject name string for announcing new players successfully joined server.
+// MkPlayerJoined creates a subject name string for announcing players joining server.
 //  This is sent after the player has successfully spawned in the world.
-func MkPlayerJoined() Subj { return "players.joined" }
+func MkPlayerJoined() Subj { return "players.joined.first_time" }
 
 // MkPlayerLeft creates a subject name string for announcing players leaving server.
 func MkPlayerLeft() Subj { return "players.left" }
-
-// MkNewPlayerJoined creates a subject name string for announcing new players joining server for the first time.
-//  This is sent every time player position changes.
-func MkNewPlayerJoined() Subj { return "players.joined.first_time" }
 
 // MkPlayerSpatialUpdate creates a subject name string for announcing player position updates.
 //  This is sent every time player position changes.
