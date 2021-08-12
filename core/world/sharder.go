@@ -121,16 +121,16 @@ func (sh *Sharder) dispatchSharderLoop(ctx context.Context) {
 
 			sh.log.Info("server context closed, sharder shutdown sequence initiated")
 			for {
-				select { // DEBT maybe have a failsafe timeout for waiting shards to stop
+				select { // DEBT maybe have a failsafe timeout for waiting for shards to stop
 				// If shutdown initiated - all shards will close on context cancellation, and will report over
 				// the shardControl channel. Once all shards have reported and have been deleted - stop the loop,
-				// signal to global control and exit sharder.
+				// signal to global control and exit the sharder loop.
 				case shardStartMsg := <-sh.shardControl:
 					delete(sh.shards, shardStartMsg.id)
 					if len(sh.shards) == 0 {
 						sh.log.Info("no shards left, stopping sharder")
-						sh.signal(control.STOPPED, nil)
 						sh.Unlock()
+						sh.signal(control.STOPPED, nil)
 						return // all shards are now removed and the sharder loop can stop
 					}
 				}

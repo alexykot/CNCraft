@@ -185,8 +185,13 @@ func (ps *pubsub) handleContextCancel(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			ps.signal(control.STOPPED, nil)
+			defer func() {
+				if r := recover(); r != nil {
+					ps.signal(control.FAILED, fmt.Errorf("NATS server panicked while shutting down: %v", r))
+				}
+			}()
 			ps.natsd.Shutdown()
+			ps.signal(control.STOPPED, nil)
 			return
 		}
 	}
