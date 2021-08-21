@@ -53,7 +53,7 @@ func newShard(log *zap.Logger, ps nats.PubSub, id ShardID, dimID uuid.UUID, chun
 
 // dispatch initiates all handlers, subscribes to shard events channel and starts the event loop in a goroutine.
 // It's expected to be triggered only once for any given shard instance.
-func (s *shard) dispatch(ctx context.Context, roster *players.Roster, failSignaller chan startMessage, world *World) error {
+func (s *shard) dispatch(ctx context.Context, roster players.Roster, failSignaller chan startMessage, world *World) error {
 	if err := s.initiateHandlers(s.chunkIDs, world, roster); err != nil {
 		return fmt.Errorf("failed to instantiate world processors: %w", err)
 	}
@@ -174,7 +174,7 @@ func (s *shard) handleTick(tick game.Tick, tickEvents []*envelope.E) error {
 
 // initiateHandlers retrieves all available tick and event handlers and saves them with the shard.
 // This is expected to be run only once on shard creation.
-func (s *shard) initiateHandlers(chunkIDs []level.ChunkID, world *World, roster *players.Roster) error {
+func (s *shard) initiateHandlers(chunkIDs []level.ChunkID, world *World, roster players.Roster) error {
 	if len(s.tickHandlers) > 0 || len(s.eventHandlers) > 0 {
 		return fmt.Errorf("handlers already initiated for shard %s", s.id.String())
 	}

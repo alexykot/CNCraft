@@ -40,7 +40,7 @@ type Server struct {
 
 	net *network.Network
 
-	players *players.Roster
+	roster  players.Roster
 	world   *world.World
 	sharder *world.Sharder
 }
@@ -56,7 +56,7 @@ func NewServer(config control.ServerConf) (*Server, error) {
 
 	srv.ctx, srv.cancelFunc = signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
 
-	if srv.log, err = log.GetRootLogger(srv.config.Log.Baseline); err != nil {
+	if srv.log, err = log.GetRoot(srv.config.Log.Baseline); err != nil {
 		srv.cancelFunc()
 		return nil, fmt.Errorf("could not instantiate root logger: %w", err)
 	}
@@ -74,7 +74,7 @@ func NewServer(config control.ServerConf) (*Server, error) {
 		return nil, fmt.Errorf("could not instantiate DB: %w", err)
 	}
 
-	srv.players = players.NewRoster(
+	srv.roster = players.NewRoster(
 		log.NamedLevelUp(srv.log, "players", srv.config.Log.Players),
 		log.NamedLevelUp(srv.log, "windows", srv.config.Log.Players),
 		srv.control, srv.ps, srv.db)
@@ -85,12 +85,12 @@ func NewServer(config control.ServerConf) (*Server, error) {
 		return nil, fmt.Errorf("could not instantiate world: %w", err)
 	}
 
-	srv.sharder = world.NewSharder(log.NamedLevelUp(srv.log, "sharder", srv.config.Log.Sharder), srv.control, srv.config.World, srv.ps, srv.world, srv.players)
+	srv.sharder = world.NewSharder(log.NamedLevelUp(srv.log, "sharder", srv.config.Log.Sharder), srv.control, srv.config.World, srv.ps, srv.world, srv.roster)
 
 	dispatcher := network.NewDispatcher(
 		log.NamedLevelUp(srv.log, "dispatcher", srv.config.Log.Dispatcher),
 		srv.ps, auth.GetAuther(),
-		srv.players,
+		srv.roster,
 		network.NewKeepAliver(log.NamedLevelUp(srv.log, "aliver", srv.config.Log.Dispatcher), srv.control, srv.ps),
 		srv.sharder,
 	)
@@ -193,9 +193,9 @@ func (s *Server) startServer() {
 	s.sharder.Start(s.ctx)
 
 	handlers.RegisterEventHandlersState3(log.NamedLevelUp(s.log, "players", s.config.Log.Players),
-		s.control, s.ps, s.players, s.world)
+		s.control, s.ps, s.roster, s.world)
 
-	s.players.RegisterHandlers()
+	s.roster.Start(s.ctx)
 
 	s.log.Info("server started")
 }

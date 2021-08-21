@@ -30,7 +30,7 @@ type digger struct {
 
 	chunks     []level.Chunk
 	activeDigs map[data.PositionI]activeDig // block positions and active dig details
-	roster     *players.Roster
+	roster     players.Roster
 }
 
 type activeDig struct {
@@ -38,7 +38,7 @@ type activeDig struct {
 	diggerCount int       // number of players simultaneously digging the block
 }
 
-func newDigger(chunks []level.Chunk, roster *players.Roster) Handler {
+func newDigger(chunks []level.Chunk, roster players.Roster) Handler {
 	return &digger{
 		chunks: chunks,
 		roster: roster,

@@ -30,7 +30,7 @@ type DispatcherTransmitter struct {
 	log     *zap.Logger
 	ps      nats.PubSub
 	auth    auth.A
-	roster  *players.Roster
+	roster  players.Roster
 	aliver  *KeepAliver
 	sharder *world.Sharder
 
@@ -42,12 +42,12 @@ type DispatcherTransmitter struct {
 	connMapMu sync.Mutex
 }
 
-func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, tally *players.Roster, aliver *KeepAliver, sharder *world.Sharder) *DispatcherTransmitter {
+func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, roster players.Roster, aliver *KeepAliver, sharder *world.Sharder) *DispatcherTransmitter {
 	return &DispatcherTransmitter{
 		log:     log,
 		ps:      ps,
 		auth:    auth,
-		roster:  tally,
+		roster:  roster,
 		aliver:  aliver,
 		sharder: sharder,
 

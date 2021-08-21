@@ -25,7 +25,7 @@ type Sharder struct {
 	log          *zap.Logger
 	ps           nats.PubSub
 
-	roster     *players.Roster
+	roster     players.Roster
 	world      *World
 	shardSizeX int64
 	shardSizeZ int64
@@ -47,7 +47,7 @@ type startMessage struct {
 	err         error
 }
 
-func NewSharder(log *zap.Logger, control chan control.Command, conf control.WorldConf, ps nats.PubSub, world *World, roster *players.Roster) *Sharder {
+func NewSharder(log *zap.Logger, control chan control.Command, conf control.WorldConf, ps nats.PubSub, world *World, roster players.Roster) *Sharder {
 	return &Sharder{
 		control:      control,
 		shardControl: make(chan startMessage),
@@ -91,8 +91,8 @@ func (sh *Sharder) FindShardID(dimID uuid.UUID, coords data.PositionI) (ShardID,
 		return "", false
 	}
 
-	lowestX := int64(math.Floor(float64(coords.X) / float64(sh.shardSizeX)))
-	lowestZ := int64(math.Floor(float64(coords.Z) / float64(sh.shardSizeZ)))
+	lowestX := int64(math.Floor(float64(coords.X)/float64(sh.shardSizeX*level.ChunkX))) * sh.shardSizeX * level.ChunkX
+	lowestZ := int64(math.Floor(float64(coords.Z)/float64(sh.shardSizeZ*level.ChunkZ))) * sh.shardSizeZ * level.ChunkZ
 
 	id := MkShardIDFromCoords(dim.Name(), lowestX, lowestZ)
 	if _, ok := sh.shards[id]; !ok {

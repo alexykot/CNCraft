@@ -18,9 +18,10 @@ run:
 	@go run ./cmd/server/server.go
 
 gen:
-	@./proto/gen.sh
-	@go generate ./...
-	@./core/db/gen.sh
+	cmd/tools/build/generate.sh $(filter-out $@, $(MAKECMDGOALS))
+
+test:
+	@go test -p 1 --count 1 ./...
 
 run-client:
 	@reset

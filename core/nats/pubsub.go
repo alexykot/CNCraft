@@ -1,3 +1,5 @@
+//go:generate mockgen -package mocks -source=pubsub.go -destination=mocks/mocks.go PubSub
+
 // Package nats bootstraps internal NATS server and provides a pubsub interface for handling async message delivery.
 // Expected types of subscriptions:
 // per entity:

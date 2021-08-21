@@ -1,14 +1,24 @@
 package world
 
 import (
+	"context"
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/alexykot/cncraft/core/control"
+	"github.com/alexykot/cncraft/core/nats"
+	psMocks "github.com/alexykot/cncraft/core/nats/mocks"
+	"github.com/alexykot/cncraft/core/players"
+	plMocks "github.com/alexykot/cncraft/core/players/mocks"
+	"github.com/alexykot/cncraft/pkg/game/data"
 	"github.com/alexykot/cncraft/pkg/game/level"
+	"github.com/alexykot/cncraft/pkg/log"
 )
 
 func TestSplitDimensionShards(t *testing.T) {
@@ -770,71 +780,130 @@ func TestSplitAreaChunks(t *testing.T) {
 	}
 }
 
-// func TestFindShardID(t *testing.T) {
-//     world := getTestWorld()
-//     dimID := world.StartDimension
-//     dimName := world.Dimensions[world.StartDimension].Name()
-//     sharder := NewSharder(log.MustGetTestLogger(), nil, control.WorldConf{ShardSize: 3}, nil, world, nil)
-//     go func() {
-//         for {
-//             select {
-//             case <-sharder.shardControl:
-//                 // drain the control loop
-//             }
-//         }
-//     }()
-//
-//     type testCase struct {
-//         name          string
-//         dimID         uuid.UUID
-//         coords        data.PositionI
-//         expectShardID ShardID
-//         expectFound   bool
-//     }
-//
-//     cases := []testCase{
-//         {
-//             name:          "yes_wtf",
-//             dimID:         dimID,
-//             coords:        data.PositionI{X: -1, Y: 3, Z: 0},
-//             expectShardID: MkShardIDFromCoords(dimName, -48, 0),
-//             expectFound:   true,
-//         },
-//         {
-//             name:  "no_dim_not_found",
-//             dimID: uuid.New(),
-//         },
-//         {
-//             name:   "no_beyond_egde_positive_x",
-//             dimID:  dimID,
-//             coords: data.PositionI{X: 49, Y: 3, Z: 0},
-//         },
-//         {
-//             name:   "no_beyond_egde_negative_x",
-//             dimID:  dimID,
-//             coords: data.PositionI{X: -49, Y: 3, Z: 0},
-//         },
-//         {
-//             name:   "no_beyond_egde_positive_z",
-//             dimID:  dimID,
-//             coords: data.PositionI{X: 0, Y: 3, Z: 49},
-//         },
-//         {
-//             name:   "no_beyond_egde_negative_z",
-//             dimID:  dimID,
-//             coords: data.PositionI{X: 0, Y: 3, Z: -49},
-//         },
-//     }
-//
-//     for _, test := range cases {
-//         t.Run(test.name, func(t *testing.T) {
-//             shardID, found := sharder.FindShardID(test.dimID, test.coords)
-//             assert.Equal(t, test.expectFound, found)
-//             assert.Equal(t, test.expectShardID, shardID)
-//         })
-//     }
-// }
+func TestFindShardID(t *testing.T) {
+	world := getTestWorld()
+	dimName := world.Dimensions[world.StartDimension].Name()
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	ctrl, ps, roster := mkMocks(t)
+	defer ctrl.Finish()
+
+	ps.EXPECT().Subscribe(gomock.Any(), gomock.Any()).AnyTimes()
+
+	sharder := mkSharder(t, world, ps, roster)
+	startSharder(t, ctx, sharder)
+
+	type testCase struct {
+		name          string
+		dimID         uuid.UUID
+		coords        data.PositionI
+		expectShardID ShardID
+		expectFound   bool
+	}
+
+	cases := []testCase{
+		{
+			name:          "yes_ne",
+			dimID:         world.StartDimension,
+			coords:        data.PositionI{X: 1, Y: 3, Z: 0},
+			expectShardID: MkShardIDFromCoords(dimName, 0, 0),
+			expectFound:   true,
+		},
+		{
+			name:          "yes_nw",
+			dimID:         world.StartDimension,
+			coords:        data.PositionI{X: -1, Y: 3, Z: 0},
+			expectShardID: MkShardIDFromCoords(dimName, -48, 0),
+			expectFound:   true,
+		},
+		{
+			name:          "yes_se",
+			dimID:         world.StartDimension,
+			coords:        data.PositionI{X: 1, Y: 3, Z: -10},
+			expectShardID: MkShardIDFromCoords(dimName, 0, -48),
+			expectFound:   true,
+		},
+		{
+			name:          "yes_sw",
+			dimID:         world.StartDimension,
+			coords:        data.PositionI{X: -32, Y: 3, Z: -10},
+			expectShardID: MkShardIDFromCoords(dimName, -48, -48),
+			expectFound:   true,
+		},
+		{
+			name:  "no_dim_not_found",
+			dimID: uuid.New(),
+		},
+		{
+			name:   "no_beyond_egde_positive_x",
+			dimID:  world.StartDimension,
+			coords: data.PositionI{X: 49, Y: 3, Z: 0},
+		},
+		{
+			name:   "no_beyond_egde_negative_x",
+			dimID:  world.StartDimension,
+			coords: data.PositionI{X: -49, Y: 3, Z: 0},
+		},
+		{
+			name:   "no_beyond_egde_positive_z",
+			dimID:  world.StartDimension,
+			coords: data.PositionI{X: 0, Y: 3, Z: 49},
+		},
+		{
+			name:   "no_beyond_egde_negative_z",
+			dimID:  world.StartDimension,
+			coords: data.PositionI{X: 0, Y: 3, Z: -49},
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			shardID, found := sharder.FindShardID(test.dimID, test.coords)
+			assert.Equal(t, test.expectFound, found)
+			assert.Equal(t, test.expectShardID, shardID)
+		})
+	}
+}
 
 func ch(x, z int64) level.ChunkID {
 	return level.MkChunkID(x, z)
+}
+
+func mkMocks(t *testing.T) (*gomock.Controller, *psMocks.MockPubSub, *plMocks.MockRoster) {
+	ctrl := gomock.NewController(t)
+	ps := psMocks.NewMockPubSub(ctrl)
+	roster := plMocks.NewMockRoster(ctrl)
+	return ctrl, ps, roster
+}
+
+func mkSharder(t *testing.T, world *World, ps nats.PubSub, roster players.Roster) *Sharder {
+	return NewSharder(log.MustGetTestNamed(t.Name()), make(chan control.Command), control.WorldConf{ShardSize: 3}, ps, world, roster)
+}
+
+// startSharder dispatches shard start routine and blocks until it's finished and Sharder reports READY.
+// This is needed as Sharder.Start() dispatches separate goroutines for shard bootstrap and handling.
+func startSharder(t *testing.T, ctx context.Context, sharder *Sharder) {
+	sharder.Start(ctx)
+
+	failsafeTimer := time.NewTimer(time.Second * 3)
+
+waitSharderStart:
+	for {
+		select {
+		case sharderStateMsg := <-sharder.control:
+			if sharderStateMsg.State == control.READY {
+				failsafeTimer.Stop()
+				break waitSharderStart
+			} else if sharderStateMsg.State == control.FAILED {
+				assert.Fail(t, fmt.Sprintf("sharder failed to start: %v", sharderStateMsg.Err))
+				return // fail test immediately
+			}
+
+		case <-failsafeTimer.C:
+			assert.Fail(t, "sharder didn't start within expected timeframe")
+			return // fail test immediately
+		}
+	}
 }

@@ -18,7 +18,7 @@ type Handler interface {
 	GetEventHandlers() map[pb.OneOfEvent]EventHandler
 }
 
-func NewHandlers(chunks []level.Chunk, roster *players.Roster) []Handler {
+func NewHandlers(chunks []level.Chunk, roster players.Roster) []Handler {
 	return []Handler{
 		newDigger(chunks, roster),
 	}

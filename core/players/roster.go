@@ -1,6 +1,11 @@
+//go:generate mockgen -package mocks -source=roster.go -destination=mocks/mocks.go Roster
+
+// Package players contains implementation for players list (Roster), the player repo that allows to load players
+// from persistence and the Player details itself.
 package players
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"sync"
@@ -16,8 +21,18 @@ import (
 	"github.com/alexykot/cncraft/pkg/game/data"
 )
 
-// Roster holds the map of all players logged into this server.
-type Roster struct {
+// Roster handles the map of all players logged into this server.
+type Roster interface {
+	Start(ctx context.Context)
+	AddPlayer(username string, connID, dimensionID uuid.UUID) (*Player, error)
+	GetPlayerByConnID(connID uuid.UUID) (*Player, bool)
+	GetPlayerIDByConnID(connID uuid.UUID) (uuid.UUID, bool)
+	SetPlayerSpatial(connID uuid.UUID, position *data.PositionF, rotation *data.RotationF, onGround *bool)
+	SetPlayerHeldItem(connID uuid.UUID, heldItem uint8)
+	PlayerInventoryChanged(connID uuid.UUID)
+}
+
+type roster struct {
 	control chan control.Command
 	log     *zap.Logger
 	ps      nats.PubSub
@@ -27,8 +42,8 @@ type Roster struct {
 	players map[uuid.UUID]*Player
 }
 
-func NewRoster(log, windowLog *zap.Logger, ctrlChan chan control.Command, ps nats.PubSub, db *sql.DB) *Roster {
-	return &Roster{
+func NewRoster(log, windowLog *zap.Logger, ctrlChan chan control.Command, ps nats.PubSub, db *sql.DB) Roster {
+	return &roster{
 		control: ctrlChan,
 		log:     log,
 		ps:      ps,
@@ -49,7 +64,7 @@ func NewRoster(log, windowLog *zap.Logger, ctrlChan chan control.Command, ps nat
 	}
 }
 
-func (r *Roster) AddPlayer(username string, connID, dimensionID uuid.UUID) (*Player, error) {
+func (r *roster) AddPlayer(username string, connID, dimensionID uuid.UUID) (*Player, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -86,7 +101,7 @@ func (r *Roster) AddPlayer(username string, connID, dimensionID uuid.UUID) (*Pla
 	return p, nil
 }
 
-func (r *Roster) GetPlayerByConnID(connID uuid.UUID) (*Player, bool) {
+func (r *roster) GetPlayerByConnID(connID uuid.UUID) (*Player, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -99,7 +114,7 @@ func (r *Roster) GetPlayerByConnID(connID uuid.UUID) (*Player, bool) {
 	return nil, false
 }
 
-func (r *Roster) GetPlayerIDByConnID(connID uuid.UUID) (uuid.UUID, bool) {
+func (r *roster) GetPlayerIDByConnID(connID uuid.UUID) (uuid.UUID, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -113,7 +128,7 @@ func (r *Roster) GetPlayerIDByConnID(connID uuid.UUID) (uuid.UUID, bool) {
 }
 
 // SetPlayerSpatial - pointer types are used here to separate possible default values from an absence of value to update.
-func (r *Roster) SetPlayerSpatial(connID uuid.UUID, position *data.PositionF, rotation *data.RotationF, onGround *bool) {
+func (r *roster) SetPlayerSpatial(connID uuid.UUID, position *data.PositionF, rotation *data.RotationF, onGround *bool) {
 	p, ok := r.GetPlayerByConnID(connID)
 	if !ok {
 		return
@@ -134,7 +149,7 @@ func (r *Roster) SetPlayerSpatial(connID uuid.UUID, position *data.PositionF, ro
 	r.publishPlayerSpatialUpdate(p)
 }
 
-func (r *Roster) SetPlayerHeldItem(connID uuid.UUID, heldItem uint8) {
+func (r *roster) SetPlayerHeldItem(connID uuid.UUID, heldItem uint8) {
 	p, ok := r.GetPlayerByConnID(connID)
 	if !ok {
 		return
@@ -143,7 +158,7 @@ func (r *Roster) SetPlayerHeldItem(connID uuid.UUID, heldItem uint8) {
 	r.publishPlayerInventoryUpdate(p)
 }
 
-func (r *Roster) PlayerInventoryChanged(connID uuid.UUID) {
+func (r *roster) PlayerInventoryChanged(connID uuid.UUID) {
 	p, ok := r.GetPlayerByConnID(connID)
 	if !ok {
 		return
@@ -151,22 +166,29 @@ func (r *Roster) PlayerInventoryChanged(connID uuid.UUID) {
 	r.publishPlayerInventoryUpdate(p)
 }
 
-// RegisterHandlers creates subscriptions to all relevant global subjects.
-func (r *Roster) RegisterHandlers() {
+func (r *roster) Start(_ context.Context) {
 	// DEBT When cluster mode will be developed - this will also need to start a context watching goroutine
 	//  and unsubscribe from the player channels.
 	//
 	// For now Roster does not signal readiness as it is ready as soon as it's started, and has nothing to stop.
-
-	if err := r.ps.Subscribe(subj.MkPlayerLeft(), r.playerLeftHandler); err != nil {
-		r.signal(control.FAILED, fmt.Errorf("failed to start roster: failed to subscribe for leaving users: %w", err))
-		return
+	if err := r.registerHandlers(); err != nil {
+		r.signal(control.FAILED, err)
 	}
 
-	r.log.Info("global player handlers registered")
+	r.log.Info("roster started")
 }
 
-func (r *Roster) publishPlayerJoined(p *Player) {
+// registerHandlers creates subscriptions to all relevant global subjects.
+func (r *roster) registerHandlers() error {
+	if err := r.ps.Subscribe(subj.MkPlayerLeft(), r.playerLeftHandler); err != nil {
+		return fmt.Errorf("failed to start roster: failed to subscribe for leaving users: %w", err)
+	}
+
+	r.log.Debug("global player handlers registered")
+	return nil
+}
+
+func (r *roster) publishPlayerJoined(p *Player) {
 	lope := envelope.PlayerJoined(&pb.PlayerJoined{
 		PlayerId:    p.ID.String(),
 		ConnId:      p.ConnID.String(),
@@ -183,7 +205,7 @@ func (r *Roster) publishPlayerJoined(p *Player) {
 	}
 }
 
-func (r *Roster) playerLeftHandler(lope *envelope.E) {
+func (r *roster) playerLeftHandler(lope *envelope.E) {
 	left := lope.GetPlayerLeft()
 	if left == nil {
 		r.log.Error("failed to parse envelope - no PlayerLeft inside", zap.Any("envelope", lope))
@@ -199,7 +221,7 @@ func (r *Roster) playerLeftHandler(lope *envelope.E) {
 	delete(r.players, playerID)
 }
 
-func (r *Roster) publishPlayerSpatialUpdate(p *Player) {
+func (r *roster) publishPlayerSpatialUpdate(p *Player) {
 	lope := envelope.PlayerSpatialUpdate(&pb.PlayerSpatialUpdate{
 		PlayerId: p.ID.String(),
 		Pos: &pb.Position{
@@ -218,7 +240,7 @@ func (r *Roster) publishPlayerSpatialUpdate(p *Player) {
 	}
 }
 
-func (r *Roster) publishPlayerInventoryUpdate(p *Player) {
+func (r *roster) publishPlayerInventoryUpdate(p *Player) {
 	update := &pb.PlayerInventoryUpdate{PlayerId: p.ID.String(), CurrentHotbar: int32(p.State.Inventory.CurrentHotbarSlot)}
 	for i, item := range p.State.Inventory.ToArray() {
 		if item.IsPresent {
@@ -235,7 +257,7 @@ func (r *Roster) publishPlayerInventoryUpdate(p *Player) {
 	}
 }
 
-func (r *Roster) signal(state control.ComponentState, err error) {
+func (r *roster) signal(state control.ComponentState, err error) {
 	r.control <- control.Command{
 		Signal:    control.COMPONENT,
 		Component: control.ROSTER,

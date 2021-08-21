@@ -16,7 +16,7 @@ var longestShortNameLength int
 
 const rootLoggerName = "CNC"
 
-func GetRootLogger(level string) (*zap.Logger, error) {
+func GetRoot(level string) (*zap.Logger, error) {
 	var err error
 	var log *zap.Logger
 
@@ -53,14 +53,6 @@ func GetRootLogger(level string) (*zap.Logger, error) {
 	zap.ReplaceGlobals(log)
 	registerMaxLength(rootLoggerName)
 	return log.Named(rootLoggerName), nil
-}
-
-func MustGetTestLogger() *zap.Logger {
-	log, err := GetRootLogger("DEBUG")
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate dev logger: %w", err))
-	}
-	return log
 }
 
 // Named is wrapping the zap.Logger.Named() method. It is needed to register logger names requested.

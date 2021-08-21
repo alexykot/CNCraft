@@ -1,3 +1,5 @@
+// Package players contains implementation for players list (Roster), the player repo that allows to load players
+// from persistence and the Player details itself.
 package players
 
 import "C"
