@@ -22,7 +22,7 @@ var conn network.Connection
 var connState protocol.State
 
 func main() {
-	err := startNetwork()
+	err := startNetwork(serverHost, serverPort)
 	if err != nil {
 		panic(err)
 	}
@@ -68,8 +68,8 @@ func wait() {
 	}
 }
 
-func startNetwork() error {
-	addr, err := net.ResolveTCPAddr("tcp", serverHost+":"+strconv.Itoa(serverPort))
+func startNetwork(host string, port int) error {
+	addr, err := net.ResolveTCPAddr("tcp", host+":"+strconv.Itoa(port))
 	if err != nil {
 		return fmt.Errorf("failed to resolve address: %w", err)
 	}

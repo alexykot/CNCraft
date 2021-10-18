@@ -24,9 +24,17 @@ import (
 	"github.com/alexykot/cncraft/pkg/protocol/auth"
 )
 
-// DispatcherTransmitter parses and dispatches processing for incoming server bound protocol packets.
+// Dispatcher is a dispatcher-transmitter interface. Implementation of this interface is expected to handle the incoming
+// packets from the network for all given connections, and transmit the outgoing packets to the given connections.
+type Dispatcher interface {
+	Init(ctx context.Context) error
+	RegisterNewConn(conn Connection) error
+	HandleSPacket(conn Connection, packetBytes []byte)
+}
+
+// dispatcherTransmitter parses and dispatches processing for incoming server bound protocol packets.
 //  Also it collects and transmits outgoing client bound packets and handles disconnections.
-type DispatcherTransmitter struct {
+type dispatcherTransmitter struct {
 	log     *zap.Logger
 	ps      nats.PubSub
 	auth    auth.A
@@ -42,8 +50,8 @@ type DispatcherTransmitter struct {
 	connMapMu sync.Mutex
 }
 
-func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, roster players.Roster, aliver *KeepAliver, sharder *world.Sharder) *DispatcherTransmitter {
-	return &DispatcherTransmitter{
+func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, roster players.Roster, aliver *KeepAliver, sharder *world.Sharder) Dispatcher {
+	return &dispatcherTransmitter{
 		log:     log,
 		ps:      ps,
 		auth:    auth,
@@ -55,7 +63,7 @@ func NewDispatcher(log *zap.Logger, ps nats.PubSub, auth auth.A, roster players.
 	}
 }
 
-func (d *DispatcherTransmitter) Init(ctx context.Context) error {
+func (d *dispatcherTransmitter) Init(ctx context.Context) error {
 	if err := d.aliver.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start the keepaliver: %w", err)
 	}
@@ -74,7 +82,7 @@ func (d *DispatcherTransmitter) Init(ctx context.Context) error {
 	return nil
 }
 
-func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
+func (d *dispatcherTransmitter) RegisterNewConn(conn Connection) error {
 	d.connMu[conn.ID()] = &sync.Mutex{}
 
 	if err := d.ps.Subscribe(subj.MkConnTransmit(conn.ID()), d.getTransmitHandler(conn)); err != nil {
@@ -85,7 +93,7 @@ func (d *DispatcherTransmitter) RegisterNewConn(conn Connection) error {
 	return nil
 }
 
-func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byte) {
+func (d *dispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byte) {
 	log := d.log.With(zap.String("conn", conn.ID().String()))
 	d.connMu[conn.ID()].Lock()
 	defer d.connMu[conn.ID()].Unlock()
@@ -111,7 +119,7 @@ func (d *DispatcherTransmitter) HandleSPacket(conn Connection, packetBytes []byt
 	}
 }
 
-func (d *DispatcherTransmitter) parseSPacket(connState protocol.State, packetBytes []byte) (protocol.SPacket, error) {
+func (d *dispatcherTransmitter) parseSPacket(connState protocol.State, packetBytes []byte) (protocol.SPacket, error) {
 	bufI := buffer.NewFrom(packetBytes)
 	protocolPacketID := protocol.ProtocolPacketID(bufI.PullVarInt())
 
@@ -135,7 +143,7 @@ func (d *DispatcherTransmitter) parseSPacket(connState protocol.State, packetByt
 }
 
 // dispatchSPacket dispatches handling for the provided packet according to it's type.
-func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protocol.SPacket) error {
+func (d *dispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protocol.SPacket) error {
 	var err error
 	var cPackets []protocol.CPacket
 
@@ -236,7 +244,7 @@ func (d *DispatcherTransmitter) dispatchSPacket(conn Connection, sPacket protoco
 	return nil
 }
 
-func (d *DispatcherTransmitter) connClosedHandler(lope *envelope.E) {
+func (d *dispatcherTransmitter) connClosedHandler(lope *envelope.E) {
 	closeConn := lope.GetCloseConn()
 	if closeConn == nil {
 		d.log.Error("failed to parse envelope: there is no closeConn inside", zap.Any("envelope", lope))
@@ -268,7 +276,7 @@ func (d *DispatcherTransmitter) connClosedHandler(lope *envelope.E) {
 //  Broadcaster component that will select a subset of relevant players that actually need to receive the message
 //  (e.g. only those subscribed to relevant chat channels, or close enough to the updated chunk).
 //  Broadcaster of every cluster node will unicast messages to every relevant player connected to that node.
-func (d *DispatcherTransmitter) packetBroadcastHandler(lope *envelope.E) {
+func (d *dispatcherTransmitter) packetBroadcastHandler(lope *envelope.E) {
 	if cPacked := lope.GetCpacket(); cPacked == nil {
 		d.log.Error("failed to parse broadcast envelope: there is no cPacked inside", zap.Any("envelope", lope))
 		return
@@ -283,7 +291,7 @@ func (d *DispatcherTransmitter) packetBroadcastHandler(lope *envelope.E) {
 	d.connMapMu.Unlock()
 }
 
-func (d *DispatcherTransmitter) getTransmitHandler(conn Connection) func(lope *envelope.E) {
+func (d *dispatcherTransmitter) getTransmitHandler(conn Connection) func(lope *envelope.E) {
 	return func(lope *envelope.E) {
 		conn := conn
 		log := d.log.With(zap.String("conn", conn.ID().String()))
@@ -343,7 +351,7 @@ func (d *DispatcherTransmitter) getTransmitHandler(conn Connection) func(lope *e
 	}
 }
 
-func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protocol.CPacket) error {
+func (d *dispatcherTransmitter) transmitCPacket(conn Connection, cpacket protocol.CPacket) error {
 	bufOut := buffer.New()
 	bufOut.PushVarInt(int32(cpacket.ProtocolID()))
 	cpacket.Push(bufOut)
@@ -358,7 +366,7 @@ func (d *DispatcherTransmitter) transmitCPacket(conn Connection, cpacket protoco
 	return nil
 }
 
-func (d *DispatcherTransmitter) transmitBytes(conn Connection, packetBytes []byte) error {
+func (d *dispatcherTransmitter) transmitBytes(conn Connection, packetBytes []byte) error {
 	d.log.Debug("transmitting bytes", zap.String("conn", conn.ID().String()),
 		zap.String("bytes", hex.EncodeToString(packetBytes)))
 
@@ -369,7 +377,7 @@ func (d *DispatcherTransmitter) transmitBytes(conn Connection, packetBytes []byt
 	return nil
 }
 
-func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut *buffer.Buffer) error {
+func (d *dispatcherTransmitter) transmitBuffer(conn Connection, bufOut *buffer.Buffer) error {
 	if bufOut.Len() < 2 {
 		return fmt.Errorf("buffer data is too short")
 	}
@@ -385,7 +393,7 @@ func (d *DispatcherTransmitter) transmitBuffer(conn Connection, bufOut *buffer.B
 
 // TODO add chat message here to tell user why they were disconnected
 // DEBT looks like this is not actually dropping the TCP connection, need to add that as well.
-func (d *DispatcherTransmitter) forceDisconnect(connState protocol.State, connID uuid.UUID) error {
+func (d *dispatcherTransmitter) forceDisconnect(connState protocol.State, connID uuid.UUID) error {
 	d.log.Info("evicting player", zap.String("conn", connID.String()))
 
 	bufOut := buffer.New()
@@ -430,7 +438,7 @@ func (d *DispatcherTransmitter) forceDisconnect(connState protocol.State, connID
 // sends a SHandshake packet, which belongs to Handshake state and it's packetID collides with the SRequest packet
 // from the Status state. So we have to hack around this by checking the packet size, and if the connState is Status,
 // packetID is 0x00 and size is bigger than 1 byte - assume it is an SHandshake, not SRequest as it normally would be.
-func (d *DispatcherTransmitter) checkIsStatusHandshake(connState protocol.State, packetBytes []byte) bool {
+func (d *dispatcherTransmitter) checkIsStatusHandshake(connState protocol.State, packetBytes []byte) bool {
 	if connState != protocol.Status { // if the connState is not Status - this hack does not apply.
 		return false
 	} else if len(packetBytes) < 6 { // 6 bytes is absolute minimum possible length of the SHandshake packet.

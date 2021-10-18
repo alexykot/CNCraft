@@ -22,13 +22,13 @@ type Network struct {
 
 	log *zap.Logger
 
-	dispatcher *DispatcherTransmitter
+	dispatcher Dispatcher
 
 	ps      nats.PubSub
 	control chan control.Command
 }
 
-func NewNetwork(log *zap.Logger, ctrlChan chan control.Command, conf control.NetworkConf, bus nats.PubSub, disp *DispatcherTransmitter) *Network {
+func NewNetwork(log *zap.Logger, ctrlChan chan control.Command, conf control.NetworkConf, bus nats.PubSub, disp Dispatcher) *Network {
 	return &Network{
 		host:       conf.Host,
 		port:       conf.Port,
